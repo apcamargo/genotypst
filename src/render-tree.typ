@@ -1,13 +1,22 @@
-// Tree layout constants
+#import "constants.typ": _medium-gray
+
+/// Tree layout constants.
 #let _label-x-offset = 0.3em
 #let _auto-height-scale = 1.25em
 
-// Helper: safely get node length with default
+/// Safely gets node length with a default.
+///
+/// - node (dictionary): Tree node.
+/// - default (float): Default branch length.
+/// -> float
 #let _node-length(node, default: 0.0) = {
   if node.length != none { node.length } else { default }
 }
 
-// Helper: collect all tip names from a tree
+/// Collects all tip names from a tree.
+///
+/// - node (dictionary): Tree node.
+/// -> array
 #let _collect-tip-names(node) = {
   if node.children == none or node.children.len() == 0 {
     if node.name != none { (node.name,) } else { () }
@@ -16,12 +25,20 @@
   }
 }
 
-// Helper: calculate Y position for child node
+/// Calculates the Y position for a child node.
+///
+/// - child (dictionary): Child node with offsets.
+/// - y-offset (float): Base Y offset.
+/// - y-scale (float): Scale factor.
+/// -> float
 #let _child-y-pos(child, y-offset, y-scale) = {
   y-offset + (child.y-offset + child.child.y-local) * y-scale
 }
 
-// Recursively measures tree dimensions and computes node positions
+/// Recursively measures tree dimensions and computes node positions.
+///
+/// - tree (dictionary): Tree node.
+/// -> dictionary
 #let _measure-tree(tree) = {
   if tree.children == none or tree.children.len() == 0 {
     // Leaf node
@@ -71,8 +88,17 @@
   }
 }
 
-// Recursively draws a node and its children as positioned shapes
-// Returns a dictionary with 'branches' (lines) and 'labels' (text) arrays
+/// Recursively draws a node and its children as positioned shapes.
+///
+/// Returns a dictionary with `branches` (lines) and `labels` (text) arrays.
+///
+/// - node (dictionary): Tree node with layout data.
+/// - x-offset (float): Base x-offset.
+/// - y-offset (float): Base y-offset.
+/// - x-scale (float): Horizontal scale factor.
+/// - y-scale (float): Vertical scale factor.
+/// - style (dictionary): Style configuration.
+/// -> dictionary
 #let _draw-node(node, x-offset, y-offset, x-scale, y-scale, style) = {
   let branches = ()
   let labels = ()
@@ -171,7 +197,13 @@
   (branches: branches, labels: labels)
 }
 
-// Helper: Calculate margins needed for root and tip labels based on orientation
+/// Calculates margins for root and tip labels based on orientation.
+///
+/// - tree-data (dictionary): Tree data.
+/// - is-vertical (bool): Whether the tree is vertical.
+/// - style (dictionary): Style configuration.
+/// - metrics (dictionary): Text metrics.
+/// -> dictionary
 #let _calculate-margins(tree-data, is-vertical, style, metrics) = {
   // tip-label-margin: space needed for the longest tip label.
   let tip-label-margin = metrics.max-tip-width + _label-x-offset
@@ -206,7 +238,16 @@
   (root: root-margin, tip: tip-label-margin, y-start: y-start)
 }
 
-// Helper: Resolve final box and tree dimensions, handling unit resolution and orientation swapping
+/// Resolves final box and tree dimensions, handling unit resolution and orientation swapping.
+///
+/// - width (length, fraction): Target width.
+/// - height (length, auto): Target height.
+/// - margins (dictionary): Margin data.
+/// - tree-depth (float): Tree depth.
+/// - tree-height (float): Tree height.
+/// - is-vertical (bool): Whether the tree is vertical.
+/// - layout-size (length): Layout size.
+/// -> dictionary
 #let _resolve-layout(width, height, margins, tree-depth, tree-height, is-vertical, layout-size) = {
   // 1. Resolve user width (including fractions)
   let resolved-width = if type(width) == fraction {
@@ -226,8 +267,8 @@
     // Pre-rotation coords:
     // - X-axis (pre-rotation width) = Depth axis = needs root & tip margins
     // - Y-axis (pre-rotation height) = Spread axis = needs y-start margin
-    let pre-width = resolved-height   // becomes post-rotation height
-    let pre-height = resolved-width   // becomes post-rotation width
+    let pre-width = resolved-height // becomes post-rotation height
+    let pre-height = resolved-width // becomes post-rotation width
     (
       pre-width,
       pre-height,
@@ -252,12 +293,45 @@
   )
 }
 
+/// Validates the tree data structure.
+///
+/// - node (dictionary): Tree node.
+/// - is-root (bool): Whether this is the root node.
+/// -> none
+#let _validate-tree-data(node, is-root: true) = {
+  assert(type(node) == dictionary, message: "Tree nodes must be dictionaries")
+  assert("children" in node, message: "Tree nodes must define children")
+
+  if "name" in node {
+    assert(node.name == none or type(node.name) == str, message: "Node name must be a string or none")
+  }
+
+  if "length" in node {
+    assert(
+      node.length == none or type(node.length) == int or type(node.length) == float,
+      message: "Node length must be a number or none",
+    )
+  }
+
+  if is-root and "rooted" in node {
+    assert(type(node.rooted) == bool, message: "rooted must be a boolean")
+  }
+
+  let children = node.children
+  assert(children == none or type(children) == array, message: "children must be an array or none")
+  if children != none {
+    for child in children {
+      _validate-tree-data(child, is-root: false)
+    }
+  }
+}
+
 /// Draws a phylogenetic tree from a parsed tree structure.
 ///
 /// Renders a phylogenetic tree visualization from the parsed tree data.
 /// Supports customization of dimensions, styling, and orientation.
 ///
-/// - tree-data (dictionary): The parsed tree structure from `parse-newick-string` or `parse-newick-file`.
+/// - tree-data (dictionary): The parsed tree structure from `parse-newick`.
 /// - width (length, fraction): Width of the tree visualization including labels (default: 25em).
 /// - height (length, auto): Height of the tree area (default: 15em).
 /// - branch-weight (length): Thickness of tree branches (default: 1pt).
@@ -266,7 +340,7 @@
 /// - tip-label-color (color): Color of tip labels (default: black).
 /// - tip-label-italics (bool): Use italics to draw tip labels (default: false).
 /// - internal-label-size (length): Font size of internal node labels (default: 0.85em).
-/// - internal-label-color (color): Color of internal node labels (default: rgb("#B2B6BE")).
+/// - internal-label-color (color): Color of internal node labels (default: medium gray).
 /// - root-length (length): Length of the dotted root branch (default: 1.25em).
 /// - orientation (str): "horizontal" (root left, tips right) or "vertical" (root bottom, tips up) (default: "horizontal").
 /// -> content
@@ -280,10 +354,16 @@
   tip-label-color: black,
   tip-label-italics: false,
   internal-label-size: 0.85em,
-  internal-label-color: rgb("#B2B6BE"),
+  internal-label-color: _medium-gray,
   root-length: 1.25em,
   orientation: "horizontal",
 ) = {
+  assert(
+    orientation in ("horizontal", "vertical"),
+    message: "orientation must be 'horizontal' or 'vertical'",
+  )
+  _validate-tree-data(tree-data)
+
   let is-rooted = tree-data.at("rooted", default: false)
   let is-vertical = orientation == "vertical"
 
@@ -344,7 +424,7 @@
         measured.depth,
         measured.height,
         is-vertical,
-        size
+        size,
       )
 
       let x-scale = layout.x-dim / calc.max(1e-9, measured.depth)

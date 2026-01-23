@@ -7,10 +7,7 @@
 /// - char-width (length): The width of each character box.
 /// -> content
 #let _render-segment-as-boxes(segment, char-width) = {
-  segment
-    .clusters()
-    .map(char => box(width: char-width, align(center, char)))
-    .join()
+  segment.clusters().map(char => box(width: char-width, align(center, char))).join()
 }
 
 /// Formats a dictionary of sequences in FASTA format for display.

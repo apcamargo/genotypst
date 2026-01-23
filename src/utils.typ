@@ -175,3 +175,29 @@
     )
   }
 }
+
+/// Clamps a numeric value between bounds.
+///
+/// - value (length): Value to clamp.
+/// - min (length): Lower bound.
+/// - max (length): Upper bound.
+/// -> length
+#let _clamp(value, min, max) = {
+  if value < min { min } else if value > max { max } else { value }
+}
+
+/// Rounds a scale length to 1/2.5/5 x 10^n.
+///
+/// - target (float): Target scale length.
+/// -> float
+#let _round-scale(target) = {
+  if target <= 0 { return 1 }
+
+  let exponent = calc.floor(calc.log(target))
+  let base = calc.pow(10, exponent)
+  let scaled = target / base
+  let step = if scaled <= 1 { 1 } else if scaled <= 2.5 { 2.5 } else if scaled <= 5 { 5 } else if scaled <= 7.5 {
+    7.5
+  } else { 10 }
+  step * base
+}

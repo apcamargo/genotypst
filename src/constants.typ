@@ -23,6 +23,9 @@
 #let _dna-characters = ("A", "T", "G", "C")
 #let _rna-characters = ("A", "U", "G", "C")
 
+#let _light-gray = oklch(85%, 0.012, 264.5deg)
+#let _medium-gray = oklch(68%, 0.012, 264.5deg)
+
 #let aa-palette = (
   "A": rgb("#4D78FF"),
   "a": rgb("#4D78FF"),

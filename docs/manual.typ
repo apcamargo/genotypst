@@ -1,4 +1,4 @@
-#import "@preview/genotypst:0.1.0": *
+#import "../src/lib.typ": *
 #import "template.typ": aa-groups, dna-rna-groups, project, render-palette-group
 
 #show: project.with(
@@ -6,7 +6,7 @@
   author: "Antonio Camargo",
 )
 
-`genotypst` is a bioinformatics package for Typst that enables analysis and visualization of biological data. It provides functionality for parsing FASTA and Newick files and generating publication-ready visualizations, including multiple sequence alignments, sequence logos, and phylogenetic trees.
+`genotypst` is a bioinformatics package for Typst that enables analysis and visualization of biological data. It provides functionality for parsing FASTA and Newick files and generating publication-ready visualizations, including multiple sequence alignments, sequence logos, genome maps, and phylogenetic trees.
 
 #outline()
 
@@ -18,7 +18,7 @@
 
 == Loading data
 
-The `parse-fasta-file` function reads FASTA files and returns a dictionary mapping sequence identifiers to their corresponding sequences.
+The `parse-fasta` function reads FASTA data and returns a dictionary mapping sequence identifiers to their corresponding sequences.
 
 ```typ
 #let sequences = parse-fasta(read("/docs/data/dna.fna"))
@@ -125,6 +125,57 @@ The DNA and RNA palettes assign a distinct color to each nucleotide.
   inset: (y: 0.8em),
   ..dna-rna-groups.map(render-palette-group)
 ))
+
+= Visualizing genomic regions
+
+Genome maps enable visualization of the genes and other genomic elements within a locus, highlighting their order, orientation, and length. `genotypst` provides a `render-genome-map` function that produces a genome map from an array of dictionaries, each representing a genomic feature that will be plotted:
+
+- `start` (required): Start coordinate.
+- `end` (required): End coordinate.
+- `strand`: Feature orientation (`1` or `"+"` for the positive strand, `-1` or `"-"` for the negative strand). `none` draws an undirected block.
+- `label`: Feature label
+- `color`: Fill color.
+
+```typ
+#let f_plasmid_locus = (
+  (start: 65556, end: 66065, strand: -1, label: [_ygfA_]),
+  (start: 66118, end: 66407, label: [_oriT_], color: rgb("#696975")),
+  (start: 66479, end: 66862, strand: 1, label: [_traM_], color: rgb("#62B9F2")),
+  (start: 66977, end: 67055, strand: -1, label: [_finP_]),
+  (start: 67049, end: 67738, strand: 1, label: [_traJ_], color: rgb("#F7ED6C")),
+  (start: 67837, end: 68232, strand: 1, label: [_traY_]),
+  (start: 68265, end: 68630, strand: 1, label: [_traA_]),
+  (start: 68645, end: 68956, strand: 1, label: [ _traL_]),
+  (start: 68978, end: 69544, strand: 1, label: [_traE_]),
+)
+
+#render-genome-map(
+  f_plasmid_locus,
+  coordinate-axis: true,
+  unit: "bp",
+)
+```
+
+#let f_plasmid_locus = (
+  (start: 65556, end: 66065, strand: -1, label: [_ygfA_]),
+  (start: 66118, end: 66407, label: [_oriT_], color: rgb("#696975")),
+  (start: 66479, end: 66862, strand: 1, label: [_traM_], color: rgb("#62B9F2")),
+  (start: 66977, end: 67055, strand: -1, label: [_finP_]),
+  (start: 67049, end: 67738, strand: 1, label: [_traJ_], color: rgb("#F7ED6C")),
+  (start: 67837, end: 68232, strand: 1, label: [_traY_]),
+  (start: 68265, end: 68630, strand: 1, label: [_traA_]),
+  (start: 68645, end: 68956, strand: 1, label: [ _traL_]),
+  (start: 68978, end: 69544, strand: 1, label: [_traE_]),
+)
+
+#figure(
+  render-genome-map(
+    f_plasmid_locus,
+    coordinate-axis: true,
+    unit: "bp",
+  ),
+  caption: [Genome map showing the genes within the 65,556--69,544 bp region of the F plasmid of _Escherichia coli_ K-12 (GenBank: AP001918.1).],
+)
 
 = Working with phylogenetic trees
 
@@ -238,11 +289,11 @@ By default, `render-fasta` and `render-msa` inherit the monospaced font used for
   align: center + bottom,
 )
 
-Sequence logos and trees are rendered using the default document font, rather than the monospaced font for raw text. To specify a custom font sequence logos and trees, use a `show text` rule instead.
+Sequence logos, genome maps, and trees are rendered using the default document font, rather than the monospaced font for raw text. To specify a custom font sequence logos and trees, use a `show text` rule instead.
 
 ```typ
 #context {
-  show text: set text(font: "New Computer Modern")
+  show text: set text(font: "Libertinus Serif")
   render-sequence-logo(dna_msa)
 }
 ```
@@ -259,7 +310,34 @@ Sequence logos and trees are rendered using the default document font, rather th
       show text: set text(font: "New Computer Modern")
       render-sequence-logo(dna_msa)
     },
-    caption: [Custom font (New Computer Modern)],
+    caption: [Custom font (Libertinus Serif)],
+    supplement: none,
+  ),
+
+  align: center + bottom,
+)
+
+```typ
+#context {
+  show text: set text(font: "Libertinus Serif")
+  render-genome-map(f_plasmid_locus)
+}
+```
+
+#grid(
+  columns: (1fr, 1fr),
+  gutter: 0.8cm,
+  figure(
+    render-genome-map(f_plasmid_locus),
+    caption: [Default document font],
+    supplement: none,
+  ),
+  figure(
+    context {
+      show text: set text(font: "Libertinus Serif")
+      render-genome-map(f_plasmid_locus)
+    },
+    caption: [Custom font (Libertinus Serif)],
     supplement: none,
   ),
 
@@ -269,7 +347,7 @@ Sequence logos and trees are rendered using the default document font, rather th
 ```typ
 #let hominoidea_tree = parse-newick(read("/docs/data/hominoidea.nwk"))
 #context {
-  show text: set text(font: "New Computer Modern", size: 0.9em)
+  show text: set text(font: "Libertinus Serif")
   #render-tree(hominoidea_tree, tip-label-italics: true)
 }
 ```
@@ -285,10 +363,10 @@ Sequence logos and trees are rendered using the default document font, rather th
   ),
   figure(
     context {
-      show text: set text(font: "New Computer Modern", size: 0.9em)
+      show text: set text(font: "Libertinus Serif")
       render-tree(hominoidea_tree, tip-label-italics: true, width: 1fr, orientation: "horizontal")
     },
-    caption: [Custom font (New Computer Modern)],
+    caption: [Custom font (Libertinus Serif)],
     supplement: none,
   ),
 

@@ -1,3 +1,4 @@
+#import "constants.typ": _light-gray
 #import "utils.typ": (
   _compute-sequence-conservation, _get-column-stats, _guess-seq-alphabet, _resolve-alphabet-config, _validate-msa,
   _with-monospaced-font,
@@ -18,7 +19,7 @@
     let fg-color = base-color.darken(22.5%)
     box(fill: bg-color, outset: (y: outset-y), width: char-width, align(center, text(fill: fg-color, char)))
   } else {
-    let content = if colors { text(fill: rgb("#B2B6BE"), char) } else { char }
+    let content = if colors { text(fill: _light-gray, char) } else { char }
     box(outset: (y: outset-y), width: char-width, align(center, content))
   }
 }
@@ -67,7 +68,7 @@
     bars.push(box(
       width: char-width,
       height: bar-height,
-      align(bottom, rect(width: 100%, height: h, fill: rgb("#B2B6BE"))),
+      align(bottom, rect(width: 100%, height: h, fill: _light-gray)),
     ))
   }
 

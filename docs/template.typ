@@ -1,4 +1,4 @@
-#import "@preview/genotypst:0.1.0": aa-palette, dna-palette, rna-palette
+#import "../src/constants.typ": aa-palette, dna-palette, rna-palette, _medium-gray
 
 #let project(
   title: "",
@@ -34,7 +34,7 @@
   }
 
   show figure.caption: it => {
-    set text(fill: oklch(65%, 0.005, 269deg))
+    set text(fill: _medium-gray)
     v(0.4em)
     strong(it.supplement)
     if it.numbering != none and it.supplement != none {
@@ -45,18 +45,11 @@
   }
 
   show raw.where(block: true): block.with(
-    fill: oklch(96%, 0.005, 269deg),
+    fill: oklch(96.5%, 0.005, 269deg),
     inset: 10pt,
     radius: 4pt,
     width: 100%,
     breakable: false,
-  )
-
-  show raw.where(block: false): box.with(
-    fill: oklch(96.5%, 0.005, 269deg),
-    inset: (x: 3pt, y: 0pt),
-    outset: (y: 3pt),
-    radius: 2pt,
   )
 
   // Title

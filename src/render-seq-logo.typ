@@ -1,3 +1,4 @@
+#import "constants.typ": _light-gray
 #import "utils.typ": _compute-sequence-conservation, _get-column-stats, _resolve-alphabet-config, _validate-msa
 
 /// Computes residue heights for a sequence logo.
@@ -99,7 +100,7 @@
     let m = measure(letter-text)
     let sx = (col-width / m.width) * 100%
     let sy = (letter.height / m.height) * 100%
-    let color = palette.at(letter.char, default: rgb("#B2B6BE"))
+    let color = palette.at(letter.char, default: _light-gray)
 
     box(width: col-width, height: letter.height)[
       #set align(center + bottom)
