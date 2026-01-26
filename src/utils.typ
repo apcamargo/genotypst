@@ -1,4 +1,4 @@
-#import "constants.typ": _aa-characters, _dna-characters, _rna-characters, aa-palette, dna-palette, rna-palette
+#import "constants.typ": _aa-characters, _dna-characters, _rna-characters, aa-palette-default, dna-palette, rna-palette
 
 /// Guesses the sequence alphabet based on the characters present in the sequences.
 ///
@@ -128,7 +128,7 @@
   let type = if alphabet == "auto" { _guess-seq-alphabet(sequences) } else { alphabet }
 
   if type == "aa" {
-    (size: 20, chars: _aa-characters, palette: aa-palette)
+    (size: 20, chars: _aa-characters, palette: aa-palette-default)
   } else if type == "dna" {
     (size: 4, chars: _dna-characters, palette: dna-palette)
   } else if type == "rna" {

@@ -1,4 +1,4 @@
-#import "../src/constants.typ": aa-palette, dna-palette, rna-palette, _medium-gray
+#import "../src/constants.typ": aa-palette-default, dna-palette, rna-palette, _medium-gray
 
 #let project(
   title: "",
@@ -116,7 +116,7 @@
   )),
 )
 
-#let render-palette-group(group, palette: aa-palette) = block(breakable: false, {
+#let render-palette-group(group, palette: aa-palette-default) = block(breakable: false, {
   let has-abbrevs = "abbrevs" in group
   let p = group.at("palette", default: palette)
   let clr = p.at(group.symbols.at(0))
