@@ -5,3 +5,5 @@
 #import "render-genome-map.typ": render-genome-map
 #import "constants.typ": aa-palette-dayhoff, aa-palette-default, dna-palette, rna-palette
 #import "parse.typ": parse-fasta, parse-newick
+#import "render-alignment.typ": align-seq-pair, render-dp-matrix, render-pair-alignment
+#import "render-scoring-matrix.typ": get-score-from-matrix, get-scoring-matrix, render-scoring-matrix

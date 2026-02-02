@@ -1,5 +1,26 @@
 #import "constants.typ": _aa-characters, _dna-characters, _rna-characters, aa-palette-default, dna-palette, rna-palette
 
+#let _alignment-plugin = plugin("alignment.wasm")
+
+// Cache available matrices at module load time (loaded once)
+#let _available-matrices = json(_alignment-plugin.list_matrices()).matrices
+
+/// Resolves a scoring matrix name to its canonical form.
+///
+/// Performs case-insensitive lookup against available matrices from the WASM plugin.
+/// Returns the canonical matrix name (e.g., "BLOSUM62") if found, or none if not found.
+///
+/ - name (str): Matrix name to look up (case-insensitive).
+/// -> str or none
+#let resolve-matrix-name(name) = {
+  let upper-name = upper(name)
+  if upper-name in _available-matrices {
+    upper-name
+  } else {
+    none
+  }
+}
+
 /// Guesses the sequence alphabet based on the characters present in the sequences.
 ///
 /// Analyzes the sequences to determine whether they are amino acids ("aa"),
@@ -200,4 +221,33 @@
     7.5
   } else { 10 }
   step * base
+}
+
+/// Private: Converts a flat row-major array to a 2D array.
+///
+/// Takes a flat array and reshapes it into a 2D nested array using
+/// row-major indexing: element at (i, j) = flat[i * cols + j].
+///
+/// - values (array): Flat array of values.
+/// - rows (int): Number of rows in the output.
+/// - cols (int): Number of columns in the output.
+/// -> array
+#let _flat-to-2d(values, rows, cols) = {
+  range(rows).map(i =>
+    range(cols).map(j => values.at(i * cols + j))
+  )
+}
+
+/// Private: Converts WASM i32 infinity representations to Typst floats.
+///
+/// The WASM plugin uses i32::MIN (-2147483648) for negative infinity
+/// and i32::MAX (2147483647) for positive infinity. This function
+/// converts these sentinel values to Typst's float.inf representation.
+///
+/// - value (int): The value to convert.
+/// -> int or float
+#let _convert-infinity(value) = {
+  if value == -2147483648 { -float.inf }
+  else if value == 2147483647 { float.inf }
+  else { value }
 }
