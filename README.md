@@ -15,6 +15,40 @@ In a Typst document, import the package and read the alignment data:
 ```typst
 #import "@preview/genotypst:0.3.0": *
 
+You can perform a simple pairwise alignments and visualize both the alignment and its dynamic programming matrix:
+
+```typst
+#let dna_alignment = align-seq-pair(
+  "AAT",
+  "AACTTG",
+  match-score: 3,
+  mismatch-score: -1,
+  gap-penalty: -1,
+  mode: "local",
+)
+
+#render-pair-alignment(
+  dna_alignment.seq-1,
+  dna_alignment.seq-2,
+  dna_alignment.traceback-paths.at(0),
+)
+```
+
+![](./docs/pair_alignment_example.svg)
+
+```typst
+#render-dp-matrix(
+  dna_alignment.seq-1,
+  dna_alignment.seq-2,
+  dna_alignment.dp-matrix.values,
+  path: dna_alignment.traceback-paths.at(0),
+  arrows: dna_alignment.dp-matrix.arrows,
+)
+```
+
+![](./docs/dp_matrix_example.svg)
+
+```typst
 // Load sequences
 #let sequences = parse-fasta(read("msa.afa"))
 
