@@ -40,6 +40,129 @@ Use `render-fasta` to display sequences in the standard FASTA format.
 
 In this example, `max-width` controls how many characters appear per line (default is 60).
 
+== Pairwise sequence alignment
+
+Pairwise alignment is a method for comparing biological sequences, allowing quantification of sequence similarity and identification of evolutionary relationships between the residues of two sequences. `genotypst` supports both global alignment (end-to-end) @needleman_general_1970 and local alignment (best-matching subsequences) @smith_identification_1981, using dynamic programming with a user-defined scoring scheme (match/mismatch or a substitution matrix) and gap penalties.
+The `align-seq-pair` function performs pairwise alignment using either match/mismatch scores or a substitution matrix (see the scoring matrices section below).
+
+```typ
+#let dna_pair_alignment = align-seq-pair(
+  "ACT",
+  "ACGT",
+  match-score: 3,
+  mismatch-score: -1,
+  gap-penalty: -2,
+  mode: "global",
+)
+
+#let protein_pair_alignment = align-seq-pair(
+  "MAVHLTPEEKS",
+  "HLTPEE",
+  matrix: "BLOSUM62",
+  gap-penalty: -4,
+  mode: "local",
+)
+```
+
+#let dna_pair_alignment = align-seq-pair(
+  "ACT",
+  "ACGT",
+  match-score: 3,
+  mismatch-score: -1,
+  gap-penalty: -2,
+  mode: "global",
+)
+
+#let protein_pair_alignment = align-seq-pair(
+  "MGRHMTYPEEKS",
+  "HLTPEE",
+  matrix: "BLOSUM62",
+  gap-penalty: -4,
+  mode: "local",
+)
+
+The DNA example uses a custom match/mismatch model for a global alignment, while the protein example uses BLOSUM62 for a local alignment. The alignment scores are #dna_pair_alignment.score and #protein_pair_alignment.score.
+
+== Rendering pairwise alignments
+
+Pairwise alignments can be rendered using the `render-pair-alignment` function. The example below uses the local protein alignment from the previous section, showing the unaligned regions using a light gray color.
+
+```typ
+#render-pair-alignment(
+  protein_pair_alignment.seq-1,
+  protein_pair_alignment.seq-2,
+  protein_pair_alignment.traceback-paths.at(0),
+  unaligned-color: luma(75%),
+)
+```
+
+#figure(
+  render-pair-alignment(
+    protein_pair_alignment.seq-1,
+    protein_pair_alignment.seq-2,
+    protein_pair_alignment.traceback-paths.at(0),
+    unaligned-color: luma(75%),
+  ),
+  caption: [Local protein alignment with unaligned regions shown in light gray.],
+  kind: image,
+)
+
+== Dynamic programming matrix visualization
+
+Dynamic programming is the core procedure used by the pairwise alignment algorithm: it fills a matrix of optimal scores for all prefix pairs of the two sequences, where each cell stores the best score achievable at that position and arrows indicate the traceback directions that can lead to an optimal alignment. The `render-dp-matrix` function renders the DP matrix of a given alignment, overlaying the traceback path used to produce the final alignmkent.
+
+```typ
+// Because there may be multiple optimal alignments, `traceback-paths`
+// is an array. We use `.at(0)` to visualize the path of the first alignment.
+#render-dp-matrix(
+  dna_pair_alignment.seq-1,
+  dna_pair_alignment.seq-2,
+  dna_pair_alignment.dp-matrix.values,
+  path: dna_pair_alignment.traceback-paths.at(0),
+  arrows: dna_pair_alignment.dp-matrix.arrows,
+)
+```
+
+#figure(
+  render-dp-matrix(
+    dna_pair_alignment.seq-1,
+    dna_pair_alignment.seq-2,
+    dna_pair_alignment.dp-matrix.values,
+    path: dna_pair_alignment.traceback-paths.at(0),
+    arrows: dna_pair_alignment.dp-matrix.arrows,
+  ),
+  caption: [Dynamic programming matrix for the DNA alignment, with the optimal path highlighted.],
+  kind: image,
+)
+
+== Scoring matrices
+
+Substitution matrices assign scores for aligning residues in pairwise and multiple sequence alignments, rewarding likely substitutions and penalizing unlikely ones. They represent substitution preferences as log-odds scores derived from observed evolutionary changes. In this way, they guide alignment algorithms by quantifying how plausible it is for one residue to replace another over time, helping produce biologically meaningful alignments. `genotypst` provides scoring matrices from the BLOSUM @henikoff_amino_1992 and PAM @dayhoff_model_1979 families for protein sequences, as well as the EDNAFULL matrix for DNA and RNA sequences.
+
+Use `get-scoring-matrix` to retrieve a matrix data and `get-score-from-matrix` to query scores for specific residue pairs.
+
+```typ
+#let blosum62 = get-scoring-matrix("BLOSUM62")
+#let ar_score = get-score-from-matrix(blosum62, "L", "D")
+#text[The substitution score for L vs D in BLOSUM62 is: #ar_score.]
+```
+
+#let blosum62 = get-scoring-matrix("BLOSUM62")
+#let ar_score = get-score-from-matrix(blosum62, "L", "D")
+#text[The substitution score for L vs D in BLOSUM62 is: #ar_score.]
+
+You can render the entire scoring matrix using `render-scoring-matrix` function.
+
+```typ
+#render-scoring-matrix(blosum62)
+```
+
+#figure(
+  render-scoring-matrix(blosum62),
+  caption: [BLOSUM62 scoring matrix.],
+  kind: image,
+)
+
 == Multiple sequence alignments
 
 The `render-msa` function displays multiple sequence alignments with optional residue coloring and conservation bars.
@@ -300,7 +423,45 @@ By default, `render-fasta` and `render-msa` inherit the monospaced font used for
   align: center + bottom,
 )
 
-Sequence logos, genome maps, and trees are rendered using the default document font, rather than the monospaced font for raw text. To specify a custom font sequence logos and trees, use a `show text` rule instead.
+Pairwise alignments, dynamic programming matrices, scoring matrices, sequence logos, genome maps, and trees are rendered using the default document font, rather than the monospaced font for raw text. To specify a custom font for these visualizations, use a `show text` rule instead. These renderers also expose styling parameters such as `unaligned-color`, `cell-size`, `path-color`, `arrow-color`, `color-map`, and `scale-limit`.
+
+```typ
+#context {
+  show text: set text(font: "Libertinus Serif")
+  render-pair-alignment(
+    protein_pair_alignment.seq-1,
+    protein_pair_alignment.seq-2,
+    protein_pair_alignment.traceback-paths.at(0),
+  )
+}
+```
+
+#grid(
+  columns: (1fr, 1fr),
+  figure(
+    render-pair-alignment(
+      protein_pair_alignment.seq-1,
+      protein_pair_alignment.seq-2,
+      protein_pair_alignment.traceback-paths.at(0),
+    ),
+    caption: [Default document font],
+    supplement: none,
+  ),
+  figure(
+    context {
+      show text: set text(font: "Libertinus Serif")
+      render-pair-alignment(
+        protein_pair_alignment.seq-1,
+        protein_pair_alignment.seq-2,
+        protein_pair_alignment.traceback-paths.at(0),
+      )
+    },
+    caption: [Custom font (Libertinus Serif)],
+    supplement: none,
+  ),
+
+  align: center + bottom,
+)
 
 ```typ
 #context {
@@ -324,7 +485,6 @@ Sequence logos, genome maps, and trees are rendered using the default document f
     caption: [Custom font (Libertinus Serif)],
     supplement: none,
   ),
-
   align: center + bottom,
 )
 

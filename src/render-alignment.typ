@@ -1,6 +1,8 @@
 #import "constants.typ": _dark-gray, _medium-gray, _yellow
 #import "utils.typ": _flat-to-2d, resolve-matrix-name
-#import "@preview/tiptoe:0.4.0": line as _tiptoe-line, straight as _tiptoe-straight
+#import "@preview/tiptoe:0.4.0": (
+  line as _tiptoe-line, straight as _tiptoe-straight,
+)
 
 #let _alignment-plugin = plugin("alignment.wasm")
 
@@ -314,11 +316,19 @@
     // Validate bounds (0-indexed, valid range is 0 to seq-len)
     assert(
       parsed.row >= 0 and parsed.row <= seq1-len,
-      message: "Row coordinate " + str(parsed.row) + " out of bounds [0, " + str(seq1-len) + "].",
+      message: "Row coordinate "
+        + str(parsed.row)
+        + " out of bounds [0, "
+        + str(seq1-len)
+        + "].",
     )
     assert(
       parsed.col >= 0 and parsed.col <= seq2-len,
-      message: "Column coordinate " + str(parsed.col) + " out of bounds [0, " + str(seq2-len) + "].",
+      message: "Column coordinate "
+        + str(parsed.col)
+        + " out of bounds [0, "
+        + str(seq2-len)
+        + "].",
     )
 
     // Validate monotonicity (path can only move down, right, or diagonal down-right)
@@ -755,7 +765,7 @@
     // Diagonal arrow
     let dx-sign = if to-coord.col < from-coord.col { -1 } else { 1 }
     let dy-sign = if to-coord.row < from-coord.row { -1 } else { 1 }
-    let diag-offset = arrow-half-length * 0.7071 // 1/sqrt(2)
+    let diag-offset = arrow-half-length * 0.85
     (
       center-x - dx-sign * diag-offset,
       center-y - dy-sign * diag-offset,
@@ -785,7 +795,8 @@
         // Determine arrow color
         let arr-color = arrow-color
         if (
-          highlight-path-arrows and _is-arrow-on-path(arrow.at(0), arrow.at(1), path)
+          highlight-path-arrows
+            and _is-arrow-on-path(arrow.at(0), arrow.at(1), path)
         ) {
           arr-color = path-arrow-color
         }
@@ -808,7 +819,7 @@
 
         let center-x = (from-center.x + to-center.x) / 2.0
         let center-y = (from-center.y + to-center.y) / 2.0
-        let arrow-half-length = cell-size * 0.225
+        let arrow-half-length = cell-size * 0.215
 
         let (start-x, start-y, end-x, end-y) = _calculate-arrow-positions(
           from-coord,
@@ -838,11 +849,12 @@
 
 /// Renders a dynamic programming matrix for sequence alignment visualization.
 ///
-/// Creates a visual representation of a DP matrix with optional cell highlighting,
-/// traceback path overlay, and arrow indicators for alignment directions.
+/// Creates a visual representation of a dynamic programming (DP) matrix with
+/// optional cell highlighting, traceback path overlay, and arrow indicators for
+/// alignment directions.
 ///
-/// - top-seq (str): Sequence displayed on top as column labels. Typically "-" + seq-2.
-/// - left-seq (str): Sequence displayed on left as row labels. Typically "-" + seq-1.
+/// - seq-1 (str): Sequence displayed on the left as row labels.
+/// - seq-2 (str): Sequence displayed on top as column labels.
 /// - values (array): 2D array of matrix values (integers or none for empty cells).
 /// - highlights (array): Cell highlights as (row, col) or (row, col, color) tuples (default: ()).
 /// - highlight-color (color): Default color for highlighted cells (default: light gray).
@@ -854,13 +866,13 @@
 /// - arrow-color (color): Default color for arrows (default: medium gray).
 /// - highlight-path-arrows (bool): Whether arrows on the path use a different color (default: true).
 /// - path-arrow-color (color): Color for arrows on the traceback path (default: dark gray).
-/// - cell-size (length): Size of each square cell (default: 35pt).
+/// - cell-size (length): Size of each square cell (default: 34pt).
 /// - stroke-width (length): Width of cell borders (default: 0.6pt).
 /// - stroke-color (color): Color of cell borders (default: medium gray).
 /// -> content
 #let render-dp-matrix(
-  top-seq,
-  left-seq,
+  seq-1,
+  seq-2,
   values,
   highlights: (),
   highlight-color: _medium-gray.lighten(75%),
@@ -872,22 +884,47 @@
   arrow-color: _medium-gray,
   highlight-path-arrows: true,
   path-arrow-color: _dark-gray,
-  cell-size: 35pt,
+  cell-size: 34pt,
   stroke-width: 0.6pt,
   stroke-color: _medium-gray,
 ) = {
   // Cache cluster arrays to avoid repeated calls
-  let top-clusters = top-seq.clusters()
-  let left-clusters = left-seq.clusters()
+  let seq1-raw-clusters = seq-1.clusters()
+  let seq2-raw-clusters = seq-2.clusters()
+
+  assert(values.len() > 0, message: "values must contain at least one row.")
+  let value-cols = values.at(0).len()
+  assert(
+    values.len() == seq1-raw-clusters.len() + 1,
+    message: "Matrix values must have "
+      + str(seq1-raw-clusters.len() + 1)
+      + " rows (seq-1 length + 1). Got "
+      + str(values.len())
+      + ".",
+  )
+  assert(
+    value-cols == seq2-raw-clusters.len() + 1,
+    message: "Matrix values must have "
+      + str(seq2-raw-clusters.len() + 1)
+      + " columns (seq-2 length + 1). Got "
+      + str(value-cols)
+      + ".",
+  )
+
+  let top-label-seq = "-" + seq-2
+  let left-label-seq = "-" + seq-1
+
+  let top-clusters = top-label-seq.clusters()
+  let left-clusters = left-label-seq.clusters()
 
   // Validate inputs
   assert(
     values.len() == left-clusters.len(),
-    message: "Number of value rows must match left sequence length.",
+    message: "Number of matrix rows must match seq-1 label length.",
   )
   assert(
     values.all(row => row.len() == top-clusters.len()),
-    message: "Number of value columns must match top sequence length.",
+    message: "Number of matrix columns must match seq-2 label length.",
   )
 
   // Validate path if provided (path from align-seq-pair is end-to-start, so reverse for validation)
@@ -896,7 +933,7 @@
   }
 
   // Constants for dimensions
-  let label-scale = 0.7 // Label cells are 70% of data cell size
+  let label-scale = 0.65 // Label cells are 65% of data cell size
   let cell-inset = 5pt // Standard inset for data cells
   let corner-radius = 3pt // Radius for corner cells
 
@@ -1059,7 +1096,10 @@
         .map(item => {
           let (i, char) = item
           let should-color = (
-            apply-unaligned and has-unaligned-color and i < mask-length and unaligned-mask.at(i)
+            apply-unaligned
+              and has-unaligned-color
+              and i < mask-length
+              and unaligned-mask.at(i)
           )
           let content = if should-color {
             text(fill: unaligned-color)[#char]

@@ -642,7 +642,8 @@
             let intervals = ()
             for other in positioned-labels {
               let hit = (
-                line-x >= other.left - label-line-distance and line-x <= other.right + label-line-distance
+                line-x >= other.left - label-line-distance
+                  and line-x <= other.right + label-line-distance
               )
               let overlap = (
                 other.bottom >= line-top and other.top <= line-bottom
