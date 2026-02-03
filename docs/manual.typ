@@ -88,6 +88,8 @@ The DNA example uses a custom match/mismatch model for a global alignment, while
 Pairwise alignments can be rendered using the `render-pair-alignment` function. The example below uses the local protein alignment from the previous section, showing the unaligned regions using a light gray color.
 
 ```typ
+// Because there may be multiple optimal alignments, `traceback-paths`
+// is an array. We use `.at(0)` to visualize the path of the first alignment.
 #render-pair-alignment(
   protein_pair_alignment.seq-1,
   protein_pair_alignment.seq-2,
@@ -112,8 +114,6 @@ Pairwise alignments can be rendered using the `render-pair-alignment` function. 
 Dynamic programming is the core procedure used by the pairwise alignment algorithm: it fills a matrix of optimal scores for all prefix pairs of the two sequences, where each cell stores the best score achievable at that position and arrows indicate the traceback directions that can lead to an optimal alignment. The `render-dp-matrix` function renders the DP matrix of a given alignment, overlaying the traceback path used to produce the final alignmkent.
 
 ```typ
-// Because there may be multiple optimal alignments, `traceback-paths`
-// is an array. We use `.at(0)` to visualize the path of the first alignment.
 #render-dp-matrix(
   dna_pair_alignment.seq-1,
   dna_pair_alignment.seq-2,
