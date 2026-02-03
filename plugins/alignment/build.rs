@@ -132,7 +132,12 @@ fn main() {
             }
 
             let dim = residues.len();
-            assert_eq!(scores.len(), dim * dim, "Matrix {} is not square", uppercase_name);
+            assert_eq!(
+                scores.len(),
+                dim * dim,
+                "Matrix {} is not square",
+                uppercase_name
+            );
 
             // Generate Map
             let mut map = [None; 256];
@@ -146,10 +151,24 @@ fn main() {
             }
 
             // Write static data
-            writeln!(f, "const {}_SCORES: [i32; {}] = {:?};", uppercase_name, scores.len(), scores).unwrap();
-            
-            let map_str = format!("{:?}", map).replace("None", "None").replace("Some", "Some");
-            writeln!(f, "const {}_MAP: [Option<u8>; 256] = {};", uppercase_name, map_str).unwrap();
+            writeln!(
+                f,
+                "const {}_SCORES: [i32; {}] = {:?};",
+                uppercase_name,
+                scores.len(),
+                scores
+            )
+            .unwrap();
+
+            let map_str = format!("{:?}", map)
+                .replace("None", "None")
+                .replace("Some", "Some");
+            writeln!(
+                f,
+                "const {}_MAP: [Option<u8>; 256] = {};",
+                uppercase_name, map_str
+            )
+            .unwrap();
 
             let alphabet: Vec<u8> = residues
                 .iter()
@@ -165,28 +184,44 @@ fn main() {
             .unwrap();
 
             variants.push(pascal_name.clone());
-            from_str_arms.push(format!("\"{}\" => Some(Self::{})", uppercase_name, pascal_name));
+            from_str_arms.push(format!(
+                "\"{}\" => Some(Self::{})",
+                uppercase_name, pascal_name
+            ));
             name_arms.push(format!("Self::{} => \"{}\"", pascal_name, uppercase_name));
             score_dimension_arms.push(format!("Self::{} => {}", pascal_name, dim));
-            scores_arms.push(format!("Self::{} => &{}_SCORES", pascal_name, uppercase_name));
+            scores_arms.push(format!(
+                "Self::{} => &{}_SCORES",
+                pascal_name, uppercase_name
+            ));
             lookup_map_arms.push(format!("Self::{} => &{}_MAP", pascal_name, uppercase_name));
-            alphabet_arms.push(format!("Self::{} => &{}_ALPHABET", pascal_name, uppercase_name));
+            alphabet_arms.push(format!(
+                "Self::{} => &{}_ALPHABET",
+                pascal_name, uppercase_name
+            ));
         }
     }
 
     // Generate list of all matrix names for all_names() method
-    let all_names: Vec<String> = variants.iter()
+    let all_names: Vec<String> = variants
+        .iter()
         .map(|v| {
             // Convert PascalCase back to UPPERCASE (e.g., Blosum62 -> BLOSUM62)
-            v.chars().filter(|c| c.is_alphanumeric()).collect::<String>().to_ascii_uppercase()
+            v.chars()
+                .filter(|c| c.is_alphanumeric())
+                .collect::<String>()
+                .to_ascii_uppercase()
         })
         .collect();
-    let all_names_str = all_names.iter()
+    let all_names_str = all_names
+        .iter()
         .map(|n| format!("\"{}\"", n))
         .collect::<Vec<_>>()
         .join(", ");
 
-    writeln!(f, "
+    writeln!(
+        f,
+        "
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum BuiltinMatrix {{
     {}
@@ -243,15 +278,16 @@ impl BuiltinMatrix {{
     }}
 }}
 ",
-    variants.join(",\n    "),
-    from_str_arms.join(",\n            "),
-    name_arms.join(",\n            "),
-    score_dimension_arms.join(",\n            "),
-    scores_arms.join(",\n            "),
-    lookup_map_arms.join(",\n            "),
-    alphabet_arms.join(",\n            "),
-    all_names_str
-    ).unwrap();
+        variants.join(",\n    "),
+        from_str_arms.join(",\n            "),
+        name_arms.join(",\n            "),
+        score_dimension_arms.join(",\n            "),
+        scores_arms.join(",\n            "),
+        lookup_map_arms.join(",\n            "),
+        alphabet_arms.join(",\n            "),
+        all_names_str
+    )
+    .unwrap();
 
     println!("cargo:rerun-if-changed=src/data");
 }

@@ -41,7 +41,7 @@ pub enum SubstitutionScorer {
 
 impl SubstitutionScorer {
     /// Returns the score for aligning character `a` with character `b`.
-    /// 
+    ///
     /// # Errors
     /// Returns `AlignmentError::InvalidCharacter` if a character is not found in the matrix.
     pub fn score(&self, a: u8, b: u8) -> Result<i32, AlignmentError> {
@@ -56,9 +56,7 @@ impl SubstitutionScorer {
                     Ok(*mismatch_score)
                 }
             }
-            SubstitutionScorer::Matrix(bm) => {
-                bm.score(a, b)
-            }
+            SubstitutionScorer::Matrix(bm) => bm.score(a, b),
         }
     }
 
@@ -132,7 +130,8 @@ impl ScoringConfig {
         if length == 0 {
             0
         } else if self.is_affine() {
-            self.gap_open.saturating_add(self.gap_extend.saturating_mul(length as i32 - 1))
+            self.gap_open
+                .saturating_add(self.gap_extend.saturating_mul(length as i32 - 1))
         } else {
             self.gap_open.saturating_mul(length as i32)
         }
@@ -209,7 +208,7 @@ mod tests {
         // 'X' is not in EDNAFULL
         let res = scorer.score(b'X', b'A');
         assert!(matches!(res, Err(AlignmentError::InvalidCharacter(b'X'))));
-        
+
         let res_v = scorer.validate(b"ATGCX");
         assert!(matches!(res_v, Err(AlignmentError::InvalidCharacter(b'X'))));
     }
@@ -235,5 +234,4 @@ mod tests {
         let err = config.ensure_linear().unwrap_err();
         assert!(matches!(err, AlignmentError::Other(_)));
     }
-
 }

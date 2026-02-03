@@ -1,31 +1,21 @@
 use newick::{NewickTree, one_from_string};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use wasm_minimal_protocol::*;
 
 initiate_protocol!();
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize)]
 struct ParseResult {
     rooted: bool,
     #[serde(flatten)]
     tree: SimpleTreeNode,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize)]
 struct SimpleTreeNode {
     name: Option<String>,
     length: Option<f64>,
     children: Option<Vec<SimpleTreeNode>>,
-}
-
-fn bytes_to_boolean(b: &[u8]) -> bool {
-    b.first().copied().unwrap_or_default() != 0
-}
-
-fn bytes_to_string(b: &[u8]) -> Result<String, String> {
-    std::str::from_utf8(b)
-        .map(|s| s.to_string())
-        .map_err(|e| e.to_string())
 }
 
 /// Check if the tree is rooted by examining the root node.
@@ -52,11 +42,12 @@ fn convert_node_to_simple(
     let children = if children_ids.is_empty() {
         None
     } else {
-        let mut child_nodes = Vec::new();
-        for &child_id in children_ids {
-            child_nodes.push(convert_node_to_simple(tree, child_id, trim_quotes)?);
-        }
-        Some(child_nodes)
+        Some(
+            children_ids
+                .iter()
+                .map(|&child_id| convert_node_to_simple(tree, child_id, trim_quotes))
+                .collect::<Result<Vec<_>, _>>()?,
+        )
     };
 
     // Get the node name and strip quotes if `trim_quotes` is true
@@ -77,7 +68,10 @@ fn convert_node_to_simple(
 
 #[wasm_func]
 pub fn parse_newick(input: &[u8], trim_quotes: &[u8]) -> Result<Vec<u8>, String> {
-    let input_str = bytes_to_string(input)?;
+    // Convert raw UTF-8 bytes into the Newick string input.
+    let input_str = std::str::from_utf8(input)
+        .map(|s| s.to_string())
+        .map_err(|e| e.to_string())?;
 
     // Parse with newick crate
     let tree = one_from_string(&input_str)
@@ -88,7 +82,8 @@ pub fn parse_newick(input: &[u8], trim_quotes: &[u8]) -> Result<Vec<u8>, String>
 
     // Get root node and convert to simple tree structure
     let root_id = tree.root();
-    let trim_quotes_bool = bytes_to_boolean(trim_quotes);
+    // Interpret the single-byte flag: nonzero means trim quotes, zero means keep them.
+    let trim_quotes_bool = trim_quotes.first().copied().unwrap_or_default() != 0;
     let simple_tree = convert_node_to_simple(&tree, root_id, trim_quotes_bool)?;
 
     let result = ParseResult {

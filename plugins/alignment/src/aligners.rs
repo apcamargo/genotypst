@@ -1,7 +1,7 @@
 //! Pairwise alignment algorithms.
 
 use crate::alignment::{
-    fill_matrix_linear, traceback_all_paths, Aligner, AlignmentResult, Arrows, Cell, DPMatrix,
+    Aligner, AlignmentResult, Arrows, Cell, DPMatrix, fill_matrix_linear, traceback_all_paths,
 };
 use crate::scoring::{AlignmentError, ScoringConfig};
 
@@ -16,6 +16,7 @@ impl GlobalAligner {
         Self { scoring }
     }
 
+    #[cfg(test)]
     pub fn with_defaults() -> Self {
         Self::new(ScoringConfig::default())
     }
@@ -110,10 +111,12 @@ mod global_tests {
         let aligner = GlobalAligner::with_defaults();
         let result = aligner.align(b"ACGT", b"AGT").unwrap();
 
-        assert!(result
-            .alignments
-            .iter()
-            .any(|a| a.seq1_aligned.contains('-') || a.seq2_aligned.contains('-')));
+        assert!(
+            result
+                .alignments
+                .iter()
+                .any(|a| a.seq1_aligned.contains('-') || a.seq2_aligned.contains('-'))
+        );
     }
 
     #[test]
@@ -159,7 +162,10 @@ mod global_tests {
         let scoring = ScoringConfig::with_matrix(BuiltinMatrix::Ednafull, -2, -2);
         let aligner = GlobalAligner::new(scoring);
         let result = aligner.align(b"ATGCX", b"ATGC");
-        assert!(matches!(result, Err(AlignmentError::InvalidCharacter(b'X'))));
+        assert!(matches!(
+            result,
+            Err(AlignmentError::InvalidCharacter(b'X'))
+        ));
     }
 }
 
@@ -174,6 +180,7 @@ impl LocalAligner {
         Self { scoring }
     }
 
+    #[cfg(test)]
     pub fn with_defaults() -> Self {
         Self::new(ScoringConfig::default())
     }
@@ -263,10 +270,12 @@ mod local_tests {
 
         // Score should be 3 matches * 2 = 6
         assert_eq!(result.final_score, 6);
-        assert!(result
-            .alignments
-            .iter()
-            .any(|a| a.seq1_aligned.contains("GCT") && a.seq2_aligned.contains("GCT")));
+        assert!(
+            result
+                .alignments
+                .iter()
+                .any(|a| a.seq1_aligned.contains("GCT") && a.seq2_aligned.contains("GCT"))
+        );
     }
 
     #[test]

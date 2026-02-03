@@ -28,10 +28,6 @@ impl Arrows {
     pub fn has_left(&self) -> bool {
         (self.0 & 4) != 0
     }
-
-    pub fn count(&self) -> u32 {
-        self.0.count_ones()
-    }
 }
 
 impl Arrows {
@@ -130,10 +126,6 @@ pub struct TracebackPath {
 }
 
 impl TracebackPath {
-    pub fn new() -> Self {
-        Self { steps: Vec::new() }
-    }
-
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             steps: Vec::with_capacity(capacity),
@@ -142,12 +134,6 @@ impl TracebackPath {
 
     pub fn push(&mut self, i: usize, j: usize) {
         self.steps.push(TracebackStep::new(i, j));
-    }
-}
-
-impl Default for TracebackPath {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::scoring::AlignmentError;
+use serde::{Deserialize, Serialize};
 
 include!(concat!(env!("OUT_DIR"), "/generated_matrices.rs"));
 

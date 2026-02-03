@@ -61,12 +61,7 @@ impl From<&AlignmentResult> for AlignmentResultOutput {
         let traceback_paths: Vec<Vec<[usize; 2]>> = result
             .traceback_paths
             .iter()
-            .map(|path| {
-                path.steps
-                    .iter()
-                    .map(|step| [step.i, step.j])
-                    .collect()
-            })
+            .map(|path| path.steps.iter().map(|step| [step.i, step.j]).collect())
             .collect();
 
         Self {
@@ -74,36 +69,29 @@ impl From<&AlignmentResult> for AlignmentResultOutput {
             seq2: result.seq2.clone(),
             alignment_score: result.final_score,
             scoring: result.scoring.clone(),
-            alignments: result.alignments.iter().map(AlignmentOutput::from).collect(),
+            alignments: result
+                .alignments
+                .iter()
+                .map(AlignmentOutput::from)
+                .collect(),
             traceback_paths,
             dp_matrix: DPMatrixOutput::from(&result.matrix),
         }
     }
 }
 
-impl AlignmentResultOutput {
-    pub fn to_json(&self) -> Result<String, serde_json::Error> {
-        serde_json::to_string(self)
-    }
-}
-
-pub fn result_to_json(result: &AlignmentResult) -> Result<String, serde_json::Error> {
-    let output = AlignmentResultOutput::from(result);
-    output.to_json()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::alignment::Aligner;
     use crate::aligners::GlobalAligner;
+    use crate::alignment::Aligner;
 
     #[test]
     fn test_json_serialization() {
         let aligner = GlobalAligner::with_defaults();
         let result = aligner.align(b"AC", b"AC").unwrap();
 
-        let json = result_to_json(&result).unwrap();
+        let json = serde_json::to_string(&AlignmentResultOutput::from(&result)).unwrap();
         assert!(json.contains("\"alignment_score\":6"));
         assert!(json.contains("\"seq1\":\"AC\""));
     }

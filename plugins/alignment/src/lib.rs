@@ -1,21 +1,21 @@
 //! seq-align: Pairwise sequence alignment library
 
+pub mod aligners;
 pub mod alignment;
 pub mod matrices;
-pub mod aligners;
 pub mod output;
 pub mod scoring;
 
-use wasm_minimal_protocol::*;
 use serde::Deserialize;
+use wasm_minimal_protocol::*;
 
 // Re-export main types
-pub use alignment::{AlignedPair, Aligner, AlignmentResult, Arrows, Cell, DPMatrix};
 pub use aligners::{GlobalAligner, LocalAligner};
-pub use output::{result_to_json, AlignmentResultOutput};
-pub use scoring::{ScoringConfig, SubstitutionScorer, AlignmentError};
+pub use alignment::{AlignedPair, Aligner, AlignmentResult, Arrows, Cell, DPMatrix};
 pub use matrices::BuiltinMatrix;
 use matrices::matrix_data_by_name;
+pub use output::AlignmentResultOutput;
+pub use scoring::{AlignmentError, ScoringConfig, SubstitutionScorer};
 
 initiate_protocol!();
 
@@ -40,7 +40,10 @@ impl AlignConfig {
             return Err("Cannot use both 'matrix' and 'match_score'/'mismatch_score' - they are mutually exclusive".into());
         }
         if !has_matrix && has_match != has_mismatch {
-            return Err("Both 'match_score' and 'mismatch_score' are required when not using a matrix".into());
+            return Err(
+                "Both 'match_score' and 'mismatch_score' are required when not using a matrix"
+                    .into(),
+            );
         }
         if !has_matrix && !has_match {
             return Err("Scoring method required: provide either 'matrix' or both 'match_score' and 'mismatch_score'".into());
@@ -66,13 +69,13 @@ impl AlignConfig {
 /// JSON bytes of AlignmentResult or an error string.
 #[wasm_func]
 pub fn align(seq1: &[u8], seq2: &[u8], config: &[u8]) -> Result<Vec<u8>, String> {
-    let seq1_str = std::str::from_utf8(seq1)
-        .map_err(|e| format!("Invalid UTF-8 in seq1: {}", e))?;
-    let seq2_str = std::str::from_utf8(seq2)
-        .map_err(|e| format!("Invalid UTF-8 in seq2: {}", e))?;
+    let seq1_str =
+        std::str::from_utf8(seq1).map_err(|e| format!("Invalid UTF-8 in seq1: {}", e))?;
+    let seq2_str =
+        std::str::from_utf8(seq2).map_err(|e| format!("Invalid UTF-8 in seq2: {}", e))?;
 
-    let config: AlignConfig = serde_json::from_slice(config)
-        .map_err(|e| format!("Invalid config JSON: {}", e))?;
+    let config: AlignConfig =
+        serde_json::from_slice(config).map_err(|e| format!("Invalid config JSON: {}", e))?;
 
     config.validate()?;
 
@@ -126,8 +129,8 @@ pub fn align(seq1: &[u8], seq2: &[u8], config: &[u8]) -> Result<Vec<u8>, String>
 /// JSON bytes with matrix data (name, alphabet, scores) or an error string.
 #[wasm_func]
 pub fn matrix_info(name: &[u8]) -> Result<Vec<u8>, String> {
-    let name_str = std::str::from_utf8(name)
-        .map_err(|e| format!("Invalid UTF-8 in matrix name: {}", e))?;
+    let name_str =
+        std::str::from_utf8(name).map_err(|e| format!("Invalid UTF-8 in matrix name: {}", e))?;
 
     let data = matrix_data_by_name(name_str)
         .ok_or_else(|| format!("Unknown matrix name: '{}'", name_str))?;
