@@ -1,6 +1,4 @@
-#import "utils.typ": (
-  _alignment-plugin, _convert-infinity, _flat-to-2d, resolve-matrix-name,
-)
+#import "utils.typ": _alignment-plugin, _convert-infinity, _flat-to-2d, resolve-matrix-name
 #import "constants.typ": _diverging-gradient
 
 /// Retrieves a scoring matrix by name from the WASM plugin.
@@ -76,28 +74,16 @@
 
   assert(
     idx1 != none,
-    message: "Character '"
-      + char1
-      + "' not found in "
-      + scoring-matrix.name
-      + " alphabet.",
+    message: "Character '" + char1 + "' not found in " + scoring-matrix.name + " alphabet.",
   )
   assert(
     idx2 != none,
-    message: "Character '"
-      + char2
-      + "' not found in "
-      + scoring-matrix.name
-      + " alphabet.",
+    message: "Character '" + char2 + "' not found in " + scoring-matrix.name + " alphabet.",
   )
 
   // Return score
   scoring-matrix.matrix.at(idx1).at(idx2)
 }
-
-// ============================================================================
-// Scoring Matrix Visualization
-// ============================================================================
 
 /// Private: Calculates background color for a score using gradient mapping.
 ///
@@ -293,11 +279,7 @@
   for sym in display-symbols {
     assert(
       sym in scoring-matrix.alphabet,
-      message: "Symbol '"
-        + sym
-        + "' not found in "
-        + scoring-matrix.name
-        + " alphabet.",
+      message: "Symbol '" + sym + "' not found in " + scoring-matrix.name + " alphabet.",
     )
   }
 
@@ -309,10 +291,7 @@
 
   // Extract values for requested symbols
   let values = display-symbols.map(row-sym => display-symbols.map(
-    col-sym => scoring-matrix
-      .matrix
-      .at(sym-to-idx.at(row-sym))
-      .at(sym-to-idx.at(col-sym)),
+    col-sym => scoring-matrix.matrix.at(sym-to-idx.at(row-sym)).at(sym-to-idx.at(col-sym)),
   ))
 
   // Calculate scale limits

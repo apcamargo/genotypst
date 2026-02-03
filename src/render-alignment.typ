@@ -1,5 +1,6 @@
 #import "constants.typ": _dark-gray, _medium-gray, _yellow
 #import "utils.typ": _flat-to-2d, resolve-matrix-name
+#import "@preview/tiptoe:0.4.0": line as _tiptoe-line, straight as _tiptoe-straight
 
 #let _alignment-plugin = plugin("alignment.wasm")
 
@@ -284,12 +285,6 @@
     gap-penalty,
   )
 }
-
-// ============================================================================
-// DP Matrix Visualization
-// ============================================================================
-
-#import "@preview/tiptoe:0.4.0": line as _tiptoe-line, straight as _tiptoe-straight
 
 /// Private: Parse coordinates from dictionary or array format.
 #let _parse-coord(coord) = {
@@ -987,10 +982,6 @@
     )
   })
 }
-
-// ============================================================================
-// Alignment Rendering
-// ============================================================================
 
 /// Renders a formatted pairwise sequence alignment from alignment result data.
 ///
