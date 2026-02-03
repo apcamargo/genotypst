@@ -7,7 +7,10 @@
 /// - char-width (length): The width of each character box.
 /// -> content
 #let _render-segment-as-boxes(segment, char-width) = {
-  segment.clusters().map(char => box(width: char-width, align(center, char))).join()
+  segment
+    .clusters()
+    .map(char => box(width: char-width, align(center, char)))
+    .join()
 }
 
 /// Formats a dictionary of sequences in FASTA format for display.
@@ -19,7 +22,12 @@
 /// - bold-header (bool): Render sequence headers in bold (default: false).
 /// - entry-spacing (length): Vertical spacing between entries; defaults to line spacing if none (default: none).
 /// -> content
-#let render-fasta(sequences, max-width: 60, bold-header: false, entry-spacing: none) = {
+#let render-fasta(
+  sequences,
+  max-width: 60,
+  bold-header: false,
+  entry-spacing: none,
+) = {
   _with-monospaced-font((font, size, char-width, leading) => {
     let lines = ()
     let spacing = if entry-spacing == none { leading } else { entry-spacing }

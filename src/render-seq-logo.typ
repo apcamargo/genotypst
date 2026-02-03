@@ -1,5 +1,8 @@
 #import "constants.typ": _light-gray
-#import "utils.typ": _compute-sequence-conservation, _get-column-stats, _resolve-alphabet-config, _validate-msa
+#import "utils.typ": (
+  _compute-sequence-conservation, _get-column-stats, _resolve-alphabet-config,
+  _validate-msa,
+)
 
 /// Computes residue heights for a sequence logo.
 /// Returns an array of columns, each containing a list of {char, height}.
@@ -104,7 +107,13 @@
 
     box(width: col-width, height: letter.height)[
       #set align(center + bottom)
-      #set text(fill: color, size: 10pt, weight: "bold", top-edge: "bounds", bottom-edge: "bounds")
+      #set text(
+        fill: color,
+        size: 10pt,
+        weight: "bold",
+        top-edge: "bounds",
+        bottom-edge: "bounds",
+      )
       #scale(x: sx, y: sy, origin: bottom)[#letter.char]
     ]
   }

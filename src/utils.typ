@@ -1,4 +1,7 @@
-#import "constants.typ": _aa-characters, _dna-characters, _rna-characters, aa-palette-default, dna-palette, rna-palette
+#import "constants.typ": (
+  _aa-characters, _dna-characters, _rna-characters, aa-palette-default,
+  dna-palette, rna-palette,
+)
 
 #let _alignment-plugin = plugin("alignment.wasm")
 
@@ -10,8 +13,8 @@
 /// Performs case-insensitive lookup against available matrices from the WASM plugin.
 /// Returns the canonical matrix name (e.g., "BLOSUM62") if found, or none if not found.
 ///
-/ - name (str): Matrix name to look up (case-insensitive).
-/// -> str or none
+/// - name (str): Matrix name to look up (case-insensitive).
+/// -> str, none
 #let resolve-matrix-name(name) = {
   let upper-name = upper(name)
   if upper-name in _available-matrices {
@@ -28,10 +31,12 @@
 /// "rna" if U is present, and "aa" if amino acid specific characters
 /// are found.
 ///
-/// - sequences (dictionary or array): A dictionary mapping identifiers to sequences, or an array of sequences.
+/// - sequences (dictionary, array): A dictionary mapping identifiers to sequences, or an array of sequences.
 /// -> str
 #let _guess-seq-alphabet(sequences) = {
-  let sequences = if type(sequences) == dictionary { sequences.values() } else { sequences }
+  let sequences = if type(sequences) == dictionary { sequences.values() } else {
+    sequences
+  }
   let observed = (:)
   for seq in sequences {
     for char in seq.clusters() {
@@ -44,10 +49,14 @@
   let all-known = _aa-characters + dna-rna-chars
 
   if not observed-keys.any(char => char in all-known) {
-    panic("Could not guess sequence type. Please explicitly define sequence type.")
+    panic(
+      "Could not guess sequence type. Please explicitly define sequence type.",
+    )
   }
 
-  if observed-keys.any(char => char in _aa-characters and char not in dna-rna-chars) {
+  if observed-keys.any(char => (
+    char in _aa-characters and char not in dna-rna-chars
+  )) {
     "aa"
   } else if "U" in observed-keys {
     "rna"
@@ -146,7 +155,9 @@
     message: "Alphabet must be one of 'auto', 'aa', 'dna', or 'rna'.",
   )
 
-  let type = if alphabet == "auto" { _guess-seq-alphabet(sequences) } else { alphabet }
+  let type = if alphabet == "auto" { _guess-seq-alphabet(sequences) } else {
+    alphabet
+  }
 
   if type == "aa" {
     (size: 20, chars: _aa-characters, palette: aa-palette-default)
@@ -217,7 +228,9 @@
   let exponent = calc.floor(calc.log(target))
   let base = calc.pow(10, exponent)
   let scaled = target / base
-  let step = if scaled <= 1 { 1 } else if scaled <= 2.5 { 2.5 } else if scaled <= 5 { 5 } else if scaled <= 7.5 {
+  let step = if scaled <= 1 { 1 } else if scaled <= 2.5 { 2.5 } else if (
+    scaled <= 5
+  ) { 5 } else if scaled <= 7.5 {
     7.5
   } else { 10 }
   step * base
@@ -233,9 +246,7 @@
 /// - cols (int): Number of columns in the output.
 /// -> array
 #let _flat-to-2d(values, rows, cols) = {
-  range(rows).map(i =>
-    range(cols).map(j => values.at(i * cols + j))
-  )
+  range(rows).map(i => range(cols).map(j => values.at(i * cols + j)))
 }
 
 /// Private: Converts WASM i32 infinity representations to Typst floats.
@@ -245,9 +256,9 @@
 /// converts these sentinel values to Typst's float.inf representation.
 ///
 /// - value (int): The value to convert.
-/// -> int or float
+/// -> int, float
 #let _convert-infinity(value) = {
-  if value == -2147483648 { -float.inf }
-  else if value == 2147483647 { float.inf }
-  else { value }
+  if value == -2147483648 { -float.inf } else if value == 2147483647 {
+    float.inf
+  } else { value }
 }

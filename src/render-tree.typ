@@ -70,7 +70,15 @@
     // Center this node vertically between its first and last child
     let first = processed-children.first()
     let last = processed-children.last()
-    let y-center = (first.y-offset + first.child.y-local + last.y-offset + last.child.y-local) / 2.0
+    let y-center = (
+      (
+        first.y-offset
+          + first.child.y-local
+          + last.y-offset
+          + last.child.y-local
+      )
+        / 2.0
+    )
     let my-len = _node-length(tree)
 
     (
@@ -110,7 +118,11 @@
 
   // Draw horizontal branch to this node (except for root)
   if not style.is-root and len > 0.0 {
-    branches.push(place(top + left, line(start: (x-offset, my-y), end: (my-x, my-y), stroke: style.stroke)))
+    branches.push(place(top + left, line(
+      start: (x-offset, my-y),
+      end: (my-x, my-y),
+      stroke: style.stroke,
+    )))
   }
 
   // Draw dotted root branch if this is the root node
@@ -123,7 +135,11 @@
     )
     branches.push(place(
       top + left,
-      line(start: (my-x - style.root-length, my-y), end: (my-x, my-y), stroke: root-stroke),
+      line(
+        start: (my-x - style.root-length, my-y),
+        end: (my-x, my-y),
+        stroke: root-stroke,
+      ),
     ))
   }
 
@@ -146,7 +162,11 @@
     let y-top = _child-y-pos(first, y-offset, y-scale)
     let y-bottom = _child-y-pos(last, y-offset, y-scale)
 
-    branches.push(place(top + left, line(start: (my-x, y-top), end: (my-x, y-bottom), stroke: style.stroke)))
+    branches.push(place(top + left, line(
+      start: (my-x, y-top),
+      end: (my-x, y-bottom),
+      stroke: style.stroke,
+    )))
 
     // Recursively render children
     for c in node.children {
@@ -216,7 +236,9 @@
   let root-margin = if tree-data.name != none and tree-data.name != "" {
     let root-label = text(size: style.internal-label-size, tree-data.name)
     let label-size = measure(root-label)
-    let margin-size = if is-vertical { label-size.height } else { label-size.width }
+    let margin-size = if is-vertical { label-size.height } else {
+      label-size.width
+    }
     margin-size + _label-x-offset + style.root-length
   } else if style.is-root {
     style.root-length
@@ -248,10 +270,20 @@
 /// - is-vertical (bool): Whether the tree is vertical.
 /// - layout-size (length): Layout size.
 /// -> dictionary
-#let _resolve-layout(width, height, margins, tree-depth, tree-height, is-vertical, layout-size) = {
+#let _resolve-layout(
+  width,
+  height,
+  margins,
+  tree-depth,
+  tree-height,
+  is-vertical,
+  layout-size,
+) = {
   // 1. Resolve user width (including fractions)
   let resolved-width = if type(width) == fraction {
-    if layout-size.width == float.inf * 1em { 30em } else { layout-size.width * (width / 1fr) }
+    if layout-size.width == float.inf * 1em { 30em } else {
+      layout-size.width * (width / 1fr)
+    }
   } else { width }
 
   // 2. Resolve user height (including auto)
@@ -303,12 +335,17 @@
   assert("children" in node, message: "Tree nodes must define children")
 
   if "name" in node {
-    assert(node.name == none or type(node.name) == str, message: "Node name must be a string or none")
+    assert(
+      node.name == none or type(node.name) == str,
+      message: "Node name must be a string or none",
+    )
   }
 
   if "length" in node {
     assert(
-      node.length == none or type(node.length) == int or type(node.length) == float,
+      node.length == none
+        or type(node.length) == int
+        or type(node.length) == float,
       message: "Node length must be a number or none",
     )
   }
@@ -318,7 +355,10 @@
   }
 
   let children = node.children
-  assert(children == none or type(children) == array, message: "children must be an array or none")
+  assert(
+    children == none or type(children) == array,
+    message: "children must be an array or none",
+  )
   if children != none {
     for child in children {
       _validate-tree-data(child, is-root: false)
@@ -369,7 +409,11 @@
 
   // Bundle styling configuration
   let style = (
-    stroke: stroke(thickness: branch-weight, paint: branch-color, cap: "square"),
+    stroke: stroke(
+      thickness: branch-weight,
+      paint: branch-color,
+      cap: "square",
+    ),
     branch-color: branch-color,
     branch-weight: branch-weight,
     tip-label-size: tip-label-size,
@@ -383,13 +427,22 @@
   )
 
   // Initial tree measurement
-  let tree = (name: tree-data.name, length: tree-data.length, children: tree-data.children)
+  let tree = (
+    name: tree-data.name,
+    length: tree-data.length,
+    children: tree-data.children,
+  )
   let measured = _measure-tree(tree)
   let tip-names = _collect-tip-names(tree-data)
 
   context {
     // 1. Measure font metrics and element sizes
-    let x-height-text = text(size: tip-label-size, top-edge: "x-height", bottom-edge: "baseline", "x")
+    let x-height-text = text(
+      size: tip-label-size,
+      top-edge: "x-height",
+      bottom-edge: "baseline",
+      "x",
+    )
     let label-y-offset = measure(x-height-text).height
 
     let max-tip-width = 0pt
@@ -431,7 +484,14 @@
       let y-scale = layout.y-dim / calc.max(1e-9, measured.height)
 
       // 5. Render tree shapes
-      let result = _draw-node(measured.tree, margins.root, margins.y-start, x-scale, y-scale, style)
+      let result = _draw-node(
+        measured.tree,
+        margins.root,
+        margins.y-start,
+        x-scale,
+        y-scale,
+        style,
+      )
 
       let b = box(width: layout.box-width, height: layout.box-height, {
         for s in result.branches { s }

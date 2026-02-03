@@ -1,4 +1,6 @@
-#import "../src/constants.typ": aa-palette-default, dna-palette, rna-palette, _medium-gray
+#import "../src/constants.typ": (
+  _medium-gray, aa-palette-default, dna-palette, rna-palette,
+)
 
 #let project(
   title: "",
@@ -65,7 +67,14 @@
   (
     name: "Hydrophobic",
     symbols: ("A", "H", "I", "L", "M", "V"),
-    names: ("Alanine", "Histidine", "Isoleucine", "Leucine", "Methionine", "Valine"),
+    names: (
+      "Alanine",
+      "Histidine",
+      "Isoleucine",
+      "Leucine",
+      "Methionine",
+      "Valine",
+    ),
     abbrevs: ("Ala", "His", "Ile", "Leu", "Met", "Val"),
   ),
   (
@@ -80,8 +89,18 @@
     names: ("Phenylalanine", "Tryptophan", "Tyrosine"),
     abbrevs: ("Phe", "Trp", "Tyr"),
   ),
-  (name: "Negatively charged", symbols: ("D", "E"), names: ("Aspartic acid", "Glutamic acid"), abbrevs: ("Asp", "Glu")),
-  (name: "Positively charged", symbols: ("K", "R"), names: ("Lysine", "Arginine"), abbrevs: ("Lys", "Arg")),
+  (
+    name: "Negatively charged",
+    symbols: ("D", "E"),
+    names: ("Aspartic acid", "Glutamic acid"),
+    abbrevs: ("Asp", "Glu"),
+  ),
+  (
+    name: "Positively charged",
+    symbols: ("K", "R"),
+    names: ("Lysine", "Arginine"),
+    abbrevs: ("Lys", "Arg"),
+  ),
   (name: "Cysteine", symbols: ("C",), names: ("Cysteine",), abbrevs: ("Cys",)),
   (name: "Glycine", symbols: ("G",), names: ("Glycine",), abbrevs: ("Gly",)),
   (name: "Proline", symbols: ("P",), names: ("Proline",), abbrevs: ("Pro",)),
@@ -116,27 +135,36 @@
   )),
 )
 
-#let render-palette-group(group, palette: aa-palette-default) = block(breakable: false, {
-  let has-abbrevs = "abbrevs" in group
-  let p = group.at("palette", default: palette)
-  let clr = p.at(group.symbols.at(0))
-  stack(
-    spacing: 5pt,
-    context box(text(weight: "bold", fill: if has-abbrevs { clr } else { text.fill }, group.name)),
-    table(
-      columns: if has-abbrevs { (80pt, 35pt, 25pt, 50pt) } else { (115pt, 25pt, 50pt) },
-      column-gutter: 0pt,
-      stroke: none,
-      inset: (y: 4pt, x: 0pt),
-      align: horizon,
-      ..range(group.symbols.len())
-        .map(i => (
-          group.names.at(i),
-          ..if has-abbrevs { (group.abbrevs.at(i),) } else { () },
-          group.symbols.at(i),
-          swatch(p.at(group.symbols.at(i))),
-        ))
-        .flatten()
-    ),
-  )
-})
+#let render-palette-group(group, palette: aa-palette-default) = block(
+  breakable: false,
+  {
+    let has-abbrevs = "abbrevs" in group
+    let p = group.at("palette", default: palette)
+    let clr = p.at(group.symbols.at(0))
+    stack(
+      spacing: 5pt,
+      context box(text(
+        weight: "bold",
+        fill: if has-abbrevs { clr } else { text.fill },
+        group.name,
+      )),
+      table(
+        columns: if has-abbrevs { (80pt, 35pt, 25pt, 50pt) } else {
+          (115pt, 25pt, 50pt)
+        },
+        column-gutter: 0pt,
+        stroke: none,
+        inset: (y: 4pt, x: 0pt),
+        align: horizon,
+        ..range(group.symbols.len())
+          .map(i => (
+            group.names.at(i),
+            ..if has-abbrevs { (group.abbrevs.at(i),) } else { () },
+            group.symbols.at(i),
+            swatch(p.at(group.symbols.at(i))),
+          ))
+          .flatten()
+      ),
+    )
+  },
+)

@@ -224,12 +224,23 @@ To render the tree, use the `render-tree` function. By default, it produces a ho
 #grid(
   columns: (1fr, 1fr),
   figure(
-    render-tree(hominoidea_tree, tip-label-italics: true, width: 1fr, height: 21em),
+    render-tree(
+      hominoidea_tree,
+      tip-label-italics: true,
+      width: 1fr,
+      height: 21em,
+    ),
     caption: [Tree with horizontal orientation],
     supplement: none,
   ),
   figure(
-    render-tree(hominoidea_tree, tip-label-italics: true, width: 1fr, height: 21em, orientation: "vertical"),
+    render-tree(
+      hominoidea_tree,
+      tip-label-italics: true,
+      width: 1fr,
+      height: 21em,
+      orientation: "vertical",
+    ),
     caption: [Tree with vertical orientation],
     supplement: none,
   ),
@@ -357,14 +368,24 @@ Sequence logos, genome maps, and trees are rendered using the default document f
 #grid(
   columns: (1fr, 1fr),
   figure(
-    render-tree(hominoidea_tree, tip-label-italics: true, width: 1fr, orientation: "horizontal"),
+    render-tree(
+      hominoidea_tree,
+      tip-label-italics: true,
+      width: 1fr,
+      orientation: "horizontal",
+    ),
     caption: [Default document font],
     supplement: none,
   ),
   figure(
     context {
       show text: set text(font: "Libertinus Serif")
-      render-tree(hominoidea_tree, tip-label-italics: true, width: 1fr, orientation: "horizontal")
+      render-tree(
+        hominoidea_tree,
+        tip-label-italics: true,
+        width: 1fr,
+        orientation: "horizontal",
+      )
     },
     caption: [Custom font (Libertinus Serif)],
     supplement: none,

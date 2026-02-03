@@ -1,5 +1,5 @@
-#import "constants.typ": _medium-gray, _yellow, _dark-gray
-#import "utils.typ": resolve-matrix-name, _flat-to-2d
+#import "constants.typ": _dark-gray, _medium-gray, _yellow
+#import "utils.typ": _flat-to-2d, resolve-matrix-name
 
 #let _alignment-plugin = plugin("alignment.wasm")
 
@@ -20,10 +20,10 @@
 
 /// Private: Validates scoring parameters and returns canonical matrix name if applicable.
 ///
-/// - matrix (str or none): Scoring matrix name.
-/// - match-score (int or none): Match score.
-/// - mismatch-score (int or none): Mismatch score.
-/// -> str or none (canonical matrix name if using matrix)
+/// - matrix (str, none): Scoring matrix name.
+/// - match-score (int, none): Match score.
+/// - mismatch-score (int, none): Mismatch score.
+/// -> str, none (canonical matrix name if using matrix)
 #let _validate-scoring-params(matrix, match-score, mismatch-score) = {
   // Mutual exclusivity
   assert(
@@ -40,7 +40,10 @@
   // Matrix name resolution (case-insensitive)
   if matrix != none {
     let canonical = resolve-matrix-name(matrix)
-    assert(canonical != none, message: "Unknown scoring matrix: '" + matrix + "'.")
+    assert(
+      canonical != none,
+      message: "Unknown scoring matrix: '" + matrix + "'.",
+    )
     canonical
   }
 }
@@ -52,7 +55,10 @@
 #let _validate-gap-penalty(gap-penalty) = {
   assert(gap-penalty != none, message: "gap-penalty is required.")
   assert(type(gap-penalty) == int, message: "gap-penalty must be an integer.")
-  assert(gap-penalty <= 0, message: "gap-penalty must be non-positive, got " + str(gap-penalty) + ".")
+  assert(
+    gap-penalty <= 0,
+    message: "gap-penalty must be non-positive, got " + str(gap-penalty) + ".",
+  )
 }
 
 /// Private: Validates the alignment mode parameter.
@@ -60,18 +66,27 @@
 /// - mode (str): The alignment mode.
 /// -> none
 #let _validate-mode(mode) = {
-  assert(mode in ("global", "local"), message: "mode must be 'global' or 'local'.")
+  assert(
+    mode in ("global", "local"),
+    message: "mode must be 'global' or 'local'.",
+  )
 }
 
 /// Private: Builds the JSON configuration dictionary for WASM.
 ///
-/// - canonical-matrix (str or none): Canonical matrix name.
-/// - match-score (int or none): Match score.
-/// - mismatch-score (int or none): Mismatch score.
+/// - canonical-matrix (str, none): Canonical matrix name.
+/// - match-score (int, none): Match score.
+/// - mismatch-score (int, none): Mismatch score.
 /// - gap-penalty (int): Gap penalty.
 /// - mode (str): Alignment mode.
 /// -> dictionary
-#let _build-config(canonical-matrix, match-score, mismatch-score, gap-penalty, mode) = {
+#let _build-config(
+  canonical-matrix,
+  match-score,
+  mismatch-score,
+  gap-penalty,
+  mode,
+) = {
   let config = (
     gap_open: gap-penalty,
     gap_extend: gap-penalty,
@@ -96,7 +111,11 @@
 /// -> dictionary
 #let _call-align-wasm(seq-1, seq-2, config) = {
   let config-json = json.encode(config)
-  let result = _alignment-plugin.align(bytes(seq-1), bytes(seq-2), bytes(config-json))
+  let result = _alignment-plugin.align(
+    bytes(seq-1),
+    bytes(seq-2),
+    bytes(config-json),
+  )
   json(result)
 }
 
@@ -136,12 +155,10 @@
 /// - cols (int): Number of columns.
 /// -> array
 #let _bitmasks-to-arrows-2d(bitmasks, rows, cols) = {
-  range(rows).map(i =>
-    range(cols).map(j => {
-      let bits = bitmasks.at(i * cols + j)
-      _bitmask-to-arrows(bits, i, j)
-    })
-  )
+  range(rows).map(i => range(cols).map(j => {
+    let bits = bitmasks.at(i * cols + j)
+    _bitmask-to-arrows(bits, i, j)
+  }))
 }
 
 /// Private: Transforms the WASM response to the final output format.
@@ -150,9 +167,9 @@
 /// - original-seq-1 (str): Original (cleaned) first sequence.
 /// - original-seq-2 (str): Original (cleaned) second sequence.
 /// - mode (str): Alignment mode.
-/// - canonical-matrix (str or none): Canonical matrix name.
-/// - match-score (int or none): Match score.
-/// - mismatch-score (int or none): Mismatch score.
+/// - canonical-matrix (str, none): Canonical matrix name.
+/// - match-score (int, none): Match score.
+/// - mismatch-score (int, none): Mismatch score.
 /// - gap-penalty (int): Gap penalty.
 /// -> dictionary
 #let _transform-result(
@@ -173,10 +190,10 @@
   let values-2d = _flat-to-2d(dp.scores, rows, cols)
   let arrows-2d = _bitmasks-to-arrows-2d(dp.arrows, rows, cols)
 
-  // Convert traceback paths from array of arrays to array of tuples
-  let traceback-paths = wasm-result.traceback_paths.map(path =>
-    path.map(coord => (coord.at(0), coord.at(1)))
-  )
+  // Convert traceback paths
+  let traceback-paths = wasm-result.traceback_paths.map(path => path.map(
+    coord => (coord.at(0), coord.at(1)),
+  ))
 
   // Determine if there's a valid alignment
   let has-alignment = wasm-result.alignments.len() > 0
@@ -217,13 +234,13 @@
 /// BLOSUM80, BLOSUM90, BLOSUM100, PAM1, PAM10, PAM40, PAM80, PAM120, PAM160,
 /// PAM250, EDNAFULL. Matrix names are case-insensitive.
 ///
-/ - seq-1 (str): First sequence to align.
-/ - seq-2 (str): Second sequence to align.
-/ - matrix (str, none): Scoring matrix name (e.g., "BLOSUM62"). Mutually exclusive with match/mismatch scores (default: none).
-/ - match-score (int, none): Score for matching characters. Required if matrix is none (default: none).
-/ - mismatch-score (int, none): Score for mismatching characters. Required if matrix is none (default: none).
-/ - gap-penalty (int): Gap penalty, must be non-positive.
-/ - mode (str): Alignment mode: "global" or "local" (default: "global").
+/// - seq-1 (str): First sequence to align.
+/// - seq-2 (str): Second sequence to align.
+/// - matrix (str, none): Scoring matrix name (e.g., "BLOSUM62"). Mutually exclusive with match/mismatch scores (default: none).
+/// - match-score (int, none): Score for matching characters. Required if matrix is none (default: none).
+/// - mismatch-score (int, none): Score for mismatching characters. Required if matrix is none (default: none).
+/// - gap-penalty (int): Gap penalty, must be non-positive.
+/// - mode (str): Alignment mode: "global" or "local" (default: "global").
 /// -> dictionary
 #let align-seq-pair(
   seq-1,
@@ -237,7 +254,11 @@
   // Validate and clean inputs
   let cleaned-seq-1 = _validate-sequence(seq-1, "seq-1")
   let cleaned-seq-2 = _validate-sequence(seq-2, "seq-2")
-  let canonical-matrix = _validate-scoring-params(matrix, match-score, mismatch-score)
+  let canonical-matrix = _validate-scoring-params(
+    matrix,
+    match-score,
+    mismatch-score,
+  )
   _validate-gap-penalty(gap-penalty)
   _validate-mode(mode)
 
@@ -312,15 +333,35 @@
 
       assert(
         row-delta >= 0 and col-delta >= 0,
-        message: "Path must be monotonic: step from (" + str(prev-coord.row) + ", " + str(prev-coord.col) + ") to (" + str(parsed.row) + ", " + str(parsed.col) + ") is invalid.",
+        message: "Path must be monotonic: step from ("
+          + str(prev-coord.row)
+          + ", "
+          + str(prev-coord.col)
+          + ") to ("
+          + str(parsed.row)
+          + ", "
+          + str(parsed.col)
+          + ") is invalid.",
       )
       assert(
         row-delta <= 1 and col-delta <= 1,
-        message: "Path steps must be unit steps: step from (" + str(prev-coord.row) + ", " + str(prev-coord.col) + ") to (" + str(parsed.row) + ", " + str(parsed.col) + ") is too large.",
+        message: "Path steps must be unit steps: step from ("
+          + str(prev-coord.row)
+          + ", "
+          + str(prev-coord.col)
+          + ") to ("
+          + str(parsed.row)
+          + ", "
+          + str(parsed.col)
+          + ") is too large.",
       )
       assert(
         row-delta + col-delta > 0,
-        message: "Path cannot have duplicate consecutive coordinates at (" + str(parsed.row) + ", " + str(parsed.col) + ").",
+        message: "Path cannot have duplicate consecutive coordinates at ("
+          + str(parsed.row)
+          + ", "
+          + str(parsed.col)
+          + ").",
       )
     }
 
@@ -466,7 +507,12 @@
     }
   }
 
-  (aligned1: aligned1, match-line: match-line, aligned2: aligned2, unaligned-mask: unaligned-mask)
+  (
+    aligned1: aligned1,
+    match-line: match-line,
+    aligned2: aligned2,
+    unaligned-mask: unaligned-mask,
+  )
 }
 
 /// Private: Calculate cell center coordinates.
@@ -579,27 +625,39 @@
       }
 
       let fill-color = get-highlight-color(row-idx, col-idx)
-      let cell-radius = _get-cell-radius(row-idx, col-idx, last-row, last-col, corner-radius)
+      let cell-radius = _get-cell-radius(
+        row-idx,
+        col-idx,
+        last-row,
+        last-col,
+        corner-radius,
+      )
 
       // Background layer: boxes with rounded corners and fills
-      bg-grid-content = bg-grid-content + (
-        box(
-          width: 100%,
-          height: 100%,
-          fill: fill-color,
-          stroke: stroke-width + stroke-color,
-          radius: cell-radius,
-          inset: cell-inset,
-        )[],
+      bg-grid-content = (
+        bg-grid-content
+          + (
+            box(
+              width: 100%,
+              height: 100%,
+              fill: fill-color,
+              stroke: stroke-width + stroke-color,
+              radius: cell-radius,
+              inset: cell-inset,
+            )[],
+          )
       )
 
       // Text layer: only text, no fills
-      text-grid-content = text-grid-content + (
-        box(
-          width: 100%,
-          height: 100%,
-          inset: cell-inset,
-        )[#cell-content],
+      text-grid-content = (
+        text-grid-content
+          + (
+            box(
+              width: 100%,
+              height: 100%,
+              inset: cell-inset,
+            )[#cell-content],
+          )
       )
     }
   }
@@ -608,7 +666,14 @@
 }
 
 /// Private: Render path overlay.
-#let _render-path(path, path-color, path-width, label-col-width, label-row-height, cell-size) = {
+#let _render-path(
+  path,
+  path-color,
+  path-width,
+  label-col-width,
+  label-row-height,
+  cell-size,
+) = {
   if path == none or path.len() <= 1 {
     return
   }
@@ -616,7 +681,13 @@
   // Calculate path coordinates
   let path-coords = path.map(pt => {
     let coord = _parse-coord(pt)
-    let center = _cell-center(coord.row, coord.col, label-col-width, label-row-height, cell-size)
+    let center = _cell-center(
+      coord.row,
+      coord.col,
+      label-col-width,
+      label-row-height,
+      cell-size,
+    )
     (center.x, center.y)
   })
 
@@ -649,7 +720,12 @@
   for i in range(path.len() - 1) {
     let path-from = path.at(i)
     let path-to = path.at(i + 1)
-    if arrow-from.at(0) == path-from.at(0) and arrow-from.at(1) == path-from.at(1) and arrow-to.at(0) == path-to.at(0) and arrow-to.at(1) == path-to.at(1) {
+    if (
+      arrow-from.at(0) == path-from.at(0)
+        and arrow-from.at(1) == path-from.at(1)
+        and arrow-to.at(0) == path-to.at(0)
+        and arrow-to.at(1) == path-to.at(1)
+    ) {
       return true
     }
   }
@@ -666,10 +742,20 @@
 ) = {
   if from-coord.row == to-coord.row {
     // Horizontal arrow (left)
-    (center-x + arrow-half-length, center-y, center-x - arrow-half-length, center-y)
+    (
+      center-x + arrow-half-length,
+      center-y,
+      center-x - arrow-half-length,
+      center-y,
+    )
   } else if from-coord.col == to-coord.col {
     // Vertical arrow (up)
-    (center-x, center-y + arrow-half-length, center-x, center-y - arrow-half-length)
+    (
+      center-x,
+      center-y + arrow-half-length,
+      center-x,
+      center-y - arrow-half-length,
+    )
   } else {
     // Diagonal arrow
     let dx-sign = if to-coord.col < from-coord.col { -1 } else { 1 }
@@ -703,13 +789,27 @@
 
         // Determine arrow color
         let arr-color = arrow-color
-        if highlight-path-arrows and _is-arrow-on-path(arrow.at(0), arrow.at(1), path) {
+        if (
+          highlight-path-arrows and _is-arrow-on-path(arrow.at(0), arrow.at(1), path)
+        ) {
           arr-color = path-arrow-color
         }
 
         // Calculate boundary position between the two cells
-        let from-center = _cell-center(from-coord.row, from-coord.col, label-col-width, label-row-height, cell-size)
-        let to-center = _cell-center(to-coord.row, to-coord.col, label-col-width, label-row-height, cell-size)
+        let from-center = _cell-center(
+          from-coord.row,
+          from-coord.col,
+          label-col-width,
+          label-row-height,
+          cell-size,
+        )
+        let to-center = _cell-center(
+          to-coord.row,
+          to-coord.col,
+          label-col-width,
+          label-row-height,
+          cell-size,
+        )
 
         let center-x = (from-center.x + to-center.x) / 2.0
         let center-y = (from-center.y + to-center.y) / 2.0
@@ -746,22 +846,22 @@
 /// Creates a visual representation of a DP matrix with optional cell highlighting,
 /// traceback path overlay, and arrow indicators for alignment directions.
 ///
-/ - top-seq (str): Sequence displayed on top as column labels. Typically "-" + seq-2.
-/ - left-seq (str): Sequence displayed on left as row labels. Typically "-" + seq-1.
-/ - values (array): 2D array of matrix values (integers or none for empty cells).
-/ - highlights (array): Cell highlights as (row, col) or (row, col, color) tuples (default: ()).
-/ - highlight-color (color): Default color for highlighted cells (default: light gray).
-/ - path (array, none): Traceback path as array of (row, col) tuples (default: none).
-/ - path-color (color): Color for the path line (default: semi-transparent yellow).
-/ - path-width (length): Width of the path line (default: 18pt).
-/ - path-cell-bold (bool): Whether scores in cells on the path are rendered in bold (default: true).
-/ - arrows (array): 2D matrix of arrows from alignment result. Each cell contains an array of arrow tuples ((from_row, from_col), (to_row, to_col)) (default: ()).
-/ - arrow-color (color): Default color for arrows (default: medium gray).
-/ - highlight-path-arrows (bool): Whether arrows on the path use a different color (default: true).
-/ - path-arrow-color (color): Color for arrows on the traceback path (default: dark gray).
-/ - cell-size (length): Size of each square cell (default: 35pt).
-/ - stroke-width (length): Width of cell borders (default: 0.6pt).
-/ - stroke-color (color): Color of cell borders (default: medium gray).
+/// - top-seq (str): Sequence displayed on top as column labels. Typically "-" + seq-2.
+/// - left-seq (str): Sequence displayed on left as row labels. Typically "-" + seq-1.
+/// - values (array): 2D array of matrix values (integers or none for empty cells).
+/// - highlights (array): Cell highlights as (row, col) or (row, col, color) tuples (default: ()).
+/// - highlight-color (color): Default color for highlighted cells (default: light gray).
+/// - path (array, none): Traceback path as array of (row, col) tuples (default: none).
+/// - path-color (color): Color for the path line (default: semi-transparent yellow).
+/// - path-width (length): Width of the path line (default: 18pt).
+/// - path-cell-bold (bool): Whether scores in cells on the path are rendered in bold (default: true).
+/// - arrows (array): 2D matrix of arrows from alignment result. Each cell contains an array of arrow tuples ((from_row, from_col), (to_row, to_col)) (default: ()).
+/// - arrow-color (color): Default color for arrows (default: medium gray).
+/// - highlight-path-arrows (bool): Whether arrows on the path use a different color (default: true).
+/// - path-arrow-color (color): Color for arrows on the traceback path (default: dark gray).
+/// - cell-size (length): Size of each square cell (default: 35pt).
+/// - stroke-width (length): Width of cell borders (default: 0.6pt).
+/// - stroke-color (color): Color of cell borders (default: medium gray).
 /// -> content
 #let render-dp-matrix(
   top-seq,
@@ -786,7 +886,10 @@
   let left-clusters = left-seq.clusters()
 
   // Validate inputs
-  assert(values.len() == left-clusters.len(), message: "Number of value rows must match left sequence length.")
+  assert(
+    values.len() == left-clusters.len(),
+    message: "Number of value rows must match left sequence length.",
+  )
   assert(
     values.all(row => row.len() == top-clusters.len()),
     message: "Number of value columns must match top sequence length.",
@@ -859,7 +962,14 @@
     bg-grid
 
     // Layer 2: Path overlay (above backgrounds, below text)
-    _render-path(path, path-color, path-width, label-col-width, label-row-height, cell-size)
+    _render-path(
+      path,
+      path-color,
+      path-width,
+      label-col-width,
+      label-row-height,
+      cell-size,
+    )
 
     // Layer 3: Text grid overlay (above path)
     place(top + left, dx: 0pt, dy: 0pt, text-grid)
@@ -948,28 +1058,30 @@
     let char-width = measure(text("M")).width
 
     // Build grid content for each line, applying unaligned color if specified
-    let line1-cells = result.aligned1.clusters().enumerate().map(item => {
-      let (i, char) = item
-      let content = if i < result.unaligned-mask.len() and result.unaligned-mask.at(i) and unaligned-color != none {
-        text(fill: unaligned-color)[#char]
-      } else {
-        char
-      }
-      align(center + horizon)[#content]
-    })
-    let line2-cells = result.match-line.clusters().enumerate().map(item => {
-      let (i, char) = item
-      align(center + horizon)[#char]
-    })
-    let line3-cells = result.aligned2.clusters().enumerate().map(item => {
-      let (i, char) = item
-      let content = if i < result.unaligned-mask.len() and result.unaligned-mask.at(i) and unaligned-color != none {
-        text(fill: unaligned-color)[#char]
-      } else {
-        char
-      }
-      align(center + horizon)[#content]
-    })
+    let unaligned-mask = result.unaligned-mask
+    let mask-length = unaligned-mask.len()
+    let has-unaligned-color = unaligned-color != none
+
+    let make-line-cells(chars, apply-unaligned) = {
+      chars
+        .enumerate()
+        .map(item => {
+          let (i, char) = item
+          let should-color = (
+            apply-unaligned and has-unaligned-color and i < mask-length and unaligned-mask.at(i)
+          )
+          let content = if should-color {
+            text(fill: unaligned-color)[#char]
+          } else {
+            char
+          }
+          align(center + horizon)[#content]
+        })
+    }
+
+    let line1-cells = make-line-cells(result.aligned1.clusters(), true)
+    let line2-cells = make-line-cells(result.match-line.clusters(), false)
+    let line3-cells = make-line-cells(result.aligned2.clusters(), true)
 
     block(breakable: false, grid(
       columns: line1-cells.len() * (char-width,),

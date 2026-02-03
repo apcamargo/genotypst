@@ -11,21 +11,34 @@
 
   for gene in genes {
     assert(type(gene) == dictionary, message: "Each gene must be a dictionary")
-    assert("start" in gene and "end" in gene, message: "Each gene must define start and end")
+    assert(
+      "start" in gene and "end" in gene,
+      message: "Each gene must define start and end",
+    )
 
     let gene-start = calc.min(gene.start, gene.end)
     let gene-end = calc.max(gene.start, gene.end)
     let strand = if "strand" in gene { gene.strand } else { none }
-    let normalized-strand = if strand == "+" { 1 } else if strand == "-" { -1 } else { strand }
+    let normalized-strand = if strand == "+" { 1 } else if strand == "-" {
+      -1
+    } else { strand }
     assert(
       normalized-strand in (1, -1, none),
       message: "strand must be 1, -1, '+', '-', or none",
     )
 
     let label = if "label" in gene { gene.label } else { none }
-    let color = if "color" in gene and gene.color != none { gene.color } else { default-color }
+    let color = if "color" in gene and gene.color != none { gene.color } else {
+      default-color
+    }
 
-    normalized.push((start: gene-start, end: gene-end, strand: normalized-strand, label: label, color: color))
+    normalized.push((
+      start: gene-start,
+      end: gene-end,
+      strand: normalized-strand,
+      label: label,
+      color: color,
+    ))
   }
 
   normalized
@@ -133,19 +146,27 @@
   label-horizontal-gap,
   label-vertical-gap,
 ) = {
-  let label-height = measure(text("pjfI", size: label-size, bottom-edge: "descender")).height
+  let label-height = measure(text(
+    "pjfI",
+    size: label-size,
+    bottom-edge: "bounds",
+  )).height
   let label-data = ()
 
   for gene in genes {
     if gene.label != none {
       let center-bp = (gene.start + gene.end) / 2
-      let gene-center = track-width * ((center-bp - region-start) / region-length)
+      let gene-center = (
+        track-width * ((center-bp - region-start) / region-length)
+      )
       let gene-width = track-width * ((gene.end - gene.start) / region-length)
       let label-text = text(size: label-size, fill: label-color)[#gene.label]
       let label-width = measure(label-text).width
       let raw-left = gene-center - label-width / 2
       let max-left = track-width - label-width
-      let left = if max-left < 0pt { 0pt } else { _clamp(raw-left, 0pt, max-left) }
+      let left = if max-left < 0pt { 0pt } else {
+        _clamp(raw-left, 0pt, max-left)
+      }
       let right = left + label-width
       let text-center = left + label-width / 2
       let underline-width = calc.max(0.75pt, gene-width - 0.75pt)
@@ -173,7 +194,10 @@
   let sorted-for-dodging = label-data.sorted(
     key: label => (-(label.dodge-right - label.dodge-left), label.center),
   )
-  let label-layout = _assign-label-levels(sorted-for-dodging, label-horizontal-gap)
+  let label-layout = _assign-label-levels(
+    sorted-for-dodging,
+    label-horizontal-gap,
+  )
   let labels = label-layout.labels.sorted(key: label => label.center)
   let level-count = label-layout.levels
   let level-block-height = if level-count == 0 {
@@ -186,7 +210,7 @@
   let positioned-labels = labels.map(label => {
     let top = level-base-top - label.level * level-step
     let bottom = top + label-height
-    let underline-y = bottom + 0.5pt
+    let underline-y = bottom + label-height * 0.13
     (
       ..label,
       top: top,
@@ -232,61 +256,51 @@
     let start-x = track-width * ((gene.start - region-start) / region-length)
     let end-x = track-width * ((gene.end - region-start) / region-length)
     let gene-width = end-x - start-x
-    let base-head = if head-length == auto { gene-height * 0.35 } else { head-length }
+    let base-head = if head-length == auto { gene-height * 0.35 } else {
+      head-length
+    }
     let head = calc.min(gene-width, calc.max(min-head-length, base-head))
 
-    if gene.strand == 1 {
+    let points = if gene.strand == 1 {
       if head >= gene-width {
-        place(top + left, dx: start-x, dy: track-top, polygon(
-          fill: gene.color,
-          stroke: gene-stroke,
-          (0pt, 0pt),
-          (gene-width, gene-height / 2),
-          (0pt, gene-height),
-        ))
+        ((0pt, 0pt), (gene-width, gene-height / 2), (0pt, gene-height))
       } else {
         let body-width = gene-width - head
-        place(top + left, dx: start-x, dy: track-top, polygon(
-          fill: gene.color,
-          stroke: gene-stroke,
+        (
           (0pt, 0pt),
           (body-width, 0pt),
           (gene-width, gene-height / 2),
           (body-width, gene-height),
           (0pt, gene-height),
-        ))
+        )
       }
     } else if gene.strand == -1 {
       if head >= gene-width {
-        place(top + left, dx: start-x, dy: track-top, polygon(
-          fill: gene.color,
-          stroke: gene-stroke,
-          (gene-width, 0pt),
-          (0pt, gene-height / 2),
-          (gene-width, gene-height),
-        ))
+        ((gene-width, 0pt), (0pt, gene-height / 2), (gene-width, gene-height))
       } else {
         let body-width = gene-width - head
-        place(top + left, dx: start-x, dy: track-top, polygon(
-          fill: gene.color,
-          stroke: gene-stroke,
+        (
           (gene-width, 0pt),
           (head, 0pt),
           (0pt, gene-height / 2),
           (head, gene-height),
           (gene-width, gene-height),
-        ))
+        )
       }
     } else {
-      place(top + left, dx: start-x, dy: track-top, polygon(
-        fill: gene.color,
-        stroke: gene-stroke,
+      (
         (0pt, 0pt),
         (gene-width, 0pt),
         (gene-width, gene-height),
         (0pt, gene-height),
-      ))
+      )
     }
+
+    place(top + left, dx: start-x, dy: track-top, polygon(
+      fill: gene.color,
+      stroke: gene-stroke,
+      ..points,
+    ))
   }
 }
 
@@ -313,9 +327,19 @@
 ) = {
   if scale-bar {
     // Draw the scale line centered on the tick height.
-    _draw-horizontal-segment(0pt, scale-top + scale-tick-height / 2, scale-width, scale-stroke)
+    _draw-horizontal-segment(
+      0pt,
+      scale-top + scale-tick-height / 2,
+      scale-width,
+      scale-stroke,
+    )
     _draw-vertical-segment(0pt, scale-top, scale-tick-height, scale-stroke)
-    _draw-vertical-segment(scale-width, scale-top, scale-tick-height, scale-stroke)
+    _draw-vertical-segment(
+      scale-width,
+      scale-top,
+      scale-tick-height,
+      scale-stroke,
+    )
     place(
       top + left,
       dx: scale-width / 2 - scale-label-width / 2,
@@ -373,7 +397,11 @@
       } else {
         str(label-value) + " " + unit
       }
-      let label-text = text(size: label-size, fill: axis-color, bottom-edge: "descender")[#label]
+      let label-text = text(
+        size: label-size,
+        fill: axis-color,
+        bottom-edge: "descender",
+      )[#label]
       let label-width = measure(label-text).width
       _draw-vertical-segment(x, axis-top, tick-height, axis-stroke)
       place(
@@ -398,7 +426,6 @@
 /// - label (content, none): Label text.
 /// - color (color, none): Fill color (none uses default-color).
 ///
-/// Parameters:
 /// - genes (array): Gene dictionaries to render.
 /// - width (length, fraction): Total map width (default: 100%).
 /// - start (float, auto): Region start (default: auto).
@@ -470,10 +497,19 @@
     assert(region-length > 0, message: "region length must be positive")
 
     let track-width = size.width
-    let scale-label-height = measure(text("pjfI", size: label-size, bottom-edge: "descender")).height
+    // Resolve relative lengths to absolute values for layout comparisons.
     let resolve-gap = gap => measure(box(width: gap)[]).width
+    let label-horizontal-gap = resolve-gap(label-horizontal-gap)
     let label-vertical-gap = resolve-gap(label-vertical-gap)
     let label-line-distance = resolve-gap(label-line-distance)
+    let label-track-gap = resolve-gap(label-track-gap)
+    let label-leader-offset = resolve-gap(label-leader-offset)
+    let tick-height = resolve-gap(tick-height)
+    let gene-height = resolve-gap(gene-height)
+    let min-head-length = resolve-gap(min-head-length)
+    let head-length = if head-length == auto { auto } else {
+      resolve-gap(head-length)
+    }
     let coordinate-axis-label-gap = 2.5pt
     let scale-label-gap = 1.5pt
 
@@ -491,7 +527,7 @@
     let level-count = label-layout.level-count
     let label-height = label-layout.label-height
     let level-block-height = label-layout.level-block-height
-    let label-line-clearance = label-height * 0.225
+    let label-line-clearance = label-height * 0.25
 
     let track-top = if level-count == 0 {
       0pt
@@ -501,14 +537,10 @@
 
     let track-bottom = track-top + gene-height
 
-    let scale-length = if scale-bar {
-      if scale-length == auto {
-        _round-scale(region-length / 5)
-      } else {
-        scale-length
-      }
+    let scale-length = if not scale-bar { 0 } else if scale-length == auto {
+      _round-scale(region-length / 10)
     } else {
-      0
+      scale-length
     }
 
     let scale-label-value = if scale-length >= 1 {
@@ -523,7 +555,11 @@
       str(scale-label-value) + " " + unit
     }
 
-    let scale-label-text = text(size: label-size, fill: black, bottom-edge: "descender")[#scale-label]
+    let scale-label-text = text(
+      size: label-size,
+      fill: black,
+      bottom-edge: "descender",
+    )[#scale-label]
     let scale-label-width = measure(scale-label-text).width
 
     let scale-width = if scale-bar {
@@ -533,34 +569,48 @@
     }
 
     let coordinate-axis-height = if coordinate-axis {
-      tick-height + coordinate-axis-label-gap + scale-label-height
+      tick-height + coordinate-axis-label-gap + label-height
     } else {
       0pt
     }
-    let coordinate-axis-top = track-bottom + (if coordinate-axis { coordinate-axis-track-gap } else { 0pt })
+    let axis-gap = if coordinate-axis { coordinate-axis-track-gap } else { 0pt }
+    let coordinate-axis-top = track-bottom + axis-gap
     let scale-top = if scale-bar {
-      (
-        track-bottom
-          + (
-            if coordinate-axis {
-              coordinate-axis-track-gap + coordinate-axis-height + scale-track-gap
-            } else { scale-track-gap }
-          )
-      )
-    } else { 0pt }
+      track-bottom + axis-gap + coordinate-axis-height + scale-track-gap
+    } else {
+      0pt
+    }
     let total-height = (
       track-bottom
-        + (if coordinate-axis { coordinate-axis-track-gap + coordinate-axis-height } else { 0pt })
-        + (if scale-bar { scale-track-gap + tick-height + scale-label-gap + scale-label-height } else { 0pt })
+        + axis-gap
+        + coordinate-axis-height
+        + (
+          if scale-bar {
+            scale-track-gap + tick-height + scale-label-gap + label-height
+          } else { 0pt }
+        )
     )
 
-    let gene-stroke = (paint: gene-outline-color, thickness: stroke-width, join: "miter")
-    let label-stroke = (paint: label-color, thickness: stroke-width, cap: "round")
+    let gene-stroke = (
+      paint: gene-outline-color,
+      thickness: stroke-width,
+      join: "miter",
+    )
+    let label-stroke = (
+      paint: label-color,
+      thickness: stroke-width,
+      cap: "round",
+    )
     let scale-stroke = (paint: black, thickness: stroke-width, cap: "round")
 
     block(width: size.width, height: total-height, breakable: false, {
       // Baseline through the middle of the gene track.
-      _draw-horizontal-segment(0pt, track-top + gene-height / 2, track-width, gene-stroke)
+      _draw-horizontal-segment(
+        0pt,
+        track-top + gene-height / 2,
+        track-width,
+        gene-stroke,
+      )
       // Gene shapes
       _draw-genes(
         normalized,
@@ -591,8 +641,13 @@
           if line-bottom > line-top {
             let intervals = ()
             for other in positioned-labels {
-              let hit = line-x >= other.left - label-line-distance and line-x <= other.right + label-line-distance
-              let overlap = other.bottom >= line-top and other.top <= line-bottom
+              let hit = (
+                line-x >= other.left - label-line-distance
+                  and line-x <= other.right + label-line-distance
+              )
+              let overlap = (
+                other.bottom >= line-top and other.top <= line-bottom
+              )
               if hit and overlap {
                 intervals.push((
                   start: other.top - label-line-clearance,
@@ -607,7 +662,12 @@
               let gap-start = _clamp(gap.start, line-top, line-bottom)
               let gap-end = _clamp(gap.end, line-top, line-bottom)
               if gap-start > cursor {
-                _draw-vertical-segment(line-x, cursor, gap-start - cursor, label-stroke)
+                _draw-vertical-segment(
+                  line-x,
+                  cursor,
+                  gap-start - cursor,
+                  label-stroke,
+                )
               }
               if gap-end > cursor {
                 cursor = gap-end
@@ -615,7 +675,12 @@
             }
 
             if cursor < line-bottom {
-              _draw-vertical-segment(line-x, cursor, line-bottom - cursor, label-stroke)
+              _draw-vertical-segment(
+                line-x,
+                cursor,
+                line-bottom - cursor,
+                label-stroke,
+              )
             }
           }
 

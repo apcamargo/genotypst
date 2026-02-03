@@ -1,7 +1,7 @@
 #import "constants.typ": _light-gray
 #import "utils.typ": (
-  _compute-sequence-conservation, _get-column-stats, _guess-seq-alphabet, _resolve-alphabet-config, _validate-msa,
-  _with-monospaced-font,
+  _compute-sequence-conservation, _get-column-stats, _guess-seq-alphabet,
+  _resolve-alphabet-config, _validate-msa, _with-monospaced-font,
 )
 
 /// Renders a single character in an MSA with optional coloring.
@@ -17,7 +17,10 @@
     let base-color = palette.at(char)
     let bg-color = base-color.lighten(73.5%)
     let fg-color = base-color.darken(22.5%)
-    box(fill: bg-color, outset: (y: outset-y), width: char-width, align(center, text(fill: fg-color, char)))
+    box(fill: bg-color, outset: (y: outset-y), width: char-width, align(
+      center,
+      text(fill: fg-color, char),
+    ))
   } else {
     let content = if colors { text(fill: _light-gray, char) } else { char }
     box(outset: (y: outset-y), width: char-width, align(center, content))
@@ -117,7 +120,13 @@
 
   let rendered-seq = segment
     .clusters()
-    .map(char => _render-msa-character(char, colors, palette, char-width, outset-y))
+    .map(char => _render-msa-character(
+      char,
+      colors,
+      palette,
+      char-width,
+      outset-y,
+    ))
     .join()
 
   (display-acc, rendered-seq)
@@ -161,8 +170,10 @@
 
   let config = _resolve-alphabet-config(alphabet, sequences)
 
-  let actual-start = calc.max(0, if start == none { 0 } else { start })
-  let actual-end = if end == none { total-max-len } else { calc.min(end, total-max-len) }
+  let actual-start = if start == none { 0 } else { calc.max(0, start) }
+  let actual-end = if end == none { total-max-len } else {
+    calc.min(end, total-max-len)
+  }
   if actual-start >= actual-end { return }
 
   let n-seqs = pairs.len()
@@ -173,54 +184,56 @@
     let outset-y = leading / 2 + 0.1pt
     let box-width = char-width + 0.425pt
 
-    let blocks = range(actual-start, actual-end, step: max-seq-width).map(block-start => {
-      let block-end = calc.min(block-start + max-seq-width, actual-end)
+    let blocks = range(actual-start, actual-end, step: max-seq-width).map(
+      block-start => {
+        let block-end = calc.min(block-start + max-seq-width, actual-end)
 
-      let conservation-row = if conservation {
-        _render-msa-conservation-row(
-          sequences,
-          block-start,
-          block-end,
-          n-seqs,
-          sampling-correction,
-          config.size,
-          config.chars,
-          max-bits,
-          box-width,
-        )
-      } else {
-        ()
-      }
-
-      let sequence-rows = pairs
-        .map(p => {
-          let (acc, seq) = p
-          _render-msa-sequence-row(
-            acc,
-            seq,
+        let conservation-row = if conservation {
+          _render-msa-conservation-row(
+            sequences,
             block-start,
             block-end,
-            max-acc-width,
-            colors,
-            config.palette,
+            n-seqs,
+            sampling-correction,
+            config.size,
+            config.chars,
+            max-bits,
             box-width,
-            outset-y,
           )
-        })
-        .flatten()
+        } else {
+          ()
+        }
 
-      block(
-        breakable: breakable,
-        grid(
-          columns: (auto, auto),
-          column-gutter: 2em,
-          row-gutter: leading,
-          align: left,
-          ..conservation-row,
-          ..sequence-rows,
-        ),
-      )
-    })
+        let sequence-rows = pairs
+          .map(p => {
+            let (acc, seq) = p
+            _render-msa-sequence-row(
+              acc,
+              seq,
+              block-start,
+              block-end,
+              max-acc-width,
+              colors,
+              config.palette,
+              box-width,
+              outset-y,
+            )
+          })
+          .flatten()
+
+        block(
+          breakable: breakable,
+          grid(
+            columns: (auto, auto),
+            column-gutter: 2em,
+            row-gutter: leading,
+            align: left,
+            ..conservation-row,
+            ..sequence-rows,
+          ),
+        )
+      },
+    )
 
     block(
       inset: (y: outset-y),

@@ -1,4 +1,6 @@
-#import "utils.typ": _alignment-plugin, _convert-infinity, _flat-to-2d, resolve-matrix-name
+#import "utils.typ": (
+  _alignment-plugin, _convert-infinity, _flat-to-2d, resolve-matrix-name,
+)
 #import "constants.typ": _diverging-gradient
 
 /// Retrieves a scoring matrix by name from the WASM plugin.
@@ -29,7 +31,9 @@
   let matrix-2d = _flat-to-2d(raw-result.scores, n, n)
 
   // Convert infinity values
-  let matrix-converted = matrix-2d.map(row => row.map(score => _convert-infinity(score)))
+  let matrix-converted = matrix-2d.map(row => row.map(
+    score => _convert-infinity(score),
+  ))
 
   // Return structured result
   (
@@ -53,8 +57,14 @@
   // Validate input types
   assert(type(char1) == str, message: "char1 must be a string.")
   assert(type(char2) == str, message: "char2 must be a string.")
-  assert(char1.len() == 1, message: "char1 must be a single character, got '" + char1 + "'.")
-  assert(char2.len() == 1, message: "char2 must be a single character, got '" + char2 + "'.")
+  assert(
+    char1.len() == 1,
+    message: "char1 must be a single character, got '" + char1 + "'.",
+  )
+  assert(
+    char2.len() == 1,
+    message: "char2 must be a single character, got '" + char2 + "'.",
+  )
 
   // Case-insensitive lookup
   let c1 = upper(char1)
@@ -64,8 +74,22 @@
   let idx1 = scoring-matrix.alphabet.position(c => c == c1)
   let idx2 = scoring-matrix.alphabet.position(c => c == c2)
 
-  assert(idx1 != none, message: "Character '" + char1 + "' not found in " + scoring-matrix.name + " alphabet.")
-  assert(idx2 != none, message: "Character '" + char2 + "' not found in " + scoring-matrix.name + " alphabet.")
+  assert(
+    idx1 != none,
+    message: "Character '"
+      + char1
+      + "' not found in "
+      + scoring-matrix.name
+      + " alphabet.",
+  )
+  assert(
+    idx2 != none,
+    message: "Character '"
+      + char2
+      + "' not found in "
+      + scoring-matrix.name
+      + " alphabet.",
+  )
 
   // Return score
   scoring-matrix.matrix.at(idx1).at(idx2)
@@ -87,7 +111,9 @@
 /// -> color, none
 #let _get-score-color(score, min-val, max-val, color-map) = {
   if color-map == none { return none }
-  let ratio = if max-val == min-val { 0.5 } else { (score - min-val) / (max-val - min-val) }
+  let ratio = if max-val == min-val { 0.5 } else {
+    (score - min-val) / (max-val - min-val)
+  }
   let clamped-ratio = calc.clamp(ratio, 0.0, 1.0)
   let stop-count = color-map.len()
   gradient.linear(..color-map).sharp(stop-count).sample(clamped-ratio * 100%)
@@ -101,7 +127,9 @@
 /// - score (int, float): The score to format.
 /// -> content
 #let _format-score(score) = {
-  if score == float.inf { sym.infinity } else if score == -float.inf { [#sym.minus#sym.infinity] } else if score < 0 {
+  if score == float.inf { sym.infinity } else if score == -float.inf {
+    [#sym.minus#sym.infinity]
+  } else if score < 0 {
     [#sym.minus#calc.abs(score)]
   } else { [#score] }
 }
@@ -121,7 +149,9 @@
 
   for (i, row) in values.enumerate() {
     for (j, val) in row.enumerate() {
-      let in-triangle = if triangle == "lower" { i >= j } else if triangle == "upper" { i <= j } else { true }
+      let in-triangle = if triangle == "lower" { i >= j } else if (
+        triangle == "upper"
+      ) { i <= j } else { true }
 
       if in-triangle and not float.is-infinite(val) {
         current-max-abs = calc.max(current-max-abs, calc.abs(val))
@@ -158,7 +188,9 @@
   let cells = ()
 
   let make-label(sym) = {
-    grid.cell(fill: none, stroke: none)[#(if label-bold { strong(sym) } else { sym })]
+    grid.cell(fill: none, stroke: none)[#(
+      if label-bold { strong(sym) } else { sym }
+    )]
   }
 
   let make-data-cell(i, j) = {
@@ -170,7 +202,9 @@
   let make-empty-cell() = grid.cell(stroke: none)[]
 
   let should-render(i, j) = {
-    if triangle == "full" { true } else if triangle == "lower" { i >= j } else { i <= j }
+    if triangle == "full" { true } else if triangle == "lower" { i >= j } else {
+      i <= j
+    }
   }
 
   if triangle == "upper" {
@@ -181,7 +215,9 @@
     // Data rows + Right labels
     for (i, row-sym) in symbols.enumerate() {
       for (j, _) in symbols.enumerate() {
-        if should-render(i, j) { cells.push(make-data-cell(i, j)) } else { cells.push(make-empty-cell()) }
+        if should-render(i, j) { cells.push(make-data-cell(i, j)) } else {
+          cells.push(make-empty-cell())
+        }
       }
       cells.push(make-label(row-sym))
     }
@@ -190,7 +226,9 @@
     for (i, row-sym) in symbols.enumerate() {
       cells.push(make-label(row-sym))
       for (j, _) in symbols.enumerate() {
-        if should-render(i, j) { cells.push(make-data-cell(i, j)) } else { cells.push(make-empty-cell()) }
+        if should-render(i, j) { cells.push(make-data-cell(i, j)) } else {
+          cells.push(make-empty-cell())
+        }
       }
     }
     // Bottom labels row
@@ -247,13 +285,19 @@
   )
 
   // Determine display symbols
-  let display-symbols = if symbols == none { scoring-matrix.alphabet } else { symbols }
+  let display-symbols = if symbols == none { scoring-matrix.alphabet } else {
+    symbols
+  }
 
   // Validate requested symbols exist in alphabet
   for sym in display-symbols {
     assert(
       sym in scoring-matrix.alphabet,
-      message: "Symbol '" + sym + "' not found in " + scoring-matrix.name + " alphabet.",
+      message: "Symbol '"
+        + sym
+        + "' not found in "
+        + scoring-matrix.name
+        + " alphabet.",
     )
   }
 
@@ -264,10 +308,12 @@
   }
 
   // Extract values for requested symbols
-  let values = display-symbols.map(row-sym => display-symbols.map(col-sym => scoring-matrix
-    .matrix
-    .at(sym-to-idx.at(row-sym))
-    .at(sym-to-idx.at(col-sym))))
+  let values = display-symbols.map(row-sym => display-symbols.map(
+    col-sym => scoring-matrix
+      .matrix
+      .at(sym-to-idx.at(row-sym))
+      .at(sym-to-idx.at(col-sym)),
+  ))
 
   // Calculate scale limits
   let limits = _get-scale-limits(values, triangle, scale-limit)
