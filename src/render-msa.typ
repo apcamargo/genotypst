@@ -1,7 +1,8 @@
 #import "constants.typ": _light-gray
 #import "utils.typ": (
-  _compute-sequence-conservation, _get-column-stats, _guess-seq-alphabet,
-  _resolve-alphabet-config, _validate-msa, _with-monospaced-font,
+  _check-palette-coverage, _compute-sequence-conservation, _fixed-width-grid,
+  _get-column-stats, _guess-seq-alphabet, _resolve-alphabet-config,
+  _validate-msa,
 )
 
 /// Renders a single character in an MSA with optional coloring.
@@ -9,21 +10,18 @@
 /// - char (str): The character to render.
 /// - colors (bool): Whether to apply coloring.
 /// - palette (dictionary): Color palette for residues.
-/// - char-width (length): Width of the character box.
-/// - outset-y (length): Vertical outset for the box.
-/// -> content
-#let _render-msa-character(char, colors, palette, char-width, outset-y) = {
+/// -> dictionary with keys:
+///   - body: content
+///   - fill: color, none
+#let _render-msa-character(char, colors, palette) = {
   if colors and char in palette {
     let base-color = palette.at(char)
     let bg-color = base-color.lighten(73.5%)
     let fg-color = base-color.darken(22.5%)
-    box(fill: bg-color, outset: (y: outset-y), width: char-width, align(
-      center,
-      text(fill: fg-color, char),
-    ))
+    (body: text(fill: fg-color, char), fill: bg-color)
   } else {
     let content = if colors { text(fill: _light-gray, char) } else { char }
-    box(outset: (y: outset-y), width: char-width, align(center, content))
+    (body: content, fill: none)
   }
 }
 
@@ -40,10 +38,8 @@
 /// - alphabet-size (int): Size of the alphabet.
 /// - alphabet-chars (array): Array of valid alphabet characters.
 /// - max-bits (float): Maximum possible information content (log2 of alphabet size).
-/// - char-width (length): Width of each character box.
-/// -> array with:
-///   - An empty content block (for grid alignment)
-///   - A stack of conservation bars (content)
+/// - cell-width (length): Width of each character cell.
+/// -> content
 #let _render-msa-conservation-row(
   sequences,
   block-start,
@@ -53,7 +49,7 @@
   alphabet-size,
   alphabet-chars,
   max-bits,
-  char-width,
+  cell-width,
 ) = {
   let bar-height = 1.5em
   let bars = ()
@@ -68,14 +64,17 @@
       alphabet-size,
     )
     let h = (r / max-bits) * bar-height
-    bars.push(box(
-      width: char-width,
-      height: bar-height,
-      align(bottom, rect(width: 100%, height: h, fill: _light-gray)),
+    bars.push((
+      body: box(
+        height: bar-height,
+        align(bottom, rect(width: cell-width, height: h, fill: _light-gray)),
+      ),
     ))
   }
 
-  ([], stack(dir: ltr, ..bars))
+  if bars.len() == 0 { [] } else {
+    _fixed-width-grid((bars,), cell-width: cell-width)
+  }
 }
 
 /// Renders a single sequence row for an MSA block.
@@ -90,11 +89,9 @@
 /// - max-acc-width (int): Maximum width for accession display.
 /// - colors (bool): Whether to color residues.
 /// - palette (dictionary): Color palette for residues.
-/// - char-width (length): Width of each character box.
-/// - outset-y (length): Vertical outset for boxes.
 /// -> array with:
 ///   - The accession text (content)
-///   - The rendered sequence segment (content)
+///   - The rendered sequence segment (array)
 #let _render-msa-sequence-row(
   acc,
   seq,
@@ -103,8 +100,6 @@
   max-acc-width,
   colors,
   palette,
-  char-width,
-  outset-y,
 ) = {
   let display-acc = if acc.len() > max-acc-width {
     acc.slice(0, max-acc-width - 1) + "…"
@@ -120,14 +115,7 @@
 
   let rendered-seq = segment
     .clusters()
-    .map(char => _render-msa-character(
-      char,
-      colors,
-      palette,
-      char-width,
-      outset-y,
-    ))
-    .join()
+    .map(char => _render-msa-character(char, colors, palette))
 
   (display-acc, rendered-seq)
 }
@@ -140,26 +128,28 @@
 ///
 /// - msa-dict (dictionary): A dictionary mapping sequence identifiers to sequences.
 /// - max-acc-width (int): Maximum width for accession display (default: 20).
-/// - max-seq-width (int): Maximum characters per line in a block (default: 60).
-/// - start (int, none): Starting position (0-indexed, inclusive) (default: none).
-/// - end (int, none): Ending position (0-indexed, exclusive) (default: none).
+/// - max-seq-width (int): Maximum characters per line in a block (default: 50).
+/// - start (int, none): Starting position (1-indexed, inclusive) (default: none).
+/// - end (int, none): Ending position (1-indexed, inclusive) (default: none).
 /// - colors (bool): Color residues by chemical properties (default: false).
 /// - conservation (bool): Show conservation bars (default: false).
 /// - sampling-correction (bool): Apply small sample correction (default: true).
-/// - alphabet (str): Sequence type: "auto", "aa", "dna", or "rna" (default: "auto").
+/// - alphabet (auto, str): Sequence type: auto, "aa", "dna", or "rna" (default: auto).
 /// - breakable (bool): Allow blocks to break across pages (default: true).
+/// - palette (dictionary, auto): Residue color palette (default: auto).
 /// -> content
 #let render-msa(
   msa-dict,
   max-acc-width: 20,
-  max-seq-width: 60,
+  max-seq-width: 50,
   start: none,
   end: none,
   colors: false,
   conservation: false,
   sampling-correction: true,
-  alphabet: "auto",
+  alphabet: auto,
   breakable: true,
+  palette: auto,
 ) = {
   let pairs = msa-dict.pairs()
   if pairs.len() == 0 { return }
@@ -169,8 +159,17 @@
   let total-max-len = sequences.first().len()
 
   let config = _resolve-alphabet-config(alphabet, sequences)
+  let palette-to-use = if palette == auto { config.palette } else { palette }
 
-  let actual-start = if start == none { 0 } else { calc.max(0, start) }
+  if colors and palette != auto {
+    let coverage = _check-palette-coverage(palette-to-use, sequences)
+    assert(
+      coverage.ok,
+      message: "Palette missing residues: " + coverage.missing.join(", "),
+    )
+  }
+
+  let actual-start = if start == none { 0 } else { calc.max(0, start - 1) }
   let actual-end = if end == none { total-max-len } else {
     calc.min(end, total-max-len)
   }
@@ -179,17 +178,21 @@
   let n-seqs = pairs.len()
   let max-bits = calc.log(config.size, base: 2.0)
 
-  // We use a dummy raw element to probe the styles set for raw text in the document.
-  _with-monospaced-font((font, size, char-width, leading) => {
-    let outset-y = leading / 2 + 0.1pt
-    let box-width = char-width + 0.425pt
+  context {
+    let leading = par.leading
+    let char-width = calc.max(
+      measure(text("W")).width,
+      measure(text("M")).width,
+    )
+    let outset-y = leading / 2
+    let box-width = char-width + 0.03em
 
     let blocks = range(actual-start, actual-end, step: max-seq-width).map(
       block-start => {
         let block-end = calc.min(block-start + max-seq-width, actual-end)
 
         let conservation-row = if conservation {
-          _render-msa-conservation-row(
+          let bars = _render-msa-conservation-row(
             sequences,
             block-start,
             block-end,
@@ -200,6 +203,7 @@
             max-bits,
             box-width,
           )
+          ([], bars)
         } else {
           ()
         }
@@ -207,17 +211,24 @@
         let sequence-rows = pairs
           .map(p => {
             let (acc, seq) = p
-            _render-msa-sequence-row(
+            let row = _render-msa-sequence-row(
               acc,
               seq,
               block-start,
               block-end,
               max-acc-width,
               colors,
-              config.palette,
-              box-width,
-              outset-y,
+              palette-to-use,
             )
+            let seq-cells = row.at(1)
+            let seq-content = if seq-cells.len() == 0 { [] } else {
+              _fixed-width-grid(
+                (seq-cells,),
+                cell-width: box-width,
+                cell-outset: (y: outset-y),
+              )
+            }
+            (row.at(0), seq-content)
           })
           .flatten()
 
@@ -225,7 +236,7 @@
           breakable: breakable,
           grid(
             columns: (auto, auto),
-            column-gutter: 2em,
+            column-gutter: 7pt,
             row-gutter: leading,
             align: left,
             ..conservation-row,
@@ -239,5 +250,5 @@
       inset: (y: outset-y),
       stack(spacing: 2em, ..blocks),
     )
-  })
+  }
 }

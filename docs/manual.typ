@@ -33,10 +33,19 @@ The `parse-fasta` function reads FASTA data and returns a dictionary mapping seq
 Use `render-fasta` to display sequences in the standard FASTA format.
 
 ```typ
-#render-fasta(sequences, max-width: 50)
+#context {
+  set text(size: 0.8em)
+  render-fasta(sequences, max-width: 50)
+}
 ```
 
-#align(box(render-fasta(sequences, max-width: 50)), center)
+#align(
+  box(context {
+    set text(size: 0.8em)
+    render-fasta(sequences, max-width: 50)
+  }),
+  center,
+)
 
 In this example, `max-width` controls how many characters appear per line (default is 60).
 
@@ -151,14 +160,29 @@ Use `get-scoring-matrix` to retrieve a matrix data and `get-score-from-matrix` t
 #let ar_score = get-score-from-matrix(blosum62, "L", "D")
 #text[The substitution score for L vs D in BLOSUM62 is: #ar_score.]
 
-You can render the entire scoring matrix using `render-scoring-matrix` function.
+You can render the entire scoring matrix using `render-scoring-matrix` function. In the example below:
+
+- `context { set text(size: 0.9em) ... }` reduces the size of the text.
+- `scale-limit: 7` set the color scale limits to -7 to 7.
 
 ```typ
-#render-scoring-matrix(blosum62)
+#context {
+  set text(size: 0.9em)
+  render-scoring-matrix(
+    blosum62,
+    scale-limit: 7,
+  )
+}
 ```
 
 #figure(
-  render-scoring-matrix(blosum62),
+  context {
+    set text(size: 0.9em)
+    render-scoring-matrix(
+      blosum62,
+      scale-limit: 7,
+    )
+  },
   caption: [BLOSUM62 scoring matrix.],
   kind: image,
 )
@@ -171,31 +195,37 @@ In the example below:
 
 - `colors: true` enables residue coloring based on biochemical properties.
 - `conservation: true` adds conservation bars above the alignment.
-- `start: 100` and `end: 160` limit the display to a specific region of interest (residues 100 to 160).
+- `start: 100` and `end: 145` limit the display to a specific region of interest (residues 100 to 145).
 
 ```typ
 #let protein_msa = parse-fasta(read("/docs/data/msa.afa"))
 
-#render-msa(
-  protein_msa,
-  start: 100,
-  end: 160,
-  colors: true,
-  conservation: true,
-)
+#context {
+  set text(size: 0.8em)
+  render-msa(
+    protein_msa,
+    start: 100,
+    end: 145,
+    colors: true,
+    conservation: true,
+  )
+}
 ```
 
 #let protein_msa = parse-fasta(read("/docs/data/msa.afa"))
 
 #figure(
-  render-msa(
-    protein_msa,
-    start: 100,
-    end: 160,
-    colors: true,
-    conservation: true,
-  ),
-  caption: [MSA visualization for positions 100--160, with residue coloring and conservation bars enabled.],
+  context {
+    set text(size: 0.8em)
+    render-msa(
+      protein_msa,
+      start: 100,
+      end: 145,
+      colors: true,
+      conservation: true,
+    )
+  },
+  caption: [MSA visualization for positions 100--145, with residue coloring and conservation bars enabled.],
   kind: image,
 )
 
@@ -207,15 +237,15 @@ The bars above the alignment indicate the degree of conservation at each column.
 
 Sequence logos @schneider_sequence_1990 summarize conservation patterns within a sequence alignment and are commonly used to visualize binding sites, motifs, and functional domains. In a sequence logo, the total height of each stack represents the information content (in bits) at that position, while the height of individual letters reflects their relative frequencies.
 
-In the example below, we visualize the same region as the MSA of the previous section (positions 100 to 160).
+In the example below, we visualize the same region as the MSA of the previous section.
 
 ```typ
-#render-sequence-logo(protein_msa, start: 100, end: 160)
+#render-sequence-logo(protein_msa, start: 100, end: 145)
 ```
 
 #figure(
-  render-sequence-logo(protein_msa, start: 100, end: 160),
-  caption: [Sequence logo for positions 100--160, showing conservation and residue frequency.],
+  render-sequence-logo(protein_msa, start: 100, end: 145),
+  caption: [Sequence logo for positions 100--145, showing conservation and residue frequency.],
 )
 
 Like `render-msa`, `render-sequence-logo` automatically applies the appropriate color palette based on the sequence alphabet.
@@ -340,8 +370,17 @@ Genome maps enable visualization of the genes and other genomic elements within 
 To render the tree, use the `render-tree` function. By default, it produces a horizontal rectangular dendrogram, but a vertical layout can be specified using the `orientation: "vertical"` option.
 
 ```typst
-#render-tree(hominoidea_tree, tip-label-italics: true, orientation: "horizontal")
-#render-tree(hominoidea_tree, tip-label-italics: true, orientation: "vertical")
+#render-tree(
+  hominoidea_tree,
+  tip-label-italics: true,
+  orientation: "horizontal",
+)
+
+#render-tree(
+  hominoidea_tree,
+  tip-label-italics: true,
+  orientation: "vertical",
+)
 ```
 
 #grid(
@@ -351,7 +390,7 @@ To render the tree, use the `render-tree` function. By default, it produces a ho
       hominoidea_tree,
       tip-label-italics: true,
       width: 1fr,
-      height: 21em,
+      height: 7.75cm,
     ),
     caption: [Tree with horizontal orientation],
     supplement: none,
@@ -361,7 +400,7 @@ To render the tree, use the `render-tree` function. By default, it produces a ho
       hominoidea_tree,
       tip-label-italics: true,
       width: 1fr,
-      height: 21em,
+      height: 7.75cm,
       orientation: "vertical",
     ),
     caption: [Tree with vertical orientation],
@@ -375,55 +414,55 @@ To render the tree, use the `render-tree` function. By default, it produces a ho
 
 == Font selection
 
-By default, `render-fasta` and `render-msa` inherit the monospaced font used for raw text in your document. To use a different font, wrap the rendering function in a `context` block with a custom font for raw text.
+By default, the visualizations produced by `genotypst` are rendered using the default document font. To control font size or font family for these visualizations, wrap the rendering function in a `context` block and set the desired text properties.
 
 ```typ
 #let dna_msa = (
-  "seq1": "AGTCTCAAGATAACTTTCGAAACAAACTTC",
-  "seq2": "AGTTTCCAAGTGGATTTGGAATTGAACTTT",
-  "seq3": "ACTCT-CGGATGGATTCGGATACAAACTTT",
-  "seq4": "AGTCT---GATTGATGTGGATACAAACTTC",
-  "seq5": "AGTCT--GGGTGGATTTGG-AACAAATTTT",
-  "seq6": "CAGTGCTCCCTGGTGGTGG-ACCATCTTAC",
-  "seq7": "AGTCTCAAGACGGATACTG--ATGCCCTAT",
+  "seq1": "AGTCTCAAGATAACTTTCGAAACAAAC",
+  "seq2": "AGTTTCCAAGTGGATTTGGAATTGAAC",
+  "seq3": "ACTCT-CGGATGGATTCGGATACAAAC",
+  "seq4": "AGTCT---GATTGATGTGGATACAAAC",
+  "seq5": "AGTCT--GGGTGGATTTGG-AACAAAT",
+  "seq6": "CAGTGCTCCCTGGTGGTGG-ACCATCT",
+  "seq7": "AGTCTCAAGACGGATACTG--ATGCCC",
 )
 
 #context {
-  show raw: set text(font: "Maple Mono")
+  set text(font: "Maple Mono", size: 0.76em)
   render-msa(dna_msa)
 }
 ```
 
 #let dna_msa = (
-  "seq1": "AGTCTCAAGATAACTTTCGAAACAAACTTC",
-  "seq2": "AGTTTCCAAGTGGATTTGGAATTGAACTTT",
-  "seq3": "ACTCT-CGGATGGATTCGGATACAAACTTT",
-  "seq4": "AGTCT---GATTGATGTGGATACAAACTTC",
-  "seq5": "AGTCT--GGGTGGATTTGG-AACAAATTTT",
-  "seq6": "CAGTGCTCCCTGGTGGTGG-ACCATCTTAC",
-  "seq7": "AGTCTCAAGACGGATACTG--ATGCCCTAT",
+  "seq1": "AGTCTCAAGATAACTTTCGAAACAAAC",
+  "seq2": "AGTTTCCAAGTGGATTTGGAATTGAAC",
+  "seq3": "ACTCT-CGGATGGATTCGGATACAAAC",
+  "seq4": "AGTCT---GATTGATGTGGATACAAAC",
+  "seq5": "AGTCT--GGGTGGATTTGG-AACAAAT",
+  "seq6": "CAGTGCTCCCTGGTGGTGG-ACCATCT",
+  "seq7": "AGTCTCAAGACGGATACTG--ATGCCC",
 )
 
 #grid(
   columns: (1fr, 1fr),
+  align: center + bottom,
   figure(
-    render-msa(dna_msa, breakable: false),
-    caption: [Default document font for raw text],
+    context {
+      set text(size: 0.8em)
+      render-msa(dna_msa, breakable: false)
+    },
+    caption: [Default document font],
     supplement: none,
   ),
   figure(
     context {
-      show raw: set text(font: "Maple Mono", size: 8.5pt)
+      set text(font: "Maple Mono", size: 0.76em)
       render-msa(dna_msa, breakable: false)
     },
     caption: [Custom font (Maple Mono)],
     supplement: none,
   ),
-
-  align: center + bottom,
 )
-
-Pairwise alignments, dynamic programming matrices, scoring matrices, sequence logos, genome maps, and trees are rendered using the default document font, rather than the monospaced font for raw text. To specify a custom font for these visualizations, use a `show text` rule instead. These renderers also expose styling parameters such as `unaligned-color`, `cell-size`, `path-color`, `arrow-color`, `color-map`, and `scale-limit`.
 
 ```typ
 #context {
@@ -438,6 +477,7 @@ Pairwise alignments, dynamic programming matrices, scoring matrices, sequence lo
 
 #grid(
   columns: (1fr, 1fr),
+  align: center + bottom,
   figure(
     render-pair-alignment(
       protein_pair_alignment.seq-1,
@@ -459,8 +499,6 @@ Pairwise alignments, dynamic programming matrices, scoring matrices, sequence lo
     caption: [Custom font (Libertinus Serif)],
     supplement: none,
   ),
-
-  align: center + bottom,
 )
 
 ```typ
@@ -472,6 +510,7 @@ Pairwise alignments, dynamic programming matrices, scoring matrices, sequence lo
 
 #grid(
   rows: (auto, auto),
+  align: center + bottom,
   figure(
     render-sequence-logo(dna_msa),
     caption: [Default document font],
@@ -485,7 +524,6 @@ Pairwise alignments, dynamic programming matrices, scoring matrices, sequence lo
     caption: [Custom font (Libertinus Serif)],
     supplement: none,
   ),
-  align: center + bottom,
 )
 
 ```typ
@@ -497,6 +535,7 @@ Pairwise alignments, dynamic programming matrices, scoring matrices, sequence lo
 
 #grid(
   columns: (1fr, 1fr),
+  align: center + bottom,
   gutter: 0.8cm,
   figure(
     render-genome-map(f_plasmid_locus),
@@ -511,8 +550,6 @@ Pairwise alignments, dynamic programming matrices, scoring matrices, sequence lo
     caption: [Custom font (Libertinus Serif)],
     supplement: none,
   ),
-
-  align: center + bottom,
 )
 
 ```typ
@@ -527,6 +564,7 @@ Pairwise alignments, dynamic programming matrices, scoring matrices, sequence lo
 
 #grid(
   columns: (1fr, 1fr),
+  align: center + bottom,
   figure(
     render-tree(
       hominoidea_tree,
@@ -550,8 +588,36 @@ Pairwise alignments, dynamic programming matrices, scoring matrices, sequence lo
     caption: [Custom font (Libertinus Serif)],
     supplement: none,
   ),
+)
 
-  align: center + bottom,
+=== Specifying residue palettes
+
+If you want to use an alternative palette to color residues, you can provide a dictionary to the `palette` parameter of `render-msa` and `render-sequence-logo`. The provided palette can be either custom or one provided by `genotypst` under `residue-palette`.
+
+The following palettes are available:
+- *Protein:* `default` (8 colors), `dayhoff` (6), `zappo` (7), `takabatake4` (4), `takabatake5` (5), `takabatake6` (6), `takabatake7` (7), and `takabatake8` (8) @takabatake_improved_2021.
+- *DNA:* `default` (4)
+- *RNA:* `default` (4)
+
+For example, to use the Dayhoff amino acid color palette in a sequence logo:
+
+```typ
+#render-sequence-logo(
+  protein_msa,
+  start: 100,
+  end: 145,
+  palette: residue-palette.aa.dayhoff,
+)
+```
+
+#figure(
+  render-sequence-logo(
+    protein_msa,
+    start: 100,
+    end: 145,
+    palette: residue-palette.aa.dayhoff,
+  ),
+  caption: [Sequence logo for positions 100--145 using the Dayhoff amino acid color palette.],
 )
 
 #bibliography("literature.yaml", style: "nature")

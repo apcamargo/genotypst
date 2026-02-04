@@ -16,5 +16,5 @@
 #render-sequence-logo(
   protein_msa,
   start: 100,
-  end: 145,
+  end: 135,
 )

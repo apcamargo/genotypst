@@ -1,21 +1,7 @@
-#import "utils.typ": _with-monospaced-font
-
-/// Renders a sequence segment using boxes with fixed character width.
-/// This prevents line wrapping at any character.
-///
-/// - segment (str): The sequence segment to render.
-/// - char-width (length): The width of each character box.
-/// -> content
-#let _render-segment-as-boxes(segment, char-width) = {
-  segment
-    .clusters()
-    .map(char => box(width: char-width, align(center, char)))
-    .join()
-}
+#import "utils.typ": _fixed-width-grid
 
 /// Formats a dictionary of sequences in FASTA format for display.
 /// Each character is rendered in a fixed-width box to prevent line wrapping.
-/// The function uses monospaced font styling from code blocks in document.
 ///
 /// - sequences (dictionary): A dictionary mapping sequence identifiers to sequences.
 /// - max-width (int): Maximum characters per line (default: 60).
@@ -28,12 +14,20 @@
   bold-header: false,
   entry-spacing: none,
 ) = {
-  _with-monospaced-font((font, size, char-width, leading) => {
+  context {
+    let leading = par.leading
+    let char-width = calc.max(
+      measure(text("W")).width,
+      measure(text("M")).width,
+    )
     let lines = ()
     let spacing = if entry-spacing == none { leading } else { entry-spacing }
+    let render-segment = segment => _fixed-width-grid(
+      (segment.clusters(),),
+      cell-width: char-width,
+    )
 
     for (acc, seq) in sequences.pairs() {
-      // Header line (monospaced like the rest, optionally bold)
       let header = if bold-header {
         text(weight: "bold", ">" + acc)
       } else {
@@ -43,16 +37,14 @@
 
       if seq.len() == 0 { continue }
 
-      // Sequence lines using boxes
       for i in range(0, seq.len(), step: max-width) {
         let segment = seq.slice(i, calc.min(i + max-width, seq.len()))
-        lines.push(_render-segment-as-boxes(segment, char-width))
+        lines.push(render-segment(segment))
       }
 
-      // Add spacing between entries
       lines.push(v(spacing, weak: true))
     }
 
     align(left, stack(spacing: 0.65em, ..lines))
-  })
+  }
 }

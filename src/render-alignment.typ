@@ -1,5 +1,5 @@
 #import "constants.typ": _dark-gray, _medium-gray, _yellow
-#import "utils.typ": _flat-to-2d, resolve-matrix-name
+#import "utils.typ": _fixed-width-grid, _flat-to-2d, resolve-matrix-name
 #import "@preview/tiptoe:0.4.0": (
   line as _tiptoe-line, straight as _tiptoe-straight,
 )
@@ -135,15 +135,15 @@
   let arrows = ()
   // Bit 0 (1) = diagonal
   if calc.rem(calc.quo(bits, 1), 2) == 1 and i > 0 and j > 0 {
-    arrows = arrows + (((i, j), (i - 1, j - 1)),)
+    arrows.push(((i, j), (i - 1, j - 1)))
   }
   // Bit 1 (2) = up
   if calc.rem(calc.quo(bits, 2), 2) == 1 and i > 0 {
-    arrows = arrows + (((i, j), (i - 1, j)),)
+    arrows.push(((i, j), (i - 1, j)))
   }
   // Bit 2 (4) = left
   if calc.rem(calc.quo(bits, 4), 2) == 1 and j > 0 {
-    arrows = arrows + (((i, j), (i, j - 1)),)
+    arrows.push(((i, j), (i, j - 1)))
   }
   arrows
 }
@@ -158,10 +158,18 @@
 /// - cols (int): Number of columns.
 /// -> array
 #let _bitmasks-to-arrows-2d(bitmasks, rows, cols) = {
-  range(rows).map(i => range(cols).map(j => {
-    let bits = bitmasks.at(i * cols + j)
-    _bitmask-to-arrows(bits, i, j)
-  }))
+  let bitmask-2d = _flat-to-2d(bitmasks, rows, cols)
+  bitmask-2d
+    .enumerate()
+    .map(item => {
+      let (i, row) = item
+      row
+        .enumerate()
+        .map(cell => {
+          let (j, bits) = cell
+          _bitmask-to-arrows(bits, i, j)
+        })
+    })
 }
 
 /// Private: Transforms the WASM response to the final output format.
@@ -431,9 +439,9 @@
   let last-coord = _parse-coord(path.at(path.len() - 1))
 
   // Initialize result strings and unaligned mask
-  let aligned1 = ""
-  let match-line = ""
-  let aligned2 = ""
+  let aligned1 = ()
+  let match-line = ()
+  let aligned2 = ()
   let unaligned-mask = ()
 
   // Handle leading unaligned region (local alignment starting after position 0)
@@ -441,17 +449,17 @@
   if not hide-unaligned {
     // Add seq1 unaligned chars (rows before path starts)
     for i in range(first-coord.row) {
-      aligned1 += seq1-chars.at(i)
-      match-line += " "
-      aligned2 += " "
+      aligned1.push(seq1-chars.at(i))
+      match-line.push(" ")
+      aligned2.push(" ")
       unaligned-mask.push(true)
     }
 
     // Add seq2 unaligned chars (cols before path starts)
     for j in range(first-coord.col) {
-      aligned1 += " "
-      match-line += " "
-      aligned2 += seq2-chars.at(j)
+      aligned1.push(" ")
+      match-line.push(" ")
+      aligned2.push(seq2-chars.at(j))
       unaligned-mask.push(true)
     }
   }
@@ -466,24 +474,24 @@
       let char1 = seq1-chars.at(seq1-pos)
       let char2 = seq2-chars.at(seq2-pos)
 
-      aligned1 += char1
-      aligned2 += char2
-      match-line += if char1 == char2 { match-char } else { mismatch-char }
+      aligned1.push(char1)
+      aligned2.push(char2)
+      match-line.push(if char1 == char2 { match-char } else { mismatch-char })
       unaligned-mask.push(false)
 
       seq1-pos += 1
       seq2-pos += 1
     } else if op == "gap-in-seq1" {
-      aligned1 += gap-char
-      aligned2 += seq2-chars.at(seq2-pos)
-      match-line += mismatch-char
+      aligned1.push(gap-char)
+      aligned2.push(seq2-chars.at(seq2-pos))
+      match-line.push(mismatch-char)
       unaligned-mask.push(false)
 
       seq2-pos += 1
     } else if op == "gap-in-seq2" {
-      aligned1 += seq1-chars.at(seq1-pos)
-      aligned2 += gap-char
-      match-line += mismatch-char
+      aligned1.push(seq1-chars.at(seq1-pos))
+      aligned2.push(gap-char)
+      match-line.push(mismatch-char)
       unaligned-mask.push(false)
 
       seq1-pos += 1
@@ -495,27 +503,27 @@
   if not hide-unaligned {
     // Add remaining seq1 characters
     while seq1-pos < seq1-chars.len() {
-      aligned1 += seq1-chars.at(seq1-pos)
-      match-line += " "
-      aligned2 += " "
+      aligned1.push(seq1-chars.at(seq1-pos))
+      match-line.push(" ")
+      aligned2.push(" ")
       unaligned-mask.push(true)
       seq1-pos += 1
     }
 
     // Add remaining seq2 characters
     while seq2-pos < seq2-chars.len() {
-      aligned1 += " "
-      match-line += " "
-      aligned2 += seq2-chars.at(seq2-pos)
+      aligned1.push(" ")
+      match-line.push(" ")
+      aligned2.push(seq2-chars.at(seq2-pos))
       unaligned-mask.push(true)
       seq2-pos += 1
     }
   }
 
   (
-    aligned1: aligned1,
-    match-line: match-line,
-    aligned2: aligned2,
+    aligned1: aligned1.join(),
+    match-line: match-line.join(),
+    aligned2: aligned2.join(),
     unaligned-mask: unaligned-mask,
   )
 }
@@ -570,7 +578,7 @@
   let text-grid-content = ()
 
   // Helper to get highlight color for a cell
-  let get-highlight-color(row, col) = {
+  let get-highlight-color = (row, col) => {
     for h in highlights {
       let h-coord = _parse-coord(h)
 
@@ -586,7 +594,7 @@
   }
 
   // Helper to check if a cell should be bold (on the path)
-  let is-bold-cell(row, col) = {
+  let is-bold-cell = (row, col) => {
     if not path-cell-bold or path == none {
       return false
     }
@@ -600,12 +608,12 @@
   }
 
   // Header row: empty top-left corner, then top sequence characters
-  bg-grid-content = bg-grid-content + (_label-cell(none),)
-  text-grid-content = text-grid-content + (_label-cell(none),)
+  bg-grid-content.push(_label-cell(none))
+  text-grid-content.push(_label-cell(none))
 
   for char in top-clusters {
-    bg-grid-content = bg-grid-content + (_label-cell(none),)
-    text-grid-content = text-grid-content + (_label-cell(char),)
+    bg-grid-content.push(_label-cell(none))
+    text-grid-content.push(_label-cell(char))
   }
 
   // Calculate last row and column indices
@@ -614,8 +622,8 @@
 
   // Data rows: left label, then values
   for (row-idx, row-label) in left-clusters.enumerate() {
-    bg-grid-content = bg-grid-content + (_label-cell(none),)
-    text-grid-content = text-grid-content + (_label-cell(row-label),)
+    bg-grid-content.push(_label-cell(none))
+    text-grid-content.push(_label-cell(row-label))
 
     for (col-idx, value) in values.at(row-idx).enumerate() {
       let cell-content = if value == none {
@@ -639,31 +647,21 @@
       )
 
       // Background layer: boxes with rounded corners and fills
-      bg-grid-content = (
-        bg-grid-content
-          + (
-            box(
-              width: 100%,
-              height: 100%,
-              fill: fill-color,
-              stroke: stroke-width + stroke-color,
-              radius: cell-radius,
-              inset: cell-inset,
-            )[],
-          )
-      )
+      bg-grid-content.push(box(
+        width: 100%,
+        height: 100%,
+        fill: fill-color,
+        stroke: stroke-width + stroke-color,
+        radius: cell-radius,
+        inset: cell-inset,
+      )[])
 
       // Text layer: only text, no fills
-      text-grid-content = (
-        text-grid-content
-          + (
-            box(
-              width: 100%,
-              height: 100%,
-              inset: cell-inset,
-            )[#cell-content],
-          )
-      )
+      text-grid-content.push(box(
+        width: 100%,
+        height: 100%,
+        inset: cell-inset,
+      )[#cell-content])
     }
   }
 
@@ -701,7 +699,7 @@
     // Build curve: start at first point, then add lines to remaining points
     let curve-components = (curve.move(path-coords.at(0)),)
     for i in range(1, path-coords.len()) {
-      curve-components = curve-components + (curve.line(path-coords.at(i)),)
+      curve-components.push(curve.line(path-coords.at(i)))
     }
 
     curve(
@@ -911,8 +909,8 @@
       + ".",
   )
 
-  let top-label-seq = "-" + seq-2
-  let left-label-seq = "-" + seq-1
+  let top-label-seq = "—" + seq-2
+  let left-label-seq = "—" + seq-1
 
   let top-clusters = top-label-seq.clusters()
   let left-clusters = left-label-seq.clusters()
@@ -1030,7 +1028,7 @@
 /// - seq-1 (str): First sequence (without gaps).
 /// - seq-2 (str): Second sequence (without gaps).
 /// - path (array): Traceback path as array of (row, col) tuples.
-/// - gap-char (str): Character to display for gaps (default: "–").
+/// - gap-char (str): Character to display for gaps (default: "—").
 /// - match-char (str): Character to display for matches (default: "│").
 /// - mismatch-char (str): Character to display for mismatches (default: " ").
 /// - hide-unaligned (bool): Hide unaligned characters entirely (default: false).
@@ -1040,7 +1038,7 @@
   seq-1,
   seq-2,
   path,
-  gap-char: "–",
+  gap-char: "—",
   match-char: "│",
   mismatch-char: " ",
   hide-unaligned: false,
@@ -1080,17 +1078,12 @@
   )
 
   // Render with regular font in fixed-width grid cells
-  // Use context to get current text size
   context {
-    // Calculate cell width based on current font size
-    let char-width = measure(text("M")).width
-
-    // Build grid content for each line, applying unaligned color if specified
     let unaligned-mask = result.unaligned-mask
     let mask-length = unaligned-mask.len()
     let has-unaligned-color = unaligned-color != none
 
-    let make-line-cells(chars, apply-unaligned) = {
+    let make-line-cells = (chars, apply-unaligned) => {
       chars
         .enumerate()
         .map(item => {
@@ -1101,12 +1094,7 @@
               and i < mask-length
               and unaligned-mask.at(i)
           )
-          let content = if should-color {
-            text(fill: unaligned-color)[#char]
-          } else {
-            char
-          }
-          align(center + horizon)[#content]
+          if should-color { text(char, fill: unaligned-color) } else { char }
         })
     }
 
@@ -1114,12 +1102,9 @@
     let line2-cells = make-line-cells(result.match-line.clusters(), false)
     let line3-cells = make-line-cells(result.aligned2.clusters(), true)
 
-    block(breakable: false, grid(
-      columns: line1-cells.len() * (char-width,),
-      rows: (text.size * 0.85, text.size * 1.5, text.size * 0.85),
-      ..line1-cells,
-      ..line2-cells,
-      ..line3-cells,
+    block(breakable: false, _fixed-width-grid(
+      (line1-cells, line2-cells, line3-cells),
+      row-heights: (text.size * 0.85, text.size * 1.6, text.size * 0.85),
     ))
   }
 }

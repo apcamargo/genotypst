@@ -13,10 +13,13 @@
 
 #let protein_msa = parse-fasta(read("/docs/data/msa.afa"))
 
-#render-msa(
-  protein_msa,
-  start: 100,
-  end: 145,
-  colors: true,
-  conservation: true,
-)
+#context {
+  set text(size: 0.85em)
+  render-msa(
+    protein_msa,
+    start: 100,
+    end: 135,
+    colors: true,
+    conservation: true,
+  )
+}

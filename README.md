@@ -13,7 +13,7 @@ A minimal example illustrating the use of `genotypst` is shown below. To reprodu
 In a Typst document, import the `genotypst` package:
 
 ```typst
-#import "@preview/genotypst:0.3.0": *
+#import "@preview/genotypst:0.4.0": *
 ```
 
 You can perform a simple pairwise alignments and visualize both the alignment and its dynamic programming matrix:
@@ -75,8 +75,11 @@ Read a FASTA file containing a multiple sequence alignment:
 A region of the multiple sequence alignment can be rendered with `render-msa`:
 
 ```typst
-// Render a multiple sequence alignment between positions 100 and 145
-#render-msa(sequences, start: 100, end: 145, colors: true, conservation: true)
+// Render a multiple sequence alignment between positions 100 and 135
+#context {
+  set text(size: 0.85em)
+  render-msa(protein_msa, start: 100, end: 135, colors: true, conservation: true)
+}
 ```
 
 ![](./docs/msa_example.svg)
@@ -84,8 +87,8 @@ A region of the multiple sequence alignment can be rendered with `render-msa`:
 The same region of the alignment can also be visualized as a sequence logo using `render-sequence-logo`:
 
 ```typst
-// Render a sequence logo between positions 100 and 145
-#render-sequence-logo(sequences, start: 100, end: 145)
+// Render a sequence logo between positions 100 and 135
+#render-sequence-logo(sequences, start: 100, end: 135)
 ```
 
 ![](./docs/logo_example.svg)

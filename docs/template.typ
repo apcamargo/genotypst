@@ -1,6 +1,4 @@
-#import "../src/constants.typ": (
-  _medium-gray, aa-palette-default, dna-palette, rna-palette,
-)
+#import "../src/constants.typ": _medium-gray, residue-palette
 
 #let project(
   title: "",
@@ -111,13 +109,13 @@
     name: "DNA palette",
     symbols: ("A", "C", "G", "T"),
     names: ("Adenine", "Cytosine", "Guanine", "Thymine"),
-    palette: dna-palette,
+    palette: residue-palette.dna.default,
   ),
   (
     name: "RNA palette",
     symbols: ("A", "C", "G", "U"),
     names: ("Adenine", "Cytosine", "Guanine", "Uracil"),
-    palette: rna-palette,
+    palette: residue-palette.rna.default,
   ),
 )
 
@@ -135,7 +133,7 @@
   )),
 )
 
-#let render-palette-group(group, palette: aa-palette-default) = block(
+#let render-palette-group(group, palette: residue-palette.aa.default) = block(
   breakable: false,
   {
     let has-abbrevs = "abbrevs" in group

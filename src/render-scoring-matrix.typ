@@ -183,36 +183,26 @@
 ) = {
   let cells = ()
 
-  let make-label(sym) = {
-    grid.cell(fill: none, stroke: none)[#(
-      if label-bold { strong(sym) } else { sym }
-    )]
-  }
+  let make-label = sym => grid.cell(fill: none, stroke: none)[#(
+    if label-bold { strong(sym) } else { sym }
+  )]
 
-  let make-data-cell(i, j) = {
+  let make-data-cell = (i, j) => {
     let score = values.at(i).at(j)
     let bg = _get-score-color(score, limits.min, limits.max, color-map)
     grid.cell(fill: bg, stroke: stroke)[#_format-score(score)]
   }
 
-  let make-empty-cell() = grid.cell(stroke: none)[]
-
-  let should-render(i, j) = {
-    if triangle == "full" { true } else if triangle == "lower" { i >= j } else {
-      i <= j
-    }
-  }
-
   if triangle == "upper" {
     // Top labels row
     for sym in symbols { cells.push(make-label(sym)) }
-    cells.push(make-empty-cell())
+    cells.push(grid.cell(stroke: none)[])
 
     // Data rows + Right labels
     for (i, row-sym) in symbols.enumerate() {
       for (j, _) in symbols.enumerate() {
-        if should-render(i, j) { cells.push(make-data-cell(i, j)) } else {
-          cells.push(make-empty-cell())
+        if i <= j { cells.push(make-data-cell(i, j)) } else {
+          cells.push(grid.cell(stroke: none)[])
         }
       }
       cells.push(make-label(row-sym))
@@ -222,17 +212,17 @@
     for (i, row-sym) in symbols.enumerate() {
       cells.push(make-label(row-sym))
       for (j, _) in symbols.enumerate() {
-        if should-render(i, j) { cells.push(make-data-cell(i, j)) } else {
-          cells.push(make-empty-cell())
+        if i >= j { cells.push(make-data-cell(i, j)) } else {
+          cells.push(grid.cell(stroke: none)[])
         }
       }
     }
     // Bottom labels row
-    cells.push(make-empty-cell())
+    cells.push(grid.cell(stroke: none)[])
     for sym in symbols { cells.push(make-label(sym)) }
   } else {
     // Full matrix: labels on left and top
-    cells.push(make-empty-cell())
+    cells.push(grid.cell(stroke: none)[])
     for sym in symbols { cells.push(make-label(sym)) }
 
     for (i, row-sym) in symbols.enumerate() {

@@ -1,7 +1,7 @@
 #import "constants.typ": _light-gray
 #import "utils.typ": (
-  _compute-sequence-conservation, _get-column-stats, _resolve-alphabet-config,
-  _validate-msa,
+  _check-palette-coverage, _compute-sequence-conservation, _get-column-stats,
+  _resolve-alphabet-config, _validate-msa,
 )
 
 /// Computes residue heights for a sequence logo.
@@ -12,13 +12,13 @@
 /// relative frequency.
 ///
 /// - msa-dict (dictionary): A dictionary mapping sequence identifiers to sequences.
-/// - start (int, none): Starting position (0-indexed, inclusive).
-/// - end (int, none): Ending position (0-indexed, exclusive).
+/// - start (int, none): Starting position (1-indexed, inclusive).
+/// - end (int, none): Ending position (1-indexed, inclusive).
 /// - logo-height (length): Total height of the logo.
 /// - sampling-correction (bool): Apply small sample correction.
 /// - alphabet-size (int): Size of the alphabet.
 /// - alphabet-chars (array): Array of valid alphabet characters.
-/// -> array: Array of columns, each column is an array of dictionaries with keys:
+/// -> array, none: Array of columns, each column is an array of dictionaries with keys:
 ///   - char: str, the character
 ///   - height: length, the height of that character in the stack
 #let _get-logo-heights(
@@ -36,7 +36,8 @@
   let n-seqs = sequences.len()
   let max-len = sequences.map(s => s.len()).fold(0, calc.max)
 
-  let actual-start = calc.max(0, start)
+  let start-pos = if start == none { 1 } else { start }
+  let actual-start = calc.max(0, start-pos - 1)
   let actual-end = if end == none { max-len } else { calc.min(end, max-len) }
 
   let max-bits = calc.log(alphabet-size, base: 2.0)
@@ -122,29 +123,41 @@
 /// Produces a sequence logo from biological sequence data.
 ///
 /// Renders a sequence logo where each column represents a position in the
-/// alignment, stack height indicates information content (conservation),
-/// and character height within a stack indicates relative frequency.
+/// alignment, stack height is scaled to the maximum observed information
+/// content (conservation), and character height within a stack indicates
+/// relative frequency.
 ///
 /// - msa-dict (dictionary): A dictionary mapping sequence identifiers to sequences.
-/// - start (int, none): Starting position (0-indexed, inclusive) (default: 0).
-/// - end (int, none): Ending position (0-indexed, exclusive) (default: none).
+/// - start (int, none): Starting position (1-indexed, inclusive) (default: none).
+/// - end (int, none): Ending position (1-indexed, inclusive) (default: none).
 /// - width (length): Total width of the logo (default: 100%).
 /// - height (length): Total height of the logo (default: 60pt).
 /// - sampling-correction (bool): Apply small sample correction (default: true).
-/// - alphabet (str): Sequence type: "auto", "aa", "dna", or "rna" (default: "auto").
+/// - alphabet (auto, str): Sequence type: auto, "aa", "dna", or "rna" (default: auto).
+/// - palette (dictionary, auto): Residue color palette (default: auto).
 /// -> content
 #let render-sequence-logo(
   msa-dict,
-  start: 0,
+  start: none,
   end: none,
   width: 100%,
   height: 60pt,
   sampling-correction: true,
-  alphabet: "auto",
+  alphabet: auto,
+  palette: auto,
 ) = {
   _validate-msa(msa-dict)
   let sequences = msa-dict.values()
   let config = _resolve-alphabet-config(alphabet, sequences)
+  let palette-to-use = if palette == auto { config.palette } else { palette }
+
+  if palette != auto {
+    let coverage = _check-palette-coverage(palette-to-use, sequences)
+    assert(
+      coverage.ok,
+      message: "Palette missing residues: " + coverage.missing.join(", "),
+    )
+  }
 
   let logo-data = _get-logo-heights(
     msa-dict,
@@ -170,8 +183,8 @@
           stack(
             dir: ttb,
             // Include a small spacing to avoid letters touching each other
-            spacing: 0.04em,
-            ..col.map(l => _render-logo-letter(l, col-width, config.palette)),
+            spacing: 0.2pt,
+            ..col.map(l => _render-logo-letter(l, col-width, palette-to-use)),
           )
         })
       )

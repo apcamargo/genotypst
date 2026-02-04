@@ -1,6 +1,5 @@
 #import "constants.typ": (
-  _aa-characters, _dna-characters, _rna-characters, aa-palette-default,
-  dna-palette, rna-palette,
+  _aa-characters, _dna-characters, _rna-characters, residue-palette,
 )
 
 #let _alignment-plugin = plugin("alignment.wasm")
@@ -114,7 +113,7 @@
 /// Computes column statistics for a set of sequences.
 ///
 /// Counts occurrences of each valid character at a specific position across
-/// all sequences in the alignment.
+/// all sequences in the alignment. Matching is case-insensitive.
 ///
 /// - sequences (array): Array of sequence strings.
 /// - pos (int): The column position to analyze (0-indexed).
@@ -125,10 +124,11 @@
 #let _get-column-stats(sequences, pos, alphabet-characters) = {
   let counts = (:)
   let total-non-gap = 0
+  let alphabet-set = alphabet-characters.map(char => upper(char))
   for seq in sequences {
     if pos < seq.len() {
       let char = upper(seq.at(pos))
-      if char in alphabet-characters {
+      if char in alphabet-set {
         counts.insert(char, counts.at(char, default: 0) + 1)
         total-non-gap += 1
       }
@@ -140,10 +140,10 @@
 /// Resolves alphabet configuration based on the specified alphabet or auto-detection.
 ///
 /// Returns a configuration dictionary containing the alphabet size, character set,
-/// and color palette. If alphabet is "auto", automatically detects the
+/// and color palette. If alphabet is auto, automatically detects the
 /// sequence type.
 ///
-/// - alphabet (str): The alphabet type: "auto", "aa", "dna", or "rna".
+/// - alphabet (auto, str): The alphabet type: auto, "aa", "dna", or "rna".
 /// - sequences (array): Array of sequence strings for auto-detection.
 /// -> dictionary with keys:
 ///   - size: int, size of the alphabet (20 for amino acids, 4 for DNA/RNA)
@@ -151,43 +151,152 @@
 ///   - palette: dictionary, color mapping for characters
 #let _resolve-alphabet-config(alphabet, sequences) = {
   assert(
-    alphabet in ("auto", "aa", "dna", "rna"),
-    message: "Alphabet must be one of 'auto', 'aa', 'dna', or 'rna'.",
+    alphabet == auto or alphabet in ("aa", "dna", "rna"),
+    message: "Alphabet must be auto, 'aa', 'dna', or 'rna'.",
   )
 
-  let type = if alphabet == "auto" { _guess-seq-alphabet(sequences) } else {
+  let type = if alphabet == auto { _guess-seq-alphabet(sequences) } else {
     alphabet
   }
 
   if type == "aa" {
-    (size: 20, chars: _aa-characters, palette: aa-palette-default)
+    (size: 20, chars: _aa-characters, palette: residue-palette.aa.default)
   } else if type == "dna" {
-    (size: 4, chars: _dna-characters, palette: dna-palette)
+    (size: 4, chars: _dna-characters, palette: residue-palette.dna.default)
   } else if type == "rna" {
-    (size: 4, chars: _rna-characters, palette: rna-palette)
+    (size: 4, chars: _rna-characters, palette: residue-palette.rna.default)
   }
 }
 
-/// Applies a show rule to inherit raw text styles and passes font information to the body.
-/// The content within the callback will inherit the monospaced font and sizing from code blocks.
+/// Checks whether a palette covers all residues in a sequence list.
 ///
-/// - body (function): A callback function that receives (font, size, char-width, leading).
-/// -> content
-#let _with-monospaced-font(body) = {
-  // We use a dummy raw element to probe the styles set for raw text in the document.
-  // This ensures the content inherits the same monospaced font and sizing as code blocks.
-  show raw.where(lang: "genotypst-style-probe"): it => context {
-    let font = text.font
-    let size = text.size
-    let leading = par.leading
-    let char-width = measure(text("A")).width
+/// Returns a dictionary with an `ok` flag and a `missing` array containing
+/// residues not found in the palette.
+///
+/// - palette (dictionary): Dictionary mapping residues to colors.
+/// - sequences (array): Array of sequence strings.
+/// - ignore-gaps (bool): Skip gap characters (default: true).
+/// - gap-chars (array): Gap characters to ignore (default: ("-", "—", ".")).
+/// - case-sensitive (bool): Match residues case-sensitively (default: true).
+/// -> dictionary with keys:
+///   - ok: bool
+///   - missing: array
+#let _check-palette-coverage(
+  palette,
+  sequences,
+  ignore-gaps: true,
+  gap-chars: ("-", "—", "."),
+  case-sensitive: true,
+) = {
+  assert(
+    type(palette) == dictionary,
+    message: "palette must be a dictionary mapping residues to colors.",
+  )
+  assert(type(sequences) == array, message: "sequences must be an array.")
 
-    set text(font: font, size: size)
-
-    body(font, size, char-width, leading)
+  let observed = (:)
+  for seq in sequences {
+    for char in seq.clusters() {
+      if ignore-gaps and char in gap-chars { continue }
+      let key = if case-sensitive { char } else { upper(char) }
+      observed.insert(key, true)
+    }
   }
 
-  raw("", lang: "genotypst-style-probe")
+  let palette-keys = (:)
+  for key in palette.keys() {
+    let normalized = if case-sensitive { key } else { upper(key) }
+    palette-keys.insert(normalized, true)
+  }
+
+  let missing = ()
+  for key in observed.keys() {
+    if not (key in palette-keys) { missing.push(key) }
+  }
+
+  (ok: missing.len() == 0, missing: missing.sorted())
+}
+
+/// Renders a fixed-width grid using the current text font.
+///
+/// Cells can be passed as raw content or as dictionaries with `body` and
+/// optional `fill` and `outset` values. When `cell-width` is none, it is
+/// measured from the current font using the wider of "W" and "M".
+///
+/// - rows (array): 2D array of cell contents or dictionaries.
+/// - cell-width (length, none): Fixed cell width (default: none).
+/// - row-heights (array, none): Row heights (default: none).
+/// - column-gutter (length): Column gap (default: 0pt).
+/// - row-gutter (length): Row gap (default: 0pt).
+/// - cell-outset (dictionary, none): Outset applied to each cell (default: none).
+/// - cell-align (alignment): Cell content alignment (default: center + horizon).
+/// -> content
+#let _fixed-width-grid(
+  rows,
+  cell-width: none,
+  row-heights: none,
+  column-gutter: 0pt,
+  row-gutter: 0pt,
+  cell-outset: none,
+  cell-align: center + horizon,
+) = context {
+  if rows.len() == 0 { return }
+
+  let row-count = rows.len()
+  let col-count = rows.first().len()
+  if col-count == 0 { return }
+  assert(
+    rows.all(row => row.len() == col-count),
+    message: "All rows must have the same number of cells.",
+  )
+  if row-heights != none {
+    assert(
+      row-heights.len() == row-count,
+      message: "row-heights length must match the number of rows.",
+    )
+  }
+
+  let width = if cell-width == none {
+    calc.max(measure(text("W")).width, measure(text("M")).width)
+  } else {
+    cell-width
+  }
+  let columns = (width,) * col-count
+  let cells = ()
+
+  for (row-index, row) in rows.enumerate() {
+    let row-height = if row-heights != none { row-heights.at(row-index) } else {
+      none
+    }
+    for cell in row {
+      let body = cell
+      let fill = none
+      let outset = cell-outset
+
+      if type(cell) == dictionary {
+        body = cell.at("body", default: [])
+        fill = cell.at("fill", default: none)
+        outset = cell.at("outset", default: outset)
+      }
+
+      let content = if body == none { [] } else { body }
+      cells.push(box(
+        width: width,
+        ..(if row-height != none { (height: row-height) } else { () }),
+        fill: fill,
+        outset: if outset == none { (:) } else { outset },
+        align(cell-align, content),
+      ))
+    }
+  }
+
+  grid(
+    columns: columns,
+    column-gutter: column-gutter,
+    row-gutter: row-gutter,
+    ..(if row-heights != none { (rows: row-heights) } else { () }),
+    ..cells,
+  )
 }
 
 /// Validates that all sequences in the MSA have the same length.

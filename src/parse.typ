@@ -16,7 +16,6 @@
   for line in data.split("\n") {
     let line = line.trim()
     if line.len() == 0 { continue }
-
     if line.starts-with(">") {
       if current-id != none {
         sequences.insert(current-id, current-seq.join())
@@ -27,9 +26,11 @@
       current-seq.push(line)
     }
   }
+
   if current-id != none {
     sequences.insert(current-id, current-seq.join())
   }
+
   sequences
 }
 
