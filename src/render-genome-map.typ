@@ -1,7 +1,8 @@
 #import "constants.typ": _light-gray
 #import "utils.typ": (
   _clamp, _draw-coordinate-axis, _draw-horizontal-segment,
-  _draw-vertical-segment, _round-scale,
+  _draw-vertical-segment, _round-scale, _validate-interval,
+  _validate-optional-int-at-least,
 )
 
 /// Normalizes gene dictionaries and applies defaults.
@@ -18,6 +19,10 @@
       "start" in gene and "end" in gene,
       message: "Each gene must define start and end",
     )
+    assert(gene.start != none, message: "gene.start must be an integer >= 1.")
+    assert(gene.end != none, message: "gene.end must be an integer >= 1.")
+    _validate-optional-int-at-least(gene.start, "gene.start", 1)
+    _validate-optional-int-at-least(gene.end, "gene.end", 1)
 
     let gene-start = calc.min(gene.start, gene.end)
     let gene-end = calc.max(gene.start, gene.end)
@@ -322,16 +327,16 @@
 /// Renders a genome map from an array of gene dictionaries.
 ///
 /// Each gene dictionary in the input array can have the following fields:
-/// - start (float): Gene start coordinate (required).
-/// - end (float): Gene end coordinate (required).
+/// - start (int): Gene start coordinate (required, 1-indexed).
+/// - end (int): Gene end coordinate (required, 1-indexed).
 /// - strand (int, str, none): Direction (1 or -1, "+" or "-"); none draws a block.
 /// - label (content, none): Label text.
 /// - color (color, none): Fill color (none uses default-color).
 ///
 /// - genes (array): Gene dictionaries to render.
 /// - width (length, fraction): Total map width (default: 100%).
-/// - start (float, auto): Region start (default: auto).
-/// - end (float, auto): Region end (default: auto).
+/// - start (int, auto): 1-indexed region start coordinate (default: auto).
+/// - end (int, auto): 1-indexed region end coordinate (default: auto).
 /// - gene-height (length): Gene block height (default: 12pt).
 /// - head-length (length, auto): Arrowhead length (default: auto).
 /// - min-head-length (length): Minimum arrowhead length (default: 3.5pt).
@@ -382,6 +387,18 @@
   #layout(size => context {
     assert(type(genes) == array, message: "genes must be an array")
     assert(genes.len() > 0, message: "genes cannot be empty")
+    assert(
+      start != none,
+      message: "start must be auto or an integer >= 1.",
+    )
+    assert(
+      end != none,
+      message: "end must be auto or an integer >= 1.",
+    )
+
+    let region-start-input = if start == auto { none } else { start }
+    let region-end-input = if end == auto { none } else { end }
+    _validate-interval(region-start-input, region-end-input, min: 1)
 
     let normalized = _normalize-genes(genes, default-color)
     let region-start = if start == auto {

@@ -1,8 +1,8 @@
 #import "constants.typ": _light-gray
 #import "utils.typ": (
   _check-palette-coverage, _compute-sequence-conservation,
-  _draw-coordinate-axis, _get-column-stats, _resolve-alphabet-config,
-  _validate-msa,
+  _draw-coordinate-axis, _get-column-stats, _resolve-1indexed-window,
+  _resolve-alphabet-config, _validate-msa,
 )
 
 /// Computes residue heights for a sequence logo.
@@ -79,22 +79,6 @@
     logo-data.push(column-letters.sorted(key: it => it.height).rev())
   }
   logo-data
-}
-
-/// Resolves the rendered window for sequence logo positions.
-///
-/// - sequences (array): Array of sequence strings.
-/// - start (int, none): Starting position (1-indexed, inclusive).
-/// - end (int, none): Ending position (1-indexed, inclusive).
-/// -> dictionary with keys:
-///   - actual-start: int, 0-indexed inclusive start
-///   - actual-end: int, 0-indexed exclusive end
-#let _resolve-logo-window(sequences, start, end) = {
-  let max-len = sequences.map(s => s.len()).fold(0, calc.max)
-  let start-pos = if start == none { 1 } else { start }
-  let actual-start = calc.max(0, start-pos - 1)
-  let actual-end = if end == none { max-len } else { calc.min(end, max-len) }
-  (actual-start: actual-start, actual-end: actual-end)
 }
 
 /// Renders a single letter in a sequence logo with proper scaling.
@@ -175,7 +159,13 @@
   let sequences = msa-dict.values()
   let config = _resolve-alphabet-config(alphabet, sequences)
   let palette-to-use = if palette == auto { config.palette } else { palette }
-  let window = _resolve-logo-window(sequences, start, end)
+  let max-len = sequences.map(s => s.len()).fold(0, calc.max)
+  let window = _resolve-1indexed-window(
+    start,
+    end,
+    max-len,
+    window-name: "logo",
+  )
 
   assert(
     axis-stroke-width > 0pt,
@@ -184,24 +174,6 @@
   assert(axis-tick-height > 0pt, message: "axis-tick-height must be positive.")
   assert(axis-label-gap >= 0pt, message: "axis-label-gap must be non-negative.")
   assert(axis-logo-gap >= 0pt, message: "axis-logo-gap must be non-negative.")
-  let start-label = if start == none { "none" } else { str(start) }
-  let end-label = if end == none { "none" } else { str(end) }
-  assert(
-    window.actual-start < window.actual-end,
-    message: (
-      "Resolved logo window is empty. Check start/end (1-indexed, inclusive). "
-        + "Received start="
-        + start-label
-        + ", end="
-        + end-label
-        + "; resolved start="
-        + str(window.actual-start + 1)
-        + ", end="
-        + str(window.actual-end)
-        + "."
-    ),
-  )
-
   if palette != auto {
     let coverage = _check-palette-coverage(palette-to-use, sequences)
     assert(

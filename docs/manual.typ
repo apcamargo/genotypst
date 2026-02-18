@@ -283,8 +283,8 @@ The DNA and RNA palettes assign a distinct color to each nucleotide.
 
 Genome maps enable visualization of the genes and other genomic elements within a locus, highlighting their order, orientation, and length. `genotypst` provides a `render-genome-map` function that produces a genome map from an array of dictionaries, each representing a genomic feature that will be plotted:
 
-- `start` (required): Start coordinate.
-- `end` (required): End coordinate.
+- `start` (required): Start coordinate (1-indexed integer).
+- `end` (required): End coordinate (1-indexed integer).
 - `strand`: Feature orientation (`1` or `"+"` for the positive strand, `-1` or `"-"` for the negative strand). `none` draws an undirected block.
 - `label`: Feature label
 - `color`: Fill color.

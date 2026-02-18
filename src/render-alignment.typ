@@ -305,38 +305,211 @@
   }
 }
 
+/// Parse and validate coordinate format, type, and bounds.
+#let _parse-and-validate-coord(
+  coord,
+  max-row,
+  max-col,
+  coord-context,
+  allow-extra-array-items: false,
+) = {
+  assert(
+    type(coord) == dictionary or type(coord) == array,
+    message: coord-context + " must be a coordinate dictionary or array.",
+  )
+
+  if type(coord) == dictionary {
+    assert(
+      "row" in coord and "col" in coord,
+      message: coord-context + " dictionary must contain 'row' and 'col'.",
+    )
+  } else {
+    if allow-extra-array-items {
+      assert(
+        coord.len() >= 2,
+        message: coord-context + " array must contain at least row and col.",
+      )
+    } else {
+      assert(
+        coord.len() == 2,
+        message: coord-context + " array must contain exactly row and col.",
+      )
+    }
+  }
+
+  let parsed = _parse-coord(coord)
+  assert(
+    type(parsed.row) == int,
+    message: coord-context + " row must be an integer.",
+  )
+  assert(
+    type(parsed.col) == int,
+    message: coord-context + " col must be an integer.",
+  )
+  assert(
+    parsed.row >= 0 and parsed.row <= max-row,
+    message: coord-context
+      + " row "
+      + str(parsed.row)
+      + " out of bounds [0, "
+      + str(max-row)
+      + "].",
+  )
+  assert(
+    parsed.col >= 0 and parsed.col <= max-col,
+    message: coord-context
+      + " col "
+      + str(parsed.col)
+      + " out of bounds [0, "
+      + str(max-col)
+      + "].",
+  )
+
+  parsed
+}
+
+/// Private: Validate cell highlights coordinates.
+#let _validate-highlights(highlights, max-row, max-col) = {
+  assert(type(highlights) == array, message: "highlights must be an array.")
+
+  for (idx, highlight) in highlights.enumerate() {
+    let _discard = _parse-and-validate-coord(
+      highlight,
+      max-row,
+      max-col,
+      "Highlight at index " + str(idx),
+      allow-extra-array-items: true,
+    )
+  }
+
+  none
+}
+
+/// Private: Validate arrows matrix structure and coordinate bounds.
+#let _validate-arrows(
+  arrows,
+  max-row,
+  max-col,
+  expected-rows,
+  expected-cols,
+) = {
+  assert(type(arrows) == array, message: "arrows must be an array.")
+  if arrows.len() == 0 { return none }
+
+  assert(
+    arrows.len() == expected-rows,
+    message: "arrows must have "
+      + str(expected-rows)
+      + " rows. Got "
+      + str(arrows.len())
+      + ".",
+  )
+
+  for (row-idx, row) in arrows.enumerate() {
+    assert(
+      type(row) == array,
+      message: "arrows row " + str(row-idx) + " must be an array.",
+    )
+    assert(
+      row.len() == expected-cols,
+      message: "arrows row "
+        + str(row-idx)
+        + " must have "
+        + str(expected-cols)
+        + " columns. Got "
+        + str(row.len())
+        + ".",
+    )
+
+    for (col-idx, cell-arrows) in row.enumerate() {
+      assert(
+        type(cell-arrows) == array,
+        message: "arrows cell ("
+          + str(row-idx)
+          + ", "
+          + str(col-idx)
+          + ") must be an array.",
+      )
+
+      for (arrow-idx, arrow) in cell-arrows.enumerate() {
+        assert(
+          type(arrow) == array and arrow.len() == 2,
+          message: "Arrow "
+            + str(arrow-idx)
+            + " at cell ("
+            + str(row-idx)
+            + ", "
+            + str(col-idx)
+            + ") must have (from, to).",
+        )
+        let _discard = _parse-and-validate-coord(
+          arrow.at(0),
+          max-row,
+          max-col,
+          "Arrow " + str(arrow-idx) + " from",
+        )
+        let _discard = _parse-and-validate-coord(
+          arrow.at(1),
+          max-row,
+          max-col,
+          "Arrow " + str(arrow-idx) + " to",
+        )
+      }
+    }
+  }
+
+  none
+}
+
+/// Private: Validate DP matrix dimensions and rectangular shape.
+#let _validate-dp-values(values, expected-rows, expected-cols) = {
+  assert(type(values) == array, message: "values must be an array.")
+  assert(values.len() > 0, message: "values must contain at least one row.")
+  assert(type(values.at(0)) == array, message: "values rows must be arrays.")
+
+  let value-cols = values.at(0).len()
+  assert(
+    values.all(row => type(row) == array and row.len() == value-cols),
+    message: "All rows in values must have the same number of columns.",
+  )
+  assert(
+    values.len() == expected-rows,
+    message: "Matrix values must have "
+      + str(expected-rows)
+      + " rows (seq-1 length + 1). Got "
+      + str(values.len())
+      + ".",
+  )
+  assert(
+    value-cols == expected-cols,
+    message: "Matrix values must have "
+      + str(expected-cols)
+      + " columns (seq-2 length + 1). Got "
+      + str(value-cols)
+      + ".",
+  )
+}
+
 /// Private: Validate that the path is valid for the given sequences.
 ///
 /// Checks that coordinates are within bounds and that the path is monotonic
 /// (only moves down, right, or diagonally down-right with unit steps).
 ///
-/// - path (array): Path coordinates as array of (row, col) tuples.
+/// - path (array): Path coordinates as arrays or dictionaries.
 /// - seq1-len (int): Length of the first sequence.
 /// - seq2-len (int): Length of the second sequence.
 /// -> none
 #let _validate-path(path, seq1-len, seq2-len) = {
+  assert(type(path) == array, message: "path must be an array.")
   assert(path.len() >= 1, message: "Path must contain at least one coordinate.")
 
   let prev-coord = none
   for (idx, coord) in path.enumerate() {
-    let parsed = _parse-coord(coord)
-
-    // Validate bounds (0-indexed, valid range is 0 to seq-len)
-    assert(
-      parsed.row >= 0 and parsed.row <= seq1-len,
-      message: "Row coordinate "
-        + str(parsed.row)
-        + " out of bounds [0, "
-        + str(seq1-len)
-        + "].",
-    )
-    assert(
-      parsed.col >= 0 and parsed.col <= seq2-len,
-      message: "Column coordinate "
-        + str(parsed.col)
-        + " out of bounds [0, "
-        + str(seq2-len)
-        + "].",
+    let parsed = _parse-and-validate-coord(
+      coord,
+      seq1-len,
+      seq2-len,
+      "Path coordinate at index " + str(idx),
     )
 
     // Validate monotonicity (path can only move down, right, or diagonal down-right)
@@ -716,15 +889,18 @@
   if path == none or path.len() < 2 {
     return false
   }
+  let parsed-arrow-from = _parse-coord(arrow-from)
+  let parsed-arrow-to = _parse-coord(arrow-to)
+
   // Path is ordered from end to start, so consecutive pairs are (from, to)
   for i in range(path.len() - 1) {
-    let path-from = path.at(i)
-    let path-to = path.at(i + 1)
+    let path-from = _parse-coord(path.at(i))
+    let path-to = _parse-coord(path.at(i + 1))
     if (
-      arrow-from.at(0) == path-from.at(0)
-        and arrow-from.at(1) == path-from.at(1)
-        and arrow-to.at(0) == path-to.at(0)
-        and arrow-to.at(1) == path-to.at(1)
+      parsed-arrow-from.row == path-from.row
+        and parsed-arrow-from.col == path-from.col
+        and parsed-arrow-to.row == path-to.row
+        and parsed-arrow-to.col == path-to.col
     ) {
       return true
     }
@@ -784,8 +960,8 @@
   for (row-idx, row) in arrows.enumerate() {
     for (col-idx, cell-arrows) in row.enumerate() {
       for arrow in cell-arrows {
-        let from-coord = (row: arrow.at(0).at(0), col: arrow.at(0).at(1))
-        let to-coord = (row: arrow.at(1).at(0), col: arrow.at(1).at(1))
+        let from-coord = _parse-coord(arrow.at(0))
+        let to-coord = _parse-coord(arrow.at(1))
 
         // Determine arrow color
         let arr-color = arrow-color
@@ -851,13 +1027,13 @@
 /// - seq-1 (str): Sequence displayed on the left as row labels.
 /// - seq-2 (str): Sequence displayed on top as column labels.
 /// - values (array): 2D array of matrix values (integers or none for empty cells).
-/// - highlights (array): Cell highlights as (row, col) or (row, col, color) tuples (default: ()).
+/// - highlights (array): Cell highlights as coordinate arrays/dictionaries, with optional color (default: ()).
 /// - highlight-color (color): Default color for highlighted cells (default: light gray).
-/// - path (array, none): Traceback path as array of (row, col) tuples (default: none).
+/// - path (array, none): Traceback path as coordinates (array or dictionary form) (default: none).
 /// - path-color (color): Color for the path line (default: semi-transparent yellow).
 /// - path-width (length): Width of the path line (default: 18pt).
 /// - path-cell-bold (bool): Whether scores in cells on the path are rendered in bold (default: true).
-/// - arrows (array): 2D matrix of arrows from alignment result. Each cell contains an array of arrow tuples ((from_row, from_col), (to_row, to_col)) (default: ()).
+/// - arrows (array): 2D matrix of arrows matching matrix dimensions; each cell contains an array of (from, to) coordinates (default: ()).
 /// - arrow-color (color): Default color for arrows (default: medium gray).
 /// - highlight-path-arrows (bool): Whether arrows on the path use a different color (default: true).
 /// - path-arrow-color (color): Color for arrows on the traceback path (default: dark gray).
@@ -887,23 +1063,10 @@
   let seq1-raw-clusters = seq-1.clusters()
   let seq2-raw-clusters = seq-2.clusters()
 
-  assert(values.len() > 0, message: "values must contain at least one row.")
-  let value-cols = values.at(0).len()
-  assert(
-    values.len() == seq1-raw-clusters.len() + 1,
-    message: "Matrix values must have "
-      + str(seq1-raw-clusters.len() + 1)
-      + " rows (seq-1 length + 1). Got "
-      + str(values.len())
-      + ".",
-  )
-  assert(
-    value-cols == seq2-raw-clusters.len() + 1,
-    message: "Matrix values must have "
-      + str(seq2-raw-clusters.len() + 1)
-      + " columns (seq-2 length + 1). Got "
-      + str(value-cols)
-      + ".",
+  _validate-dp-values(
+    values,
+    seq1-raw-clusters.len() + 1,
+    seq2-raw-clusters.len() + 1,
   )
 
   let top-label-seq = "—" + seq-2
@@ -912,19 +1075,21 @@
   let top-clusters = top-label-seq.clusters()
   let left-clusters = left-label-seq.clusters()
 
-  // Validate inputs
-  assert(
-    values.len() == left-clusters.len(),
-    message: "Number of matrix rows must match seq-1 label length.",
-  )
-  assert(
-    values.all(row => row.len() == top-clusters.len()),
-    message: "Number of matrix columns must match seq-2 label length.",
+  let max-row = left-clusters.len() - 1
+  let max-col = top-clusters.len() - 1
+
+  _validate-highlights(highlights, max-row, max-col)
+  _validate-arrows(
+    arrows,
+    max-row,
+    max-col,
+    left-clusters.len(),
+    top-clusters.len(),
   )
 
   // Validate path if provided (path from align-seq-pair is end-to-start, so reverse for validation)
   if path != none {
-    _validate-path(path.rev(), left-clusters.len() - 1, top-clusters.len() - 1)
+    _validate-path(path.rev(), max-row, max-col)
   }
 
   // Constants for dimensions
@@ -1024,7 +1189,7 @@
 ///
 /// - seq-1 (str): First sequence (without gaps).
 /// - seq-2 (str): Second sequence (without gaps).
-/// - path (array): Traceback path as array of (row, col) tuples.
+/// - path (array): Traceback path as coordinates (array or dictionary form).
 /// - gap-char (str): Character to display for gaps (default: "—").
 /// - match-char (str): Character to display for matches (default: "│").
 /// - mismatch-char (str): Character to display for mismatches (default: " ").

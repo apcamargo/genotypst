@@ -1,8 +1,8 @@
 #import "constants.typ": _light-gray
 #import "utils.typ": (
   _check-palette-coverage, _compute-sequence-conservation, _fixed-width-grid,
-  _get-column-stats, _guess-seq-alphabet, _resolve-alphabet-config,
-  _validate-msa,
+  _get-column-stats, _guess-seq-alphabet, _resolve-1indexed-window,
+  _resolve-alphabet-config, _validate-msa,
 )
 
 /// Renders a single character in an MSA with optional coloring.
@@ -169,11 +169,14 @@
     )
   }
 
-  let actual-start = if start == none { 0 } else { calc.max(0, start - 1) }
-  let actual-end = if end == none { total-max-len } else {
-    calc.min(end, total-max-len)
-  }
-  if actual-start >= actual-end { return }
+  let window = _resolve-1indexed-window(
+    start,
+    end,
+    total-max-len,
+    window-name: "MSA",
+  )
+  let actual-start = window.actual-start
+  let actual-end = window.actual-end
 
   let n-seqs = pairs.len()
   let max-bits = calc.log(config.size, base: 2.0)
