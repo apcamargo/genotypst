@@ -316,6 +316,47 @@
     )
   }
 
+  let min-width = if is-vertical { margins.y-start } else {
+    margins.root + margins.tip
+  }
+  let min-height = if is-vertical { margins.root + margins.tip } else {
+    margins.y-start
+  }
+  let resolve-length = len => measure(box(width: len)[]).width
+  let resolved-width-abs = resolve-length(resolved-width)
+  let resolved-height-abs = resolve-length(resolved-height)
+  let min-width-abs = resolve-length(min-width)
+  let min-height-abs = resolve-length(min-height)
+  let width-ok = resolved-width-abs > min-width-abs
+  let height-ok = resolved-height-abs > min-height-abs
+  if not (width-ok and height-ok) {
+    let issues = ()
+    if not width-ok {
+      issues.push(
+        "width is too small for the tree labels and margins (current: "
+          + repr(resolved-width-abs)
+          + ", required: > "
+          + repr(min-width-abs)
+          + ")",
+      )
+    }
+    if not height-ok {
+      issues.push(
+        "height is too small for the tree labels and margins (current: "
+          + repr(resolved-height-abs)
+          + ", required: > "
+          + repr(min-height-abs)
+          + ")",
+      )
+    }
+    assert(
+      false,
+      message: "Tree cannot be rendered: "
+        + issues.join("; ")
+        + ". Increase width or height, reduce labels, reduce label size, or reduce root-length.",
+    )
+  }
+
   // Map to internal drawing dimensions: x-dim is Depth, y-dim is Spread
   (
     box-width: box-width,
