@@ -98,15 +98,26 @@
 /// Private: Calculates background color for a score using gradient mapping.
 ///
 /// Maps a score to a color by sampling the provided color gradient with
-/// discrete steps. Returns none if no color map is provided.
+/// discrete steps.
 ///
 /// - score (int, float): The score value.
 /// - min-val (float): Minimum value of the scale.
 /// - max-val (float): Maximum value of the scale.
 /// - color-map (array, none): Array of colors or gradient stops.
+///   Returns none if color-map is none or empty.
+///   Returns a solid color if color-map contains one entry.
 /// -> color, none
 #let _get-score-color(score, min-val, max-val, color-map) = {
   if color-map == none { return none }
+  if color-map.len() == 0 { return none }
+  if color-map.len() == 1 {
+    let single = color-map.at(0)
+    if type(single) == array and single.len() > 0 {
+      return single.at(0)
+    } else {
+      return single
+    }
+  }
   let ratio = if max-val == min-val { 0.5 } else {
     (score - min-val) / (max-val - min-val)
   }
@@ -251,7 +262,10 @@
 /// - gutter (length): Spacing between cells (default: 0pt).
 /// - label-bold (bool): Whether alphabet labels should be bold (default: true).
 /// - stroke (stroke, none): Stroke style for data cells (default: none).
-/// - color-map (array, none): Array of colors or gradient stops for cell backgrounds. If none, cells have no background color (default: diverging red-blue gradient).
+/// - color-map (array, none): Array of colors or gradient stops for cell backgrounds.
+///   none or () disables cell background fill.
+///   A single entry uses a constant fill color for all cells.
+///   (default: diverging red-blue gradient).
 /// -> content
 #let render-scoring-matrix(
   scoring-matrix,
