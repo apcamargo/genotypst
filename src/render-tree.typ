@@ -7,10 +7,18 @@
 /// Safely gets node length with a default.
 ///
 /// - node (dictionary): Tree node.
+/// - cladogram (bool): Whether to use cladogram branch lengths.
+/// - is-root (bool): Whether this node is the root node.
 /// - default (float): Default branch length.
 /// -> float
-#let _node-length(node, default: 0.0) = {
-  if node.length != none { node.length } else { default }
+#let _node-length(node, cladogram: false, is-root: false, default: 0.0) = {
+  if cladogram {
+    if is-root { 0.0 } else { 1.0 }
+  } else if node.length != none {
+    node.length
+  } else {
+    default
+  }
 }
 
 /// Collects all tip names from a tree.
@@ -38,11 +46,18 @@
 /// Recursively measures tree dimensions and computes node positions.
 ///
 /// - tree (dictionary): Tree node.
+/// - cladogram (bool): Whether to use cladogram branch lengths.
+/// - is-root (bool): Whether this node is the root node.
 /// -> dictionary
-#let _measure-tree(tree) = {
+#let _measure-tree(tree, cladogram: false, is-root: false) = {
   if tree.children == none or tree.children.len() == 0 {
     // Leaf node
-    let len = _node-length(tree, default: 1.0)
+    let len = _node-length(
+      tree,
+      cladogram: cladogram,
+      is-root: is-root,
+      default: 1.0,
+    )
     (
       height: 1.0,
       depth: len,
@@ -61,7 +76,7 @@
     let (current-y, max-depth) = (0.0, 0.0)
 
     for child in tree.children {
-      let m = _measure-tree(child)
+      let m = _measure-tree(child, cladogram: cladogram, is-root: false)
       processed-children.push((child: m.tree, y-offset: current-y))
       current-y += m.height
       max-depth = calc.max(max-depth, m.depth)
@@ -79,7 +94,11 @@
       )
         / 2.0
     )
-    let my-len = _node-length(tree)
+    let my-len = _node-length(
+      tree,
+      cladogram: cladogram,
+      is-root: is-root,
+    )
 
     (
       height: current-y,
@@ -112,7 +131,7 @@
   let labels = ()
 
   // Calculate this node's position
-  let len = _node-length(node)
+  let len = node.x-len
   let my-x = x-offset + len * x-scale
   let my-y = y-offset + node.y-local * y-scale
 
@@ -424,6 +443,7 @@
 /// - internal-label-color (color): Color of internal node labels (default: medium gray).
 /// - root-length (length): Length of the dotted root branch (default: 1.25em).
 /// - orientation (str): "horizontal" (root left, tips right) or "vertical" (root bottom, tips up) (default: "horizontal").
+/// - cladogram (bool): Whether to make all branch lengths equal (default: false).
 /// -> content
 #let render-tree(
   tree-data,
@@ -438,7 +458,9 @@
   internal-label-color: _medium-gray,
   root-length: 1.25em,
   orientation: "horizontal",
+  cladogram: false,
 ) = {
+  assert(type(cladogram) == bool, message: "cladogram must be a boolean")
   assert(
     orientation in ("horizontal", "vertical"),
     message: "orientation must be 'horizontal' or 'vertical'",
@@ -473,7 +495,7 @@
     length: tree-data.length,
     children: tree-data.children,
   )
-  let measured = _measure-tree(tree)
+  let measured = _measure-tree(tree, cladogram: cladogram, is-root: true)
   let tip-names = _collect-tip-names(tree-data)
 
   context {
