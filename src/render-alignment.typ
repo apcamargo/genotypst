@@ -577,34 +577,30 @@
   let bg-grid-content = ()
   let text-grid-content = ()
 
-  // Helper to get highlight color for a cell
-  let get-highlight-color = (row, col) => {
-    for h in highlights {
-      let h-coord = _parse-coord(h)
+  let key-of = (row, col) => str(row) + "," + str(col)
 
-      if h-coord.row == row and h-coord.col == col {
-        if type(h) == dictionary {
-          return if "color" in h { h.color } else { highlight-color }
-        } else {
-          return if h.len() > 2 { h.at(2) } else { highlight-color }
-        }
+  let highlight-map = (:)
+  for h in highlights {
+    let h-coord = _parse-coord(h)
+    let key = key-of(h-coord.row, h-coord.col)
+
+    // Preserve existing behavior: first matching highlight wins.
+    if not (key in highlight-map) {
+      let color = if type(h) == dictionary {
+        if "color" in h { h.color } else { highlight-color }
+      } else {
+        if h.len() > 2 { h.at(2) } else { highlight-color }
       }
+      highlight-map.insert(key, color)
     }
-    return none
   }
 
-  // Helper to check if a cell should be bold (on the path)
-  let is-bold-cell = (row, col) => {
-    if not path-cell-bold or path == none {
-      return false
-    }
+  let path-set = (:)
+  if path-cell-bold and path != none {
     for p in path {
       let p-coord = _parse-coord(p)
-      if p-coord.row == row and p-coord.col == col {
-        return true
-      }
+      path-set.insert(key-of(p-coord.row, p-coord.col), true)
     }
-    return false
   }
 
   // Header row: empty top-left corner, then top sequence characters
@@ -626,10 +622,11 @@
     text-grid-content.push(_label-cell(row-label))
 
     for (col-idx, value) in values.at(row-idx).enumerate() {
+      let key = key-of(row-idx, col-idx)
       let cell-content = if value == none {
         []
       } else {
-        let content = if is-bold-cell(row-idx, col-idx) {
+        let content = if path-cell-bold and (key in path-set) {
           strong[#value]
         } else {
           value
@@ -637,7 +634,7 @@
         align(center + horizon)[#content]
       }
 
-      let fill-color = get-highlight-color(row-idx, col-idx)
+      let fill-color = highlight-map.at(key, default: none)
       let cell-radius = _get-cell-radius(
         row-idx,
         col-idx,
