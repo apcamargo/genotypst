@@ -1,7 +1,8 @@
 #import "constants.typ": _light-gray
 #import "utils.typ": (
-  _check-palette-coverage, _compute-sequence-conservation, _get-column-stats,
-  _resolve-alphabet-config, _validate-msa,
+  _check-palette-coverage, _compute-sequence-conservation,
+  _draw-coordinate-axis, _get-column-stats, _resolve-alphabet-config,
+  _validate-msa,
 )
 
 /// Computes residue heights for a sequence logo.
@@ -11,9 +12,9 @@
 /// Stack height represents information content, character height represents
 /// relative frequency.
 ///
-/// - msa-dict (dictionary): A dictionary mapping sequence identifiers to sequences.
-/// - start (int, none): Starting position (1-indexed, inclusive).
-/// - end (int, none): Ending position (1-indexed, inclusive).
+/// - sequences (array): Array of sequence strings.
+/// - actual-start (int): Starting position (0-indexed, inclusive).
+/// - actual-end (int): Ending position (0-indexed, exclusive).
 /// - logo-height (length): Total height of the logo.
 /// - sampling-correction (bool): Apply small sample correction.
 /// - alphabet-size (int): Size of the alphabet.
@@ -22,23 +23,17 @@
 ///   - char: str, the character
 ///   - height: length, the height of that character in the stack
 #let _get-logo-heights(
-  msa-dict,
-  start,
-  end,
+  sequences,
+  actual-start,
+  actual-end,
   logo-height,
   sampling-correction,
   alphabet-size,
   alphabet-chars,
 ) = {
-  let sequences = msa-dict.values()
   if sequences.len() == 0 { return }
 
   let n-seqs = sequences.len()
-  let max-len = sequences.map(s => s.len()).fold(0, calc.max)
-
-  let start-pos = if start == none { 1 } else { start }
-  let actual-start = calc.max(0, start-pos - 1)
-  let actual-end = if end == none { max-len } else { calc.min(end, max-len) }
 
   let max-bits = calc.log(alphabet-size, base: 2.0)
 
@@ -84,6 +79,22 @@
     logo-data.push(column-letters.sorted(key: it => it.height).rev())
   }
   logo-data
+}
+
+/// Resolves the rendered window for sequence logo positions.
+///
+/// - sequences (array): Array of sequence strings.
+/// - start (int, none): Starting position (1-indexed, inclusive).
+/// - end (int, none): Ending position (1-indexed, inclusive).
+/// -> dictionary with keys:
+///   - actual-start: int, 0-indexed inclusive start
+///   - actual-end: int, 0-indexed exclusive end
+#let _resolve-logo-window(sequences, start, end) = {
+  let max-len = sequences.map(s => s.len()).fold(0, calc.max)
+  let start-pos = if start == none { 1 } else { start }
+  let actual-start = calc.max(0, start-pos - 1)
+  let actual-end = if end == none { max-len } else { calc.min(end, max-len) }
+  (actual-start: actual-start, actual-end: actual-end)
 }
 
 /// Renders a single letter in a sequence logo with proper scaling.
@@ -135,6 +146,13 @@
 /// - sampling-correction (bool): Apply small sample correction (default: true).
 /// - alphabet (auto, str): Sequence type: auto, "aa", "dna", or "rna" (default: auto).
 /// - palette (dictionary, auto): Residue color palette (default: auto).
+/// - coordinate-axis (bool): Show coordinate axis under the logo (default: false).
+/// - axis-color (color): Axis line and label color (default: black).
+/// - axis-stroke-width (length): Axis line thickness (default: 0.7pt).
+/// - axis-label-size (length): Axis label font size (default: 0.8em).
+/// - axis-tick-height (length): Axis tick height (default: 4.5pt).
+/// - axis-label-gap (length): Gap between ticks and labels (default: 2.5pt).
+/// - axis-logo-gap (length): Gap between logo and axis (default: 6pt).
 /// -> content
 #let render-sequence-logo(
   msa-dict,
@@ -145,11 +163,44 @@
   sampling-correction: true,
   alphabet: auto,
   palette: auto,
+  coordinate-axis: false,
+  axis-color: black,
+  axis-stroke-width: 0.7pt,
+  axis-label-size: 0.8em,
+  axis-tick-height: 4.5pt,
+  axis-label-gap: 2.5pt,
+  axis-logo-gap: 6pt,
 ) = {
   _validate-msa(msa-dict)
   let sequences = msa-dict.values()
   let config = _resolve-alphabet-config(alphabet, sequences)
   let palette-to-use = if palette == auto { config.palette } else { palette }
+  let window = _resolve-logo-window(sequences, start, end)
+
+  assert(
+    axis-stroke-width > 0pt,
+    message: "axis-stroke-width must be positive.",
+  )
+  assert(axis-tick-height > 0pt, message: "axis-tick-height must be positive.")
+  assert(axis-label-gap >= 0pt, message: "axis-label-gap must be non-negative.")
+  assert(axis-logo-gap >= 0pt, message: "axis-logo-gap must be non-negative.")
+  let start-label = if start == none { "none" } else { str(start) }
+  let end-label = if end == none { "none" } else { str(end) }
+  assert(
+    window.actual-start < window.actual-end,
+    message: (
+      "Resolved logo window is empty. Check start/end (1-indexed, inclusive). "
+        + "Received start="
+        + start-label
+        + ", end="
+        + end-label
+        + "; resolved start="
+        + str(window.actual-start + 1)
+        + ", end="
+        + str(window.actual-end)
+        + "."
+    ),
+  )
 
   if palette != auto {
     let coverage = _check-palette-coverage(palette-to-use, sequences)
@@ -160,9 +211,9 @@
   }
 
   let logo-data = _get-logo-heights(
-    msa-dict,
-    start,
-    end,
+    sequences,
+    window.actual-start,
+    window.actual-end,
     height,
     sampling-correction,
     config.size,
@@ -170,12 +221,12 @@
   )
 
   block(width: width)[
-    #layout(size => {
+    #layout(size => context {
       let n-cols = logo-data.len()
       if n-cols == 0 { return }
       let col-width = size.width / n-cols
 
-      grid(
+      let logo-grid = grid(
         columns: (col-width,) * n-cols,
         align: bottom,
         row-gutter: 0pt,
@@ -188,6 +239,51 @@
           )
         })
       )
+
+      if not coordinate-axis {
+        return logo-grid
+      }
+
+      let first-pos = window.actual-start + 1
+      let last-pos = window.actual-end
+      let axis-left = if n-cols == 1 { 0pt } else { col-width / 2 }
+      let axis-width = if n-cols == 1 { size.width } else {
+        size.width - col-width
+      }
+      let logo-height = measure(logo-grid).height
+      let axis-label-height = measure(text(
+        size: axis-label-size,
+        fill: axis-color,
+        bottom-edge: "descender",
+      )[#str(last-pos)]).height
+      let axis-top = logo-height + axis-logo-gap
+      let total-height = (
+        axis-top + axis-tick-height + axis-label-gap + axis-label-height
+      )
+      let axis-stroke = (
+        paint: axis-color,
+        thickness: axis-stroke-width,
+        cap: "round",
+      )
+
+      box(width: size.width, height: total-height, {
+        place(top + left, logo-grid)
+        _draw-coordinate-axis(
+          coordinate-axis,
+          first-pos,
+          last-pos,
+          last-pos - first-pos,
+          axis-width,
+          axis-top,
+          axis-tick-height,
+          axis-label-gap,
+          axis-label-size,
+          none,
+          axis-color,
+          axis-stroke,
+          axis-left: axis-left,
+        )
+      })
     })
   ]
 }

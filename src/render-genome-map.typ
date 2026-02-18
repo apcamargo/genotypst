@@ -1,5 +1,8 @@
 #import "constants.typ": _light-gray
-#import "utils.typ": _clamp, _round-scale
+#import "utils.typ": (
+  _clamp, _draw-coordinate-axis, _draw-horizontal-segment,
+  _draw-vertical-segment, _round-scale,
+)
 
 /// Normalizes gene dictionaries and applies defaults.
 ///
@@ -91,39 +94,6 @@
   (labels: assigned, levels: level-intervals.len())
 }
 
-/// Draws a horizontal line segment.
-///
-/// - x (length): Starting x-position.
-/// - y (length): Starting y-position.
-/// - length (length): Segment length.
-/// - stroke (stroke): Line stroke styling.
-/// -> content
-#let _draw-horizontal-segment(x, y, length, stroke) = {
-  if length > 0pt {
-    place(top + left, dx: x, dy: y, line(
-      start: (0pt, 0pt),
-      end: (length, 0pt),
-      stroke: stroke,
-    ))
-  }
-}
-
-/// Draws a vertical line segment.
-///
-/// - x (length): Starting x-position.
-/// - y (length): Starting y-position.
-/// - length (length): Segment length.
-/// - stroke (stroke): Line stroke styling.
-/// -> content
-#let _draw-vertical-segment(x, y, length, stroke) = {
-  if length > 0pt {
-    place(top + left, dx: x, dy: y, line(
-      start: (0pt, 0pt),
-      end: (0pt, length),
-      stroke: stroke,
-    ))
-  }
-}
 
 /// Computes label layout and level positions.
 ///
@@ -346,74 +316,6 @@
       dy: scale-top + scale-tick-height + scale-label-gap,
       scale-label-text,
     )
-  }
-}
-
-/// Draws the coordinate axis with ticks and labels.
-///
-/// - coordinate-axis (bool): Whether to draw the axis.
-/// - region-start (float): Region start coordinate.
-/// - region-end (float): Region end coordinate.
-/// - region-length (float): Region length.
-/// - track-width (length): Track width.
-/// - axis-top (length): Axis top offset.
-/// - tick-height (length): Tick height.
-/// - label-gap (length): Gap between tick and label.
-/// - label-size (length): Label font size.
-/// - unit (str, none): Unit suffix.
-/// - axis-color (color): Axis label color.
-/// - axis-stroke (stroke): Stroke styling.
-/// -> content
-#let _draw-coordinate-axis(
-  coordinate-axis,
-  region-start,
-  region-end,
-  region-length,
-  track-width,
-  axis-top,
-  tick-height,
-  label-gap,
-  label-size,
-  unit,
-  axis-color,
-  axis-stroke,
-) = {
-  if coordinate-axis {
-    let tick-step = _round-scale(region-length / 10)
-    let first-tick = calc.ceil(region-start / tick-step) * tick-step
-    let tick = first-tick
-
-    _draw-horizontal-segment(0pt, axis-top, track-width, axis-stroke)
-
-    while tick <= region-end {
-      let x = track-width * ((tick - region-start) / region-length)
-      let label-value = if tick >= 1 {
-        int(calc.round(tick))
-      } else {
-        calc.round(tick, digits: 2)
-      }
-      let label = if unit == none {
-        str(label-value)
-      } else {
-        str(label-value) + " " + unit
-      }
-      let label-text = text(
-        size: label-size,
-        fill: axis-color,
-        bottom-edge: "descender",
-      )[#label]
-      let label-width = measure(label-text).width
-      _draw-vertical-segment(x, axis-top, tick-height, axis-stroke)
-      place(
-        top + left,
-        // Keep the label centered but within track bounds.
-        dx: _clamp(x - label-width / 2, 0pt, track-width - label-width),
-        dy: axis-top + tick-height + label-gap,
-        label-text,
-      )
-
-      tick += tick-step
-    }
   }
 }
 
