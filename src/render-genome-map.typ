@@ -1,7 +1,8 @@
 #import "constants.typ": _light-gray
 #import "utils.typ": (
-  _clamp, _draw-coordinate-axis, _draw-horizontal-segment,
-  _draw-vertical-segment, _round-scale, _validate-interval,
+  _clamp, _draw-coordinate-axis, _draw-horizontal-segment, _draw-scale-bar-row,
+  _draw-vertical-segment, _format-scale-label, _resolve-length,
+  _resolve-scale-bar-length, _validate-interval,
   _validate-optional-int-at-least,
 )
 
@@ -279,51 +280,6 @@
   }
 }
 
-/// Draws the scale bar and label.
-///
-/// - scale-bar (bool): Whether to draw the scale bar.
-/// - scale-top (length): Top offset for the scale bar.
-/// - scale-width (length): Scale bar width.
-/// - scale-tick-height (length): Tick height.
-/// - scale-label-gap (length): Gap between scale bar and label.
-/// - scale-label-text (content): Label content.
-/// - scale-label-width (length): Label width.
-/// - scale-stroke (stroke): Stroke styling for scale bar.
-/// -> content
-#let _draw-scale-bar(
-  scale-bar,
-  scale-top,
-  scale-width,
-  scale-tick-height,
-  scale-label-gap,
-  scale-label-text,
-  scale-label-width,
-  scale-stroke,
-) = {
-  if scale-bar {
-    // Draw the scale line centered on the tick height.
-    _draw-horizontal-segment(
-      0pt,
-      scale-top + scale-tick-height / 2,
-      scale-width,
-      scale-stroke,
-    )
-    _draw-vertical-segment(0pt, scale-top, scale-tick-height, scale-stroke)
-    _draw-vertical-segment(
-      scale-width,
-      scale-top,
-      scale-tick-height,
-      scale-stroke,
-    )
-    place(
-      top + left,
-      dx: scale-width / 2 - scale-label-width / 2,
-      dy: scale-top + scale-tick-height + scale-label-gap,
-      scale-label-text,
-    )
-  }
-}
-
 /// Renders a genome map from an array of gene dictionaries.
 ///
 /// Each gene dictionary in the input array can have the following fields:
@@ -417,17 +373,16 @@
 
     let track-width = size.width
     // Resolve relative lengths to absolute values for layout comparisons.
-    let resolve-gap = gap => measure(box(width: gap)[]).width
-    let label-horizontal-gap = resolve-gap(label-horizontal-gap)
-    let label-vertical-gap = resolve-gap(label-vertical-gap)
-    let label-line-distance = resolve-gap(label-line-distance)
-    let label-track-gap = resolve-gap(label-track-gap)
-    let label-leader-offset = resolve-gap(label-leader-offset)
-    let tick-height = resolve-gap(tick-height)
-    let gene-height = resolve-gap(gene-height)
-    let min-head-length = resolve-gap(min-head-length)
+    let label-horizontal-gap = _resolve-length(label-horizontal-gap)
+    let label-vertical-gap = _resolve-length(label-vertical-gap)
+    let label-line-distance = _resolve-length(label-line-distance)
+    let label-track-gap = _resolve-length(label-track-gap)
+    let label-leader-offset = _resolve-length(label-leader-offset)
+    let tick-height = _resolve-length(tick-height)
+    let gene-height = _resolve-length(gene-height)
+    let min-head-length = _resolve-length(min-head-length)
     let head-length = if head-length == auto { auto } else {
-      resolve-gap(head-length)
+      _resolve-length(head-length)
     }
     let coordinate-axis-label-gap = 2.5pt
     let scale-label-gap = 1.5pt
@@ -456,39 +411,58 @@
 
     let track-bottom = track-top + gene-height
 
-    let scale-length = if not scale-bar { 0 } else if scale-length == auto {
-      _round-scale(region-length / 10)
+    let x-scale = track-width / region-length
+    let resolved-scale = if scale-bar {
+      _resolve-scale-bar-length(
+        scale-length,
+        region-length,
+        x-scale,
+        track-width,
+        zero-length-message: "region length must be positive",
+      )
     } else {
-      scale-length
+      (length: 0, width: 0pt)
     }
 
-    let scale-label-value = if scale-length >= 1 {
-      int(calc.round(scale-length))
+    let scale-label = if scale-bar {
+      _format-scale-label(resolved-scale.length, unit)
     } else {
-      calc.round(scale-length, digits: 2)
+      none
     }
 
-    let scale-label = if unit == none {
-      str(scale-label-value)
+    let scale-label-height = if scale-label == none {
+      0pt
     } else {
-      str(scale-label-value) + " " + unit
+      measure(text(
+        size: label-size,
+        fill: black,
+        bottom-edge: "descender",
+      )[#scale-label]).height
     }
 
-    let scale-label-text = text(
-      size: label-size,
-      fill: black,
-      bottom-edge: "descender",
-    )[#scale-label]
-    let scale-label-width = measure(scale-label-text).width
+    let scale-width = resolved-scale.width
 
-    let scale-width = if scale-bar {
-      track-width * (scale-length / region-length)
+    let axis-label-height = if coordinate-axis {
+      let axis-start-label = text(
+        size: label-size,
+        fill: black,
+        bottom-edge: "descender",
+      )[#_format-scale-label(region-start, unit)]
+      let axis-end-label = text(
+        size: label-size,
+        fill: black,
+        bottom-edge: "descender",
+      )[#_format-scale-label(region-end, unit)]
+      calc.max(
+        measure(axis-start-label).height,
+        measure(axis-end-label).height,
+      )
     } else {
       0pt
     }
 
     let coordinate-axis-height = if coordinate-axis {
-      tick-height + coordinate-axis-label-gap + label-height
+      tick-height + coordinate-axis-label-gap + axis-label-height
     } else {
       0pt
     }
@@ -505,7 +479,7 @@
         + coordinate-axis-height
         + (
           if scale-bar {
-            scale-track-gap + tick-height + scale-label-gap + label-height
+            scale-track-gap + tick-height + scale-label-gap + scale-label-height
           } else { 0pt }
         )
     )
@@ -623,16 +597,21 @@
       )
 
       // Scale bar
-      _draw-scale-bar(
-        scale-bar,
-        scale-top,
-        scale-width,
-        tick-height,
-        scale-label-gap,
-        scale-label-text,
-        scale-label-width,
-        scale-stroke,
-      )
+      if scale-bar {
+        _draw-scale-bar-row(
+          track-width,
+          scale-top,
+          0pt,
+          scale-width,
+          tick-height,
+          scale-label-gap,
+          label-size,
+          black,
+          scale-label,
+          black,
+          stroke-width,
+        )
+      }
     })
   })
 ]

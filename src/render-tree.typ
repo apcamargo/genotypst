@@ -1,4 +1,8 @@
 #import "constants.typ": _medium-gray
+#import "utils.typ": (
+  _draw-scale-bar-row, _format-scale-label, _resolve-length,
+  _resolve-scale-bar-length,
+)
 
 /// Tree layout constants.
 #let _label-x-offset = 0.3em
@@ -258,7 +262,11 @@
     let margin-size = if is-vertical { label-size.height } else {
       label-size.width
     }
-    margin-size + _label-x-offset + style.root-length
+    (
+      margin-size
+        + _label-x-offset
+        + (if style.is-root { style.root-length } else { 0pt })
+    )
   } else if style.is-root {
     style.root-length
   } else {
@@ -284,7 +292,6 @@
 /// - width (length, fraction): Target width.
 /// - height (length, auto): Target height.
 /// - margins (dictionary): Margin data.
-/// - tree-depth (float): Tree depth.
 /// - tree-height (float): Tree height.
 /// - is-vertical (bool): Whether the tree is vertical.
 /// - layout-size (length): Layout size.
@@ -293,7 +300,6 @@
   width,
   height,
   margins,
-  tree-depth,
   tree-height,
   is-vertical,
   layout-size,
@@ -341,11 +347,10 @@
   let min-height = if is-vertical { margins.root + margins.tip } else {
     margins.y-start
   }
-  let resolve-length = len => measure(box(width: len)[]).width
-  let resolved-width-abs = resolve-length(resolved-width)
-  let resolved-height-abs = resolve-length(resolved-height)
-  let min-width-abs = resolve-length(min-width)
-  let min-height-abs = resolve-length(min-height)
+  let resolved-width-abs = _resolve-length(resolved-width)
+  let resolved-height-abs = _resolve-length(resolved-height)
+  let min-width-abs = _resolve-length(min-width)
+  let min-height-abs = _resolve-length(min-height)
   let width-ok = resolved-width-abs > min-width-abs
   let height-ok = resolved-height-abs > min-height-abs
   if not (width-ok and height-ok) {
@@ -383,6 +388,30 @@
     x-dim: tree-w,
     y-dim: tree-h,
   )
+}
+
+/// Resolves scale-bar row geometry from layout values.
+///
+/// - is-vertical (bool): Whether tree orientation is vertical.
+/// - rendered-tree-width (length): Rendered tree width.
+/// - margins-root (length): Root-side margin.
+/// - layout-x-dim (length): Depth-axis drawable width.
+/// -> dictionary
+#let _resolve-scale-bar-geometry(
+  is-vertical,
+  rendered-tree-width,
+  margins-root,
+  layout-x-dim,
+) = {
+  let row-width = _resolve-length(rendered-tree-width)
+  let bar-left = if is-vertical { 0pt } else { _resolve-length(margins-root) }
+  let max-bar-width = if is-vertical {
+    calc.min(_resolve-length(layout-x-dim), row-width)
+  } else {
+    _resolve-length(layout-x-dim)
+  }
+
+  (row-width: row-width, bar-left: bar-left, max-bar-width: max-bar-width)
 }
 
 /// Validates the tree data structure.
@@ -444,6 +473,13 @@
 /// - root-length (length): Length of the dotted root branch (default: 1.25em).
 /// - orientation (str): "horizontal" (root left, tips right) or "vertical" (root bottom, tips up) (default: "horizontal").
 /// - cladogram (bool): Whether to make all branch lengths equal (default: false).
+/// - scale-bar (bool): Whether to draw a branch-length scale bar below the tree (default: false).
+/// - scale-length (auto, int, float): Scale-bar length in branch-length units (default: auto).
+/// - scale-unit (str, none): Optional scale-bar unit suffix (default: none).
+/// - scale-bar-gap (length): Gap between tree and scale bar (default: 0.6em).
+/// - scale-tick-height (length): Scale-bar tick height (default: 4.5pt).
+/// - scale-label-size (length): Scale-bar label size (default: 0.8em).
+/// - scale-label-gap (length): Gap between scale bar and scale label (default: 2.5pt).
 /// -> content
 #let render-tree(
   tree-data,
@@ -459,12 +495,43 @@
   root-length: 1.25em,
   orientation: "horizontal",
   cladogram: false,
+  scale-bar: false,
+  scale-length: auto,
+  scale-unit: none,
+  scale-bar-gap: 0.6em,
+  scale-tick-height: 4.5pt,
+  scale-label-size: 0.8em,
+  scale-label-gap: 2.5pt,
 ) = {
   assert(type(cladogram) == bool, message: "cladogram must be a boolean")
+  assert(type(scale-bar) == bool, message: "scale-bar must be a boolean")
   assert(
     orientation in ("horizontal", "vertical"),
     message: "orientation must be 'horizontal' or 'vertical'",
   )
+  assert(
+    not (cladogram and scale-bar),
+    message: "scale-bar cannot be used when cladogram is true.",
+  )
+  if scale-bar {
+    assert(
+      scale-unit == none or type(scale-unit) == str,
+      message: "scale-unit must be a string or none.",
+    )
+    assert(scale-bar-gap >= 0pt, message: "scale-bar-gap must be non-negative.")
+    assert(
+      scale-tick-height > 0pt,
+      message: "scale-tick-height must be positive.",
+    )
+    assert(
+      scale-label-size > 0pt,
+      message: "scale-label-size must be positive.",
+    )
+    assert(
+      scale-label-gap >= 0pt,
+      message: "scale-label-gap must be non-negative.",
+    )
+  }
   _validate-tree-data(tree-data)
 
   let is-rooted = tree-data.at("rooted", default: false)
@@ -537,7 +604,6 @@
         width,
         height,
         margins,
-        measured.depth,
         measured.height,
         is-vertical,
         size,
@@ -561,10 +627,54 @@
         for s in result.labels { s }
       })
 
-      if is-vertical {
+      let tree-content = if is-vertical {
         rotate(-90deg, origin: top + left, reflow: true, b)
       } else {
         b
+      }
+
+      if not scale-bar {
+        tree-content
+      } else {
+        let rendered-tree-width = if is-vertical {
+          layout.box-height
+        } else {
+          layout.box-width
+        }
+        let scale-geometry = _resolve-scale-bar-geometry(
+          is-vertical,
+          rendered-tree-width,
+          margins.root,
+          layout.x-dim,
+        )
+
+        let resolved-scale = _resolve-scale-bar-length(
+          scale-length,
+          measured.depth,
+          x-scale,
+          scale-geometry.max-bar-width,
+          zero-length-message: "Cannot render scale bar for zero-depth tree.",
+        )
+        let scale-label = _format-scale-label(resolved-scale.length, scale-unit)
+        let scale-content = _draw-scale-bar-row(
+          scale-geometry.row-width,
+          0pt,
+          scale-geometry.bar-left,
+          resolved-scale.width,
+          scale-tick-height,
+          scale-label-gap,
+          scale-label-size,
+          branch-color,
+          scale-label,
+          branch-color,
+          branch-weight,
+        )
+
+        block(breakable: false, stack(
+          spacing: scale-bar-gap,
+          tree-content,
+          scale-content,
+        ))
       }
     })
   }

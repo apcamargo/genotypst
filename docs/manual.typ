@@ -367,7 +367,7 @@ Genome maps enable visualization of the genes and other genomic elements within 
 
 #let hominoidea_tree = parse-newick(read("/docs/data/hominoidea.nwk"))
 
-To render the tree, use the `render-tree` function. By default, it produces a horizontal rectangular dendrogram, but a vertical layout can be specified using the `orientation: "vertical"` option.
+To render the tree, use the `render-tree` function. By default, it produces a horizontal rectangular tree, but a vertical layout can be specified using the `orientation: "vertical"` option.
 
 ```typst
 #render-tree(
