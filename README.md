@@ -16,7 +16,7 @@ A minimal example illustrating the use of `genotypst` is shown below. To reprodu
 In a Typst document, import the `genotypst` package:
 
 ```typst
-#import "@preview/genotypst:0.4.0": *
+#import "@preview/genotypst:0.5.0": *
 ```
 
 You can perform a simple pairwise alignments and visualize both the alignment and its dynamic programming matrix:
