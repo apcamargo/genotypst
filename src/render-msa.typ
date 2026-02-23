@@ -1,7 +1,7 @@
 #import "constants.typ": _light-gray
 #import "utils.typ": (
   _check-palette-coverage, _compute-sequence-conservation, _fixed-width-grid,
-  _get-column-stats, _guess-seq-alphabet, _resolve-1indexed-window,
+  _get-column-stats, _resolve-1indexed-window,
   _resolve-alphabet-config, _validate-msa,
 )
 

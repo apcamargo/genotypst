@@ -609,7 +609,6 @@
   let seq2-chars = seq2.clusters()
 
   let first-coord = _parse-coord(path.at(0))
-  let last-coord = _parse-coord(path.at(path.len() - 1))
 
   // Initialize result strings and unaligned mask
   let aligned1 = ()
