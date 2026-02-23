@@ -40,10 +40,8 @@
 /// into a dictionary structure suitable for rendering.
 ///
 /// - data (str): A string containing the Newick data.
-/// - trim-quotes (bool): Trim quotes from tip labels (default: true)
 /// -> dictionary
-#let parse-newick(data, trim-quotes: true) = {
-  let trim-quotes-bytes = bytes(if trim-quotes { (1,) } else { (0,) })
-  let result = newick_plugin.parse_newick(bytes(data.trim()), trim-quotes-bytes)
+#let parse-newick(data) = {
+  let result = newick_plugin.parse_newick(bytes(data.trim()))
   json(result)
 }

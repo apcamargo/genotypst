@@ -29,10 +29,19 @@ fn is_tree_rooted(tree: &NewickTree) -> bool {
     }
 }
 
+// In Newick, outer single quotes are delimiters, and a literal apostrophe is encoded as ''.
+// We strip the delimiters and decode '' -> ' so labels render as their semantic text.
+fn normalize_label(raw: &str) -> String {
+    if let Some(inner) = raw.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')) {
+        inner.replace("''", "'")
+    } else {
+        raw.to_owned()
+    }
+}
+
 fn convert_node_to_simple(
     tree: &NewickTree,
     node_id: usize,
-    trim_quotes: bool,
 ) -> Result<SimpleTreeNode, String> {
     let node = tree
         .get(node_id)
@@ -45,16 +54,13 @@ fn convert_node_to_simple(
         Some(
             children_ids
                 .iter()
-                .map(|&child_id| convert_node_to_simple(tree, child_id, trim_quotes))
+                .map(|&child_id| convert_node_to_simple(tree, child_id))
                 .collect::<Result<Vec<_>, _>>()?,
         )
     };
 
-    // Get the node name and strip quotes if `trim_quotes` is true
-    let name = match node.data().name.clone() {
-        Some(s) if trim_quotes => Some(s.trim_matches(['"', '\'']).to_string()),
-        other => other,
-    };
+    // Get the node name
+    let name = node.data().name.as_deref().map(normalize_label);
 
     // Get the branch length (edge to parent)
     let length = node.branch().map(|&l| l as f64);
@@ -67,7 +73,7 @@ fn convert_node_to_simple(
 }
 
 #[wasm_func]
-pub fn parse_newick(input: &[u8], trim_quotes: &[u8]) -> Result<Vec<u8>, String> {
+pub fn parse_newick(input: &[u8]) -> Result<Vec<u8>, String> {
     // Convert raw UTF-8 bytes into the Newick string input.
     let input_str = std::str::from_utf8(input)
         .map(|s| s.to_string())
@@ -82,9 +88,7 @@ pub fn parse_newick(input: &[u8], trim_quotes: &[u8]) -> Result<Vec<u8>, String>
 
     // Get root node and convert to simple tree structure
     let root_id = tree.root();
-    // Interpret the single-byte flag: nonzero means trim quotes, zero means keep them.
-    let trim_quotes_bool = trim_quotes.first().copied().unwrap_or_default() != 0;
-    let simple_tree = convert_node_to_simple(&tree, root_id, trim_quotes_bool)?;
+    let simple_tree = convert_node_to_simple(&tree, root_id)?;
 
     let result = ParseResult {
         rooted: is_rooted,
