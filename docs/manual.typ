@@ -123,6 +123,7 @@ Pairwise alignments can be rendered using the `render-pair-alignment` function. 
 Dynamic programming is the core procedure used by the pairwise alignment algorithm: it fills a matrix of optimal scores for all prefix pairs of the two sequences, where each cell stores the best score achievable at that position and arrows indicate the traceback directions that can lead to an optimal alignment. The `render-dp-matrix` function renders the DP matrix of a given alignment, overlaying the traceback path used to produce the final alignmkent.
 
 ```typ
+// Pass traceback path directly from align-seq-pair output (end-to-start).
 #render-dp-matrix(
   dna_pair_alignment.seq-1,
   dna_pair_alignment.seq-2,

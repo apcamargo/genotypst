@@ -527,7 +527,7 @@
           + str(parsed.row)
           + ", "
           + str(parsed.col)
-          + ") is invalid.",
+          + ") is invalid. Renderer inputs expect traceback paths in end-to-start order (as returned by align-seq-pair).",
       )
       assert(
         row-delta <= 1 and col-delta <= 1,
@@ -1028,7 +1028,7 @@
 /// - values (array): 2D array of matrix values (integers or none for empty cells).
 /// - highlights (array): Cell highlights as coordinate arrays/dictionaries, with optional color (default: ()).
 /// - highlight-color (color): Default color for highlighted cells (default: light gray).
-/// - path (array, none): Traceback path as coordinates (array or dictionary form) (default: none).
+/// - path (array, none): Traceback path as coordinates (array or dictionary form), in end-to-start order (default: none).
 /// - path-color (color): Color for the path line (default: semi-transparent yellow).
 /// - path-width (length): Width of the path line (default: 18pt).
 /// - path-cell-bold (bool): Whether scores in cells on the path are rendered in bold (default: true).
@@ -1188,7 +1188,7 @@
 ///
 /// - seq-1 (str): First sequence (without gaps).
 /// - seq-2 (str): Second sequence (without gaps).
-/// - path (array): Traceback path as coordinates (array or dictionary form).
+/// - path (array): Traceback path as coordinates (array or dictionary form), in end-to-start order.
 /// - gap-char (str): Character to display for gaps (default: "—").
 /// - match-char (str): Character to display for matches (default: "│").
 /// - mismatch-char (str): Character to display for mismatches (default: " ").
