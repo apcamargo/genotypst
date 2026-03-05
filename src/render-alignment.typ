@@ -198,7 +198,7 @@
   let cols = dp.cols
 
   // Convert flat arrays to 2D
-  let values-2d = _flat-to-2d(dp.scores, rows, cols)
+  let cell-values-2d = _flat-to-2d(dp.scores, rows, cols)
   let arrows-2d = _bitmasks-to-arrows-2d(dp.arrows, rows, cols)
 
   // Convert traceback paths
@@ -225,7 +225,7 @@
     dp-matrix: (
       rows: rows,
       cols: cols,
-      values: values-2d,
+      cell-values: cell-values-2d,
       arrows: arrows-2d,
     ),
     has-alignment: has-alignment,
@@ -462,22 +462,28 @@
 }
 
 /// Private: Validate DP matrix dimensions and rectangular shape.
-#let _validate-dp-values(values, expected-rows, expected-cols) = {
-  assert(type(values) == array, message: "values must be an array.")
-  assert(values.len() > 0, message: "values must contain at least one row.")
-  assert(type(values.at(0)) == array, message: "values rows must be arrays.")
-
-  let value-cols = values.at(0).len()
+#let _validate-dp-cell-values(cell-values, expected-rows, expected-cols) = {
+  assert(type(cell-values) == array, message: "cell-values must be an array.")
   assert(
-    values.all(row => type(row) == array and row.len() == value-cols),
-    message: "All rows in values must have the same number of columns.",
+    cell-values.len() > 0,
+    message: "cell-values must contain at least one row.",
   )
   assert(
-    values.len() == expected-rows,
+    type(cell-values.at(0)) == array,
+    message: "cell-values rows must be arrays.",
+  )
+
+  let value-cols = cell-values.at(0).len()
+  assert(
+    cell-values.all(row => type(row) == array and row.len() == value-cols),
+    message: "All rows in cell-values must have the same number of columns.",
+  )
+  assert(
+    cell-values.len() == expected-rows,
     message: "Matrix values must have "
       + str(expected-rows)
       + " rows (seq-1 length + 1). Got "
-      + str(values.len())
+      + str(cell-values.len())
       + ".",
   )
   assert(
@@ -736,7 +742,7 @@
 #let _build-grid-content(
   top-clusters,
   left-clusters,
-  values,
+  cell-values,
   highlights,
   highlight-color,
   path,
@@ -788,12 +794,12 @@
   let last-row = left-clusters.len() - 1
   let last-col = top-clusters.len() - 1
 
-  // Data rows: left label, then values
+  // Data rows: left label, then cell values
   for (row-idx, row-label) in left-clusters.enumerate() {
     bg-grid-content.push(_label-cell(none))
     text-grid-content.push(_label-cell(row-label))
 
-    for (col-idx, value) in values.at(row-idx).enumerate() {
+    for (col-idx, value) in cell-values.at(row-idx).enumerate() {
       let key = key-of(row-idx, col-idx)
       let cell-content = if value == none {
         []
@@ -1025,7 +1031,8 @@
 ///
 /// - seq-1 (str): Sequence displayed on the left as row labels.
 /// - seq-2 (str): Sequence displayed on top as column labels.
-/// - values (array): 2D array of matrix values (integers or none for empty cells).
+/// - cell-values (array, none): 2D array of matrix cell values (integers or none for empty cells).
+///   If none, the matrix is rendered with blank cells (default: none).
 /// - highlights (array): Cell highlights as coordinate arrays/dictionaries, with optional color (default: ()).
 /// - highlight-color (color): Default color for highlighted cells (default: light gray).
 /// - path (array, none): Traceback path as coordinates (array or dictionary form), in end-to-start order (default: none).
@@ -1043,7 +1050,7 @@
 #let render-dp-matrix(
   seq-1,
   seq-2,
-  values,
+  cell-values: none,
   highlights: (),
   highlight-color: _medium-gray.lighten(75%),
   path: none,
@@ -1061,12 +1068,14 @@
   // Cache cluster arrays to avoid repeated calls
   let seq1-raw-clusters = seq-1.clusters()
   let seq2-raw-clusters = seq-2.clusters()
-
-  _validate-dp-values(
-    values,
-    seq1-raw-clusters.len() + 1,
-    seq2-raw-clusters.len() + 1,
-  )
+  let expected-rows = seq1-raw-clusters.len() + 1
+  let expected-cols = seq2-raw-clusters.len() + 1
+  let resolved-cell-values = if cell-values == none {
+    range(expected-rows).map(_ => range(expected-cols).map(_ => none))
+  } else {
+    _validate-dp-cell-values(cell-values, expected-rows, expected-cols)
+    cell-values
+  }
 
   let top-label-seq = "—" + seq-2
   let left-label-seq = "—" + seq-1
@@ -1104,7 +1113,7 @@
   let grid-content = _build-grid-content(
     top-clusters,
     left-clusters,
-    values,
+    resolved-cell-values,
     highlights,
     highlight-color,
     path,

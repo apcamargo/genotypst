@@ -147,14 +147,14 @@
 /// ignoring infinity values. Returns symmetric min/max limits centered
 /// around zero.
 ///
-/// - values (array): 2D array of score values.
+/// - cell-values (array): 2D array of score values.
 /// - triangle (str): Which triangle to consider: "lower", "upper", or "full".
 /// - scale-limit (auto, int, float): User-specified limit or auto-detect.
 /// -> dictionary
-#let _get-scale-limits(values, triangle, scale-limit) = {
+#let _get-scale-limits(cell-values, triangle, scale-limit) = {
   let current-max-abs = 0.0
 
-  for (i, row) in values.enumerate() {
+  for (i, row) in cell-values.enumerate() {
     for (j, val) in row.enumerate() {
       let in-triangle = if triangle == "lower" { i >= j } else if (
         triangle == "upper"
@@ -176,7 +176,7 @@
 /// the triangle mode. Handles "lower", "upper", and "full" triangle modes.
 ///
 /// - symbols (array): Array of symbol characters.
-/// - values (array): 2D array of score values.
+/// - cell-values (array): 2D array of score values.
 /// - triangle (str): Triangle mode.
 /// - label-bold (bool): Whether labels should be bold.
 /// - stroke (stroke, none): Stroke for data cells.
@@ -185,7 +185,7 @@
 /// -> array
 #let _generate-cells(
   symbols,
-  values,
+  cell-values,
   triangle,
   label-bold,
   stroke,
@@ -199,7 +199,7 @@
   )]
 
   let make-data-cell = (i, j) => {
-    let score = values.at(i).at(j)
+    let score = cell-values.at(i).at(j)
     let bg = _get-score-color(score, limits.min, limits.max, color-map)
     grid.cell(fill: bg, stroke: stroke)[#_format-score(score)]
   }
@@ -307,8 +307,8 @@
     sym-to-idx.insert(sym, i)
   }
 
-  // Extract values for requested symbols
-  let values = display-symbols.map(row-sym => display-symbols.map(
+  // Extract cell values for requested symbols
+  let cell-values = display-symbols.map(row-sym => display-symbols.map(
     col-sym => scoring-matrix
       .matrix
       .at(sym-to-idx.at(row-sym))
@@ -316,12 +316,12 @@
   ))
 
   // Calculate scale limits
-  let limits = _get-scale-limits(values, triangle, scale-limit)
+  let limits = _get-scale-limits(cell-values, triangle, scale-limit)
 
   // Generate grid cells
   let cells = _generate-cells(
     display-symbols,
-    values,
+    cell-values,
     triangle,
     label-bold,
     stroke,

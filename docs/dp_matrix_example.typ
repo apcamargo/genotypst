@@ -23,7 +23,7 @@
 #render-dp-matrix(
   dna_alignment.seq-1,
   dna_alignment.seq-2,
-  dna_alignment.dp-matrix.values,
+  cell-values: dna_alignment.dp-matrix.cell-values,
   path: dna_alignment.traceback-paths.at(0),
   arrows: dna_alignment.dp-matrix.arrows,
 )

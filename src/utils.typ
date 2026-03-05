@@ -744,12 +744,12 @@
 /// Takes a flat array and reshapes it into a 2D nested array using
 /// row-major indexing: element at (i, j) = flat[i * cols + j].
 ///
-/// - values (array): Flat array of values.
+/// - cell-values (array): Flat array of cell values.
 /// - rows (int): Number of rows in the output.
 /// - cols (int): Number of columns in the output.
 /// -> array
-#let _flat-to-2d(values, rows, cols) = {
-  range(rows).map(i => range(cols).map(j => values.at(i * cols + j)))
+#let _flat-to-2d(cell-values, rows, cols) = {
+  range(rows).map(i => range(cols).map(j => cell-values.at(i * cols + j)))
 }
 
 /// Private: Converts WASM i32 infinity representations to Typst floats.

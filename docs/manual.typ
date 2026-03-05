@@ -127,7 +127,7 @@ Dynamic programming is the core procedure used by the pairwise alignment algorit
 #render-dp-matrix(
   dna_pair_alignment.seq-1,
   dna_pair_alignment.seq-2,
-  dna_pair_alignment.dp-matrix.values,
+  cell-values: dna_pair_alignment.dp-matrix.cell-values,
   path: dna_pair_alignment.traceback-paths.at(0),
   arrows: dna_pair_alignment.dp-matrix.arrows,
 )
@@ -137,7 +137,7 @@ Dynamic programming is the core procedure used by the pairwise alignment algorit
   render-dp-matrix(
     dna_pair_alignment.seq-1,
     dna_pair_alignment.seq-2,
-    dna_pair_alignment.dp-matrix.values,
+    cell-values: dna_pair_alignment.dp-matrix.cell-values,
     path: dna_pair_alignment.traceback-paths.at(0),
     arrows: dna_pair_alignment.dp-matrix.arrows,
   ),
