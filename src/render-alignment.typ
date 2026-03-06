@@ -1065,6 +1065,9 @@
   stroke-width: 0.6pt,
   stroke-color: _medium-gray,
 ) = {
+  assert(type(seq-1) == str, message: "seq-1 must be a string.")
+  assert(type(seq-2) == str, message: "seq-2 must be a string.")
+
   // Cache cluster arrays to avoid repeated calls
   let seq1-raw-clusters = seq-1.clusters()
   let seq2-raw-clusters = seq-2.clusters()
@@ -1214,13 +1217,15 @@
   hide-unaligned: false,
   unaligned-color: none,
 ) = {
+  // Validate inputs
+  assert(type(seq-1) == str, message: "seq-1 must be a string.")
+  assert(type(seq-2) == str, message: "seq-2 must be a string.")
+
   // Parse sequences
   let seq1-chars = seq-1.clusters()
   let seq2-chars = seq-2.clusters()
 
-  // Validate inputs
-  assert(type(seq-1) == str, message: "seq-1 must be a string.")
-  assert(type(seq-2) == str, message: "seq-2 must be a string.")
+  // Finish validating inputs
   assert(seq1-chars.len() > 0, message: "seq-1 cannot be empty.")
   assert(seq2-chars.len() > 0, message: "seq-2 cannot be empty.")
   assert(type(path) == array, message: "path must be an array.")
