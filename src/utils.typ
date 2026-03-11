@@ -176,7 +176,7 @@
 /// - palette (dictionary): Dictionary mapping residues to colors.
 /// - sequences (array): Array of sequence strings.
 /// - ignore-gaps (bool): Skip gap characters (default: true).
-/// - gap-chars (array): Gap characters to ignore (default: ("-", "—", ".")).
+/// - gap-chars (array): Gap characters to ignore (default: ("-", ".")).
 /// - case-sensitive (bool): Match residues case-sensitively (default: true).
 /// -> dictionary with keys:
 ///   - ok: bool
@@ -185,7 +185,7 @@
   palette,
   sequences,
   ignore-gaps: true,
-  gap-chars: ("-", "—", "."),
+  gap-chars: ("-", "."),
   case-sensitive: true,
 ) = {
   assert(

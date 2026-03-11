@@ -20,8 +20,8 @@
                         </g>
                         <g class="typst-group" transform="matrix(1 0 0 1 17.292 0)">
                             <g>
-                                <g class="typst-text" transform="matrix(1 0 0 -1 -0.07699999999999997 8.305000000000001)">
-                                    <use xlink:href="#gACBA78224E7A7F2F89372546154236DF" x="0" y="0" fill="#000000" fill-rule="nonzero"/>
+                                <g class="typst-text" transform="matrix(1 0 0 -1 1.6830000000000007 8.305000000000001)">
+                                    <use xlink:href="#gAC8282C2B79B42AF77244B4835F3424D" x="0" y="0" fill="#000000" fill-rule="nonzero"/>
                                 </g>
                             </g>
                         </g>
@@ -137,8 +137,8 @@
         <symbol id="gDBD3E0C2A760A369A3CB7EF497FCA744" overflow="visible">
             <path d="M 0 0m 2.233 4.037 c 0.26399994 0.803 0.4949999 1.5949998 0.7149999 2.4309998 h 0.04400015 c 0.23099995 -0.83599997 0.4619999 -1.6279998 0.72599983 -2.4309998 l 0.34100008 -1.1000001 h -2.167 Z m -2.2 -4.037 h 0.935 l 0.693 2.2 h 2.629 l 0.68200016 -2.2 h 0.9789996 l -2.4419997 7.216 h -1.0340002 Z "/>
         </symbol>
-        <symbol id="gACBA78224E7A7F2F89372546154236DF" overflow="visible">
-            <path d="M 0 0m 0.451 2.453 h 7.898 v 0.62699986 h -7.898 Z "/>
+        <symbol id="gAC8282C2B79B42AF77244B4835F3424D" overflow="visible">
+            <path d="M 0 0m 0.451 2.453 h 4.378 v 0.62699986 h -4.378 Z "/>
         </symbol>
         <symbol id="g196E11980BC0BADD6DC4DAA56176F607" overflow="visible">
             <path d="M 0 0m 2.486 0 h 0.924 v 6.446 h 2.1779997 v 0.77 h -5.2799997 v -0.77 h 2.178 Z "/>

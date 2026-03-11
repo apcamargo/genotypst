@@ -52,6 +52,7 @@ In this example, `max-width` controls how many characters appear per line (defau
 == Pairwise sequence alignment
 
 Pairwise alignment is a method for comparing biological sequences, allowing quantification of sequence similarity and identification of evolutionary relationships between the residues of two sequences. `genotypst` supports both global alignment (end-to-end) @needleman_general_1970 and local alignment (best-matching subsequences) @smith_identification_1981, using dynamic programming with a user-defined scoring scheme (match/mismatch or a substitution matrix) and gap penalties.
+
 The `align-seq-pair` function performs pairwise alignment using either match/mismatch scores or a substitution matrix (see the scoring matrices section below).
 
 ```typ
@@ -120,7 +121,7 @@ Pairwise alignments can be rendered using the `render-pair-alignment` function. 
 
 == Dynamic programming matrix visualization
 
-Dynamic programming is the core procedure used by the pairwise alignment algorithm: it fills a matrix of optimal scores for all prefix pairs of the two sequences, where each cell stores the best score achievable at that position and arrows indicate the traceback directions that can lead to an optimal alignment. The `render-dp-matrix` function renders the DP matrix of a given alignment, overlaying the traceback path used to produce the final alignmkent.
+Dynamic programming is the core procedure used by the pairwise alignment algorithm: it fills a matrix of optimal scores for all prefix pairs of the two sequences, where each cell stores the best score achievable at that position and arrows indicate the traceback directions that can lead to an optimal alignment. The `render-dp-matrix` function renders the DP matrix of a given alignment, overlaying the traceback path used to produce the final alignment.
 
 ```typ
 // Pass traceback path directly from align-seq-pair output (end-to-start).

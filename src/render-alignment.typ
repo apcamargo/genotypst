@@ -51,24 +51,11 @@
   }
 }
 
-/// Private: Validates the gap penalty parameter.
-///
-/// - gap-penalty (int, none): The gap penalty value.
-/// -> none
-#let _validate-gap-penalty(gap-penalty) = {
-  assert(gap-penalty != none, message: "gap-penalty is required.")
-  assert(type(gap-penalty) == int, message: "gap-penalty must be an integer.")
-  assert(
-    gap-penalty <= 0,
-    message: "gap-penalty must be non-positive, got " + str(gap-penalty) + ".",
-  )
-}
-
 /// Private: Validates the alignment mode parameter.
 ///
 /// - mode (str): The alignment mode.
 /// -> none
-#let _validate-mode(mode) = {
+#let _validate-alignment-mode(mode) = {
   assert(
     mode in ("global", "local"),
     message: "mode must be 'global' or 'local'.",
@@ -197,7 +184,7 @@
 /// - matrix (str, none): Scoring matrix name (e.g., "BLOSUM62"). Mutually exclusive with match/mismatch scores (default: none).
 /// - match-score (int, none): Score for matching characters. Required if matrix is none (default: none).
 /// - mismatch-score (int, none): Score for mismatching characters. Required if matrix is none (default: none).
-/// - gap-penalty (int): Gap penalty, must be non-positive.
+/// - gap-penalty (int): Gap penalty.
 /// - mode (str): Alignment mode: "global" or "local" (default: "global").
 /// -> dictionary
 #let align-seq-pair(
@@ -217,8 +204,9 @@
     match-score,
     mismatch-score,
   )
-  _validate-gap-penalty(gap-penalty)
-  _validate-mode(mode)
+  assert(gap-penalty != none, message: "gap-penalty is required.")
+  assert(type(gap-penalty) == int, message: "gap-penalty must be an integer.")
+  _validate-alignment-mode(mode)
 
   // Build config and call WASM
   let config = _build-config(
@@ -1012,8 +1000,8 @@
   }
   let cell-value-map = _cell-values-to-map(resolved-cell-values)
 
-  let top-label-seq = "—" + seq-2
-  let left-label-seq = "—" + seq-1
+  let top-label-seq = "–" + seq-2
+  let left-label-seq = "–" + seq-1
 
   let top-clusters = top-label-seq.clusters()
   let left-clusters = left-label-seq.clusters()
@@ -1127,7 +1115,7 @@
 /// - seq-1 (str): First sequence (without gaps).
 /// - seq-2 (str): Second sequence (without gaps).
 /// - path (array): Traceback path as `(row, col)` arrays, in end-to-start order.
-/// - gap-char (str): Character to display for gaps (default: "—").
+/// - gap-char (str): Character to display for gaps (default: "–").
 /// - match-char (str): Character to display for matches (default: "│").
 /// - mismatch-char (str): Character to display for mismatches (default: " ").
 /// - hide-unaligned (bool): Hide unaligned characters entirely (default: false).
@@ -1137,7 +1125,7 @@
   seq-1,
   seq-2,
   path,
-  gap-char: "—",
+  gap-char: "–",
   match-char: "│",
   mismatch-char: " ",
   hide-unaligned: false,

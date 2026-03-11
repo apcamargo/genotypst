@@ -31,7 +31,6 @@ impl Arrows {
 }
 
 impl Arrows {
-    pub const NONE: u8 = 0;
     pub const DIAGONAL: u8 = 1;
     pub const UP: u8 = 2;
     pub const LEFT: u8 = 4;
