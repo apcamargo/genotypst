@@ -5,24 +5,58 @@ use serde::Serialize;
 use crate::alignment::{AlignedPair, AlignmentResult, DPMatrix};
 use crate::scoring::ScoringConfig;
 
-/// JSON-serializable representation of the DP matrix with separate scores and arrows arrays.
+/// JSON-serializable DP matrix output.
+/// Scores are emitted as `([row, col], score)` entries and arrows as
+/// `[[from_row, from_col], [to_row, to_col]]` pairs.
 #[derive(Debug, Serialize)]
 pub struct DPMatrixOutput {
     pub rows: usize,
     pub cols: usize,
-    pub scores: Vec<i32>,
-    pub arrows: Vec<u8>,
+    pub cell_values: Vec<([usize; 2], i32)>,
+    pub arrows: Vec<[[usize; 2]; 2]>,
+}
+
+fn collect_cell_values(matrix: &DPMatrix) -> Vec<([usize; 2], i32)> {
+    let mut cell_values = Vec::with_capacity(matrix.rows * matrix.cols);
+
+    for i in 0..matrix.rows {
+        for j in 0..matrix.cols {
+            cell_values.push(([i, j], matrix.get(i, j).score));
+        }
+    }
+
+    cell_values
+}
+
+fn collect_arrow_pairs(matrix: &DPMatrix) -> Vec<[[usize; 2]; 2]> {
+    let mut arrows = Vec::new();
+
+    for i in 0..matrix.rows {
+        for j in 0..matrix.cols {
+            let cell = matrix.get(i, j);
+
+            if cell.arrows.has_diagonal() && i > 0 && j > 0 {
+                arrows.push([[i, j], [i - 1, j - 1]]);
+            }
+            if cell.arrows.has_up() && i > 0 {
+                arrows.push([[i, j], [i - 1, j]]);
+            }
+            if cell.arrows.has_left() && j > 0 {
+                arrows.push([[i, j], [i, j - 1]]);
+            }
+        }
+    }
+
+    arrows
 }
 
 impl From<&DPMatrix> for DPMatrixOutput {
     fn from(matrix: &DPMatrix) -> Self {
-        let scores: Vec<i32> = matrix.cells.iter().map(|c| c.score).collect();
-        let arrows: Vec<u8> = matrix.cells.iter().map(|c| c.arrows.bits()).collect();
         Self {
             rows: matrix.rows,
             cols: matrix.cols,
-            scores,
-            arrows,
+            cell_values: collect_cell_values(matrix),
+            arrows: collect_arrow_pairs(matrix),
         }
     }
 }
@@ -84,7 +118,7 @@ impl From<&AlignmentResult> for AlignmentResultOutput {
 mod tests {
     use super::*;
     use crate::aligners::GlobalAligner;
-    use crate::alignment::Aligner;
+    use crate::alignment::{Aligner, Arrows, Cell, DPMatrix};
 
     #[test]
     fn test_json_serialization() {
@@ -103,11 +137,19 @@ mod tests {
 
         let output = AlignmentResultOutput::from(&result);
 
-        // Check dp_matrix has separate scores and arrows arrays
+        // Check dp_matrix has coordinate-addressable cell values and arrows
         assert_eq!(output.dp_matrix.rows, 3); // len("AC") + 1
         assert_eq!(output.dp_matrix.cols, 3); // len("AC") + 1
-        assert_eq!(output.dp_matrix.scores.len(), 9); // 3 * 3
-        assert_eq!(output.dp_matrix.arrows.len(), 9); // 3 * 3
+        assert_eq!(output.dp_matrix.cell_values.len(), 9); // 3 * 3
+        assert_eq!(output.dp_matrix.cell_values[0], ([0, 0], 0));
+        assert_eq!(output.dp_matrix.cell_values[1], ([0, 1], -2));
+        assert_eq!(output.dp_matrix.cell_values[3], ([1, 0], -2));
+        assert!(!output.dp_matrix.arrows.is_empty());
+        for arrow in &output.dp_matrix.arrows {
+            assert_eq!(arrow.len(), 2);
+            assert_eq!(arrow[0].len(), 2);
+            assert_eq!(arrow[1].len(), 2);
+        }
     }
 
     #[test]
@@ -125,5 +167,47 @@ mod tests {
                 assert_eq!(coord.len(), 2);
             }
         }
+    }
+
+    #[test]
+    fn test_collect_arrow_pairs_emits_multiple_directions() {
+        let mut matrix = DPMatrix::new(2, 2);
+        let mut arrows = Arrows::new();
+        arrows.set_diagonal();
+        arrows.set_up();
+        arrows.set_left();
+        matrix.set(1, 1, Cell::with_arrows(5, arrows));
+
+        let output = DPMatrixOutput::from(&matrix);
+
+        assert_eq!(
+            output.arrows,
+            vec![[[1, 1], [0, 0]], [[1, 1], [0, 1]], [[1, 1], [1, 0]]]
+        );
+    }
+
+    #[test]
+    fn test_collect_arrow_pairs_omits_cells_without_arrows() {
+        let matrix = DPMatrix::new(2, 2);
+
+        let output = DPMatrixOutput::from(&matrix);
+
+        assert!(output.arrows.is_empty());
+    }
+
+    #[test]
+    fn test_collect_cell_values_uses_row_major_coordinates() {
+        let mut matrix = DPMatrix::new(2, 2);
+        matrix.set(0, 0, Cell::new(10));
+        matrix.set(0, 1, Cell::new(11));
+        matrix.set(1, 0, Cell::new(12));
+        matrix.set(1, 1, Cell::new(13));
+
+        let output = DPMatrixOutput::from(&matrix);
+
+        assert_eq!(
+            output.cell_values,
+            vec![([0, 0], 10), ([0, 1], 11), ([1, 0], 12), ([1, 1], 13)]
+        );
     }
 }

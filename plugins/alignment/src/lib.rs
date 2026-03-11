@@ -66,7 +66,7 @@ impl AlignConfig {
 /// * `config` - JSON-encoded configuration object
 ///
 /// # Returns
-/// JSON bytes of AlignmentResult or an error string.
+/// JSON bytes of AlignmentResultOutput or an error string.
 #[wasm_func]
 pub fn align(seq1: &[u8], seq2: &[u8], config: &[u8]) -> Result<Vec<u8>, String> {
     let seq1_str =

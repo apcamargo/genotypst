@@ -1,5 +1,5 @@
 #import "constants.typ": _dark-gray, _medium-gray, _yellow
-#import "utils.typ": _fixed-width-grid, _flat-to-2d, resolve-matrix-name
+#import "utils.typ": _fixed-width-grid, resolve-matrix-name
 #import "@preview/tiptoe:0.4.0": (
   line as _tiptoe-line, straight as _tiptoe-straight,
 )
@@ -123,55 +123,6 @@
 }
 
 
-/// Private: Converts a bitmask to an array of arrow tuples for a single cell.
-///
-/// Bitmask encoding: bit 0 (1) = diagonal, bit 1 (2) = up, bit 2 (4) = left.
-///
-/// - bits (int): Bitmask value.
-/// - i (int): Row index.
-/// - j (int): Column index.
-/// -> array
-#let _bitmask-to-arrows(bits, i, j) = {
-  let arrows = ()
-  // Bit 0 (1) = diagonal
-  if calc.rem(calc.quo(bits, 1), 2) == 1 and i > 0 and j > 0 {
-    arrows.push(((i, j), (i - 1, j - 1)))
-  }
-  // Bit 1 (2) = up
-  if calc.rem(calc.quo(bits, 2), 2) == 1 and i > 0 {
-    arrows.push(((i, j), (i - 1, j)))
-  }
-  // Bit 2 (4) = left
-  if calc.rem(calc.quo(bits, 4), 2) == 1 and j > 0 {
-    arrows.push(((i, j), (i, j - 1)))
-  }
-  arrows
-}
-
-/// Private: Converts a flat bitmask array to a 2D array of arrow tuples.
-///
-/// Each cell contains an array of (from, to) tuples representing arrows.
-/// Bitmask encoding: bit 0 (1) = diagonal, bit 1 (2) = up, bit 2 (4) = left.
-///
-/// - bitmasks (array): Flat array of bitmasks.
-/// - rows (int): Number of rows.
-/// - cols (int): Number of columns.
-/// -> array
-#let _bitmasks-to-arrows-2d(bitmasks, rows, cols) = {
-  let bitmask-2d = _flat-to-2d(bitmasks, rows, cols)
-  bitmask-2d
-    .enumerate()
-    .map(item => {
-      let (i, row) = item
-      row
-        .enumerate()
-        .map(cell => {
-          let (j, bits) = cell
-          _bitmask-to-arrows(bits, i, j)
-        })
-    })
-}
-
 /// Private: Transforms the WASM response to the final output format.
 ///
 /// - wasm-result (dictionary): Raw result from WASM plugin.
@@ -197,10 +148,6 @@
   let rows = dp.rows
   let cols = dp.cols
 
-  // Convert flat arrays to 2D
-  let cell-values-2d = _flat-to-2d(dp.scores, rows, cols)
-  let arrows-2d = _bitmasks-to-arrows-2d(dp.arrows, rows, cols)
-
   // Convert traceback paths
   let traceback-paths = wasm-result.traceback_paths.map(path => path.map(
     coord => (coord.at(0), coord.at(1)),
@@ -225,8 +172,8 @@
     dp-matrix: (
       rows: rows,
       cols: cols,
-      cell-values: cell-values-2d,
-      arrows: arrows-2d,
+      cell-values: dp.cell_values,
+      arrows: dp.arrows,
     ),
     has-alignment: has-alignment,
   )
@@ -296,13 +243,9 @@
   )
 }
 
-/// Private: Parse coordinates from dictionary or array format.
+/// Private: Parse coordinates from array format.
 #let _parse-coord(coord) = {
-  if type(coord) == dictionary {
-    (row: coord.row, col: coord.col)
-  } else {
-    (row: coord.at(0), col: coord.at(1))
-  }
+  (row: coord.at(0), col: coord.at(1))
 }
 
 /// Parse and validate coordinate format, type, and bounds.
@@ -314,27 +257,20 @@
   allow-extra-array-items: false,
 ) = {
   assert(
-    type(coord) == dictionary or type(coord) == array,
-    message: coord-context + " must be a coordinate dictionary or array.",
+    type(coord) == array,
+    message: coord-context + " must be a coordinate array.",
   )
 
-  if type(coord) == dictionary {
+  if allow-extra-array-items {
     assert(
-      "row" in coord and "col" in coord,
-      message: coord-context + " dictionary must contain 'row' and 'col'.",
+      coord.len() >= 2,
+      message: coord-context + " array must contain at least row and col.",
     )
   } else {
-    if allow-extra-array-items {
-      assert(
-        coord.len() >= 2,
-        message: coord-context + " array must contain at least row and col.",
-      )
-    } else {
-      assert(
-        coord.len() == 2,
-        message: coord-context + " array must contain exactly row and col.",
-      )
-    }
+    assert(
+      coord.len() == 2,
+      message: coord-context + " array must contain exactly row and col.",
+    )
   }
 
   let parsed = _parse-coord(coord)
@@ -368,144 +304,146 @@
   parsed
 }
 
-/// Private: Validate cell highlights coordinates.
+/// Private: Validate highlight entry shape, coordinates, and optional color.
 #let _validate-highlights(highlights, max-row, max-col) = {
   assert(type(highlights) == array, message: "highlights must be an array.")
 
   for (idx, highlight) in highlights.enumerate() {
+    assert(
+      type(highlight) == array and (highlight.len() == 2 or highlight.len() == 3),
+      message: "Highlight at index "
+        + str(idx)
+        + " must be (row, col) or (row, col, color).",
+    )
+
     let _discard = _parse-and-validate-coord(
-      highlight,
+      (highlight.at(0), highlight.at(1)),
       max-row,
       max-col,
       "Highlight at index " + str(idx),
-      allow-extra-array-items: true,
-    )
-  }
-
-  none
-}
-
-/// Private: Validate arrows matrix structure and coordinate bounds.
-#let _validate-arrows(
-  arrows,
-  max-row,
-  max-col,
-  expected-rows,
-  expected-cols,
-) = {
-  assert(type(arrows) == array, message: "arrows must be an array.")
-  if arrows.len() == 0 { return none }
-
-  assert(
-    arrows.len() == expected-rows,
-    message: "arrows must have "
-      + str(expected-rows)
-      + " rows. Got "
-      + str(arrows.len())
-      + ".",
-  )
-
-  for (row-idx, row) in arrows.enumerate() {
-    assert(
-      type(row) == array,
-      message: "arrows row " + str(row-idx) + " must be an array.",
-    )
-    assert(
-      row.len() == expected-cols,
-      message: "arrows row "
-        + str(row-idx)
-        + " must have "
-        + str(expected-cols)
-        + " columns. Got "
-        + str(row.len())
-        + ".",
     )
 
-    for (col-idx, cell-arrows) in row.enumerate() {
+    if highlight.len() == 3 {
       assert(
-        type(cell-arrows) == array,
-        message: "arrows cell ("
-          + str(row-idx)
-          + ", "
-          + str(col-idx)
-          + ") must be an array.",
+        type(highlight.at(2)) == color,
+        message: "Highlight at index "
+          + str(idx)
+          + " color must be a color value.",
       )
-
-      for (arrow-idx, arrow) in cell-arrows.enumerate() {
-        assert(
-          type(arrow) == array and arrow.len() == 2,
-          message: "Arrow "
-            + str(arrow-idx)
-            + " at cell ("
-            + str(row-idx)
-            + ", "
-            + str(col-idx)
-            + ") must have (from, to).",
-        )
-        let _discard = _parse-and-validate-coord(
-          arrow.at(0),
-          max-row,
-          max-col,
-          "Arrow " + str(arrow-idx) + " from",
-        )
-        let _discard = _parse-and-validate-coord(
-          arrow.at(1),
-          max-row,
-          max-col,
-          "Arrow " + str(arrow-idx) + " to",
-        )
-      }
     }
   }
 
   none
 }
 
-/// Private: Validate DP matrix dimensions and rectangular shape.
-#let _validate-dp-cell-values(cell-values, expected-rows, expected-cols) = {
-  assert(type(cell-values) == array, message: "cell-values must be an array.")
-  assert(
-    cell-values.len() > 0,
-    message: "cell-values must contain at least one row.",
-  )
-  assert(
-    type(cell-values.at(0)) == array,
-    message: "cell-values rows must be arrays.",
-  )
+/// Private: Validate flat arrow list structure and coordinate bounds.
+#let _validate-arrows(arrows, max-row, max-col) = {
+  assert(type(arrows) == array, message: "arrows must be an array.")
+  if arrows.len() == 0 { return none }
 
-  let value-cols = cell-values.at(0).len()
-  assert(
-    cell-values.all(row => type(row) == array and row.len() == value-cols),
-    message: "All rows in cell-values must have the same number of columns.",
-  )
-  assert(
-    cell-values.len() == expected-rows,
-    message: "Matrix values must have "
-      + str(expected-rows)
-      + " rows (seq-1 length + 1). Got "
-      + str(cell-values.len())
-      + ".",
-  )
-  assert(
-    value-cols == expected-cols,
-    message: "Matrix values must have "
-      + str(expected-cols)
-      + " columns (seq-2 length + 1). Got "
-      + str(value-cols)
-      + ".",
-  )
+  for (idx, arrow) in arrows.enumerate() {
+    assert(
+      type(arrow) == array and arrow.len() == 2,
+      message: "Arrow at index " + str(idx) + " must have (from, to).",
+    )
+
+    let from = _parse-and-validate-coord(
+      arrow.at(0),
+      max-row,
+      max-col,
+      "Arrow at index " + str(idx) + " from",
+    )
+    let to = _parse-and-validate-coord(
+      arrow.at(1),
+      max-row,
+      max-col,
+      "Arrow at index " + str(idx) + " to",
+    )
+
+    let row-delta = calc.abs(from.row - to.row)
+    let col-delta = calc.abs(from.col - to.col)
+
+    assert(
+      row-delta + col-delta > 0,
+      message: "Arrow at index "
+        + str(idx)
+        + " cannot have identical from/to coordinates.",
+    )
+    assert(
+      calc.max(row-delta, col-delta) == 1,
+      message: "Arrow at index "
+        + str(idx)
+        + " must connect adjacent cells.",
+    )
+  }
+
+  none
 }
 
-/// Private: Validate that the path is valid for the given sequences.
+/// Private: Validate sparse DP matrix entries and bounds.
+#let _validate-dp-cell-values(cell-values, expected-rows, expected-cols) = {
+  assert(type(cell-values) == array, message: "cell-values must be an array.")
+  let max-row = expected-rows - 1
+  let max-col = expected-cols - 1
+  let seen = (:)
+
+  for (idx, entry) in cell-values.enumerate() {
+    assert(
+      type(entry) == array and entry.len() == 2,
+      message: "Cell value at index "
+        + str(idx)
+        + " must have (coord, value).",
+    )
+
+    let coord = _parse-and-validate-coord(
+      entry.at(0),
+      max-row,
+      max-col,
+      "Cell value at index " + str(idx) + " coordinate",
+    )
+    let value = entry.at(1)
+
+    assert(
+      type(value) == int or type(value) == float,
+      message: "Cell value at index " + str(idx) + " must be numeric.",
+    )
+
+    let key = str(coord.row) + "," + str(coord.col)
+    assert(
+      not (key in seen),
+      message: "Duplicate cell value entry for coordinate ("
+        + str(coord.row)
+        + ", "
+        + str(coord.col)
+        + ").",
+    )
+    seen.insert(key, true)
+  }
+}
+
+/// Private: Convert sparse cell value entries to a coordinate map.
+#let _cell-values-to-map(cell-values) = {
+  let cell-map = (:)
+
+  for entry in cell-values {
+    let coord = _parse-coord(entry.at(0))
+    let key = str(coord.row) + "," + str(coord.col)
+    cell-map.insert(key, entry.at(1))
+  }
+
+  cell-map
+}
+
+/// Private: Validate that the path is valid for the given grid bounds.
 ///
 /// Checks that coordinates are within bounds and that the path is monotonic
 /// (only moves down, right, or diagonally down-right with unit steps).
 ///
-/// - path (array): Path coordinates as arrays or dictionaries.
-/// - seq1-len (int): Length of the first sequence.
-/// - seq2-len (int): Length of the second sequence.
+/// - path (array): Path coordinates as `(row, col)` arrays.
+/// - max-row (int): Maximum allowed row index.
+/// - max-col (int): Maximum allowed column index.
 /// -> none
-#let _validate-path(path, seq1-len, seq2-len) = {
+#let _validate-path(path, max-row, max-col) = {
   assert(type(path) == array, message: "path must be an array.")
   assert(path.len() >= 1, message: "Path must contain at least one coordinate.")
 
@@ -513,8 +451,8 @@
   for (idx, coord) in path.enumerate() {
     let parsed = _parse-and-validate-coord(
       coord,
-      seq1-len,
-      seq2-len,
+      max-row,
+      max-col,
       "Path coordinate at index " + str(idx),
     )
 
@@ -563,7 +501,7 @@
 
 /// Private: Convert path coordinates to alignment operations.
 ///
-/// - path (array): Path coordinates as array of (row, col) tuples.
+/// - path (array): Path coordinates as `(row, col)` arrays.
 /// -> array
 #let _path-to-operations(path) = {
   let operations = ()
@@ -742,7 +680,7 @@
 #let _build-grid-content(
   top-clusters,
   left-clusters,
-  cell-values,
+  cell-value-map,
   highlights,
   highlight-color,
   path,
@@ -764,11 +702,7 @@
 
     // Preserve existing behavior: first matching highlight wins.
     if not (key in highlight-map) {
-      let color = if type(h) == dictionary {
-        if "color" in h { h.color } else { highlight-color }
-      } else {
-        if h.len() > 2 { h.at(2) } else { highlight-color }
-      }
+      let color = if h.len() > 2 { h.at(2) } else { highlight-color }
       highlight-map.insert(key, color)
     }
   }
@@ -799,8 +733,9 @@
     bg-grid-content.push(_label-cell(none))
     text-grid-content.push(_label-cell(row-label))
 
-    for (col-idx, value) in cell-values.at(row-idx).enumerate() {
+    for col-idx in range(top-clusters.len()) {
       let key = key-of(row-idx, col-idx)
+      let value = cell-value-map.at(key, default: none)
       let cell-content = if value == none {
         []
       } else {
@@ -962,64 +897,60 @@
   highlight-path-arrows,
   path-arrow-color,
 ) = {
-  for (row-idx, row) in arrows.enumerate() {
-    for (col-idx, cell-arrows) in row.enumerate() {
-      for arrow in cell-arrows {
-        let from-coord = _parse-coord(arrow.at(0))
-        let to-coord = _parse-coord(arrow.at(1))
+  for arrow in arrows {
+    let from-coord = _parse-coord(arrow.at(0))
+    let to-coord = _parse-coord(arrow.at(1))
 
-        // Determine arrow color
-        let arr-color = arrow-color
-        if (
-          highlight-path-arrows
-            and _is-arrow-on-path(arrow.at(0), arrow.at(1), path)
-        ) {
-          arr-color = path-arrow-color
-        }
-
-        // Calculate boundary position between the two cells
-        let from-center = _cell-center(
-          from-coord.row,
-          from-coord.col,
-          label-col-width,
-          label-row-height,
-          cell-size,
-        )
-        let to-center = _cell-center(
-          to-coord.row,
-          to-coord.col,
-          label-col-width,
-          label-row-height,
-          cell-size,
-        )
-
-        let center-x = (from-center.x + to-center.x) / 2.0
-        let center-y = (from-center.y + to-center.y) / 2.0
-        let arrow-half-length = cell-size * 0.215
-
-        let (start-x, start-y, end-x, end-y) = _calculate-arrow-positions(
-          from-coord,
-          to-coord,
-          center-x,
-          center-y,
-          arrow-half-length,
-        )
-
-        // Draw arrow using tiptoe
-        place(top + left, dx: 0pt, dy: 0pt, {
-          _tiptoe-line(
-            start: (start-x, start-y),
-            end: (end-x, end-y),
-            stroke: (
-              paint: arr-color,
-              thickness: 1pt,
-              cap: "round",
-            ),
-            tip: _tiptoe-straight.with(width: 550%, length: 375%),
-          )
-        })
-      }
+    // Determine arrow color
+    let arr-color = arrow-color
+    if (
+      highlight-path-arrows
+        and _is-arrow-on-path(arrow.at(0), arrow.at(1), path)
+    ) {
+      arr-color = path-arrow-color
     }
+
+    // Calculate boundary position between the two cells
+    let from-center = _cell-center(
+      from-coord.row,
+      from-coord.col,
+      label-col-width,
+      label-row-height,
+      cell-size,
+    )
+    let to-center = _cell-center(
+      to-coord.row,
+      to-coord.col,
+      label-col-width,
+      label-row-height,
+      cell-size,
+    )
+
+    let center-x = (from-center.x + to-center.x) / 2.0
+    let center-y = (from-center.y + to-center.y) / 2.0
+    let arrow-half-length = cell-size * 0.215
+
+    let (start-x, start-y, end-x, end-y) = _calculate-arrow-positions(
+      from-coord,
+      to-coord,
+      center-x,
+      center-y,
+      arrow-half-length,
+    )
+
+    // Draw arrow using tiptoe
+    place(top + left, dx: 0pt, dy: 0pt, {
+      _tiptoe-line(
+        start: (start-x, start-y),
+        end: (end-x, end-y),
+        stroke: (
+          paint: arr-color,
+          thickness: 1pt,
+          cap: "round",
+        ),
+        tip: _tiptoe-straight.with(width: 550%, length: 375%),
+      )
+    })
   }
 }
 
@@ -1031,15 +962,15 @@
 ///
 /// - seq-1 (str): Sequence displayed on the left as row labels.
 /// - seq-2 (str): Sequence displayed on top as column labels.
-/// - cell-values (array, none): 2D array of matrix cell values (integers or none for empty cells).
-///   If none, the matrix is rendered with blank cells (default: none).
-/// - highlights (array): Cell highlights as coordinate arrays/dictionaries, with optional color (default: ()).
+/// - cell-values (array, none): Flat array of `((row, col), value)` entries.
+///   Omitted coordinates render as blank cells (default: none).
+/// - highlights (array): Cell highlights as `(row, col)` or `(row, col, color)` arrays (default: ()).
 /// - highlight-color (color): Default color for highlighted cells (default: light gray).
-/// - path (array, none): Traceback path as coordinates (array or dictionary form), in end-to-start order (default: none).
+/// - path (array, none): Traceback path as `(row, col)` arrays, in end-to-start order (default: none).
 /// - path-color (color): Color for the path line (default: semi-transparent yellow).
 /// - path-width (length): Width of the path line (default: 18pt).
 /// - path-cell-bold (bool): Whether scores in cells on the path are rendered in bold (default: true).
-/// - arrows (array): 2D matrix of arrows matching matrix dimensions; each cell contains an array of (from, to) coordinates (default: ()).
+/// - arrows (array): Flat array of (from, to) coordinate pairs, one per arrow (default: ()).
 /// - arrow-color (color): Default color for arrows (default: medium gray).
 /// - highlight-path-arrows (bool): Whether arrows on the path use a different color (default: true).
 /// - path-arrow-color (color): Color for arrows on the traceback path (default: dark gray).
@@ -1074,11 +1005,12 @@
   let expected-rows = seq1-raw-clusters.len() + 1
   let expected-cols = seq2-raw-clusters.len() + 1
   let resolved-cell-values = if cell-values == none {
-    range(expected-rows).map(_ => range(expected-cols).map(_ => none))
+    ()
   } else {
     _validate-dp-cell-values(cell-values, expected-rows, expected-cols)
     cell-values
   }
+  let cell-value-map = _cell-values-to-map(resolved-cell-values)
 
   let top-label-seq = "—" + seq-2
   let left-label-seq = "—" + seq-1
@@ -1090,13 +1022,7 @@
   let max-col = top-clusters.len() - 1
 
   _validate-highlights(highlights, max-row, max-col)
-  _validate-arrows(
-    arrows,
-    max-row,
-    max-col,
-    left-clusters.len(),
-    top-clusters.len(),
-  )
+  _validate-arrows(arrows, max-row, max-col)
 
   // Validate path if provided (path from align-seq-pair is end-to-start, so reverse for validation)
   if path != none {
@@ -1116,7 +1042,7 @@
   let grid-content = _build-grid-content(
     top-clusters,
     left-clusters,
-    resolved-cell-values,
+    cell-value-map,
     highlights,
     highlight-color,
     path,
@@ -1200,7 +1126,7 @@
 ///
 /// - seq-1 (str): First sequence (without gaps).
 /// - seq-2 (str): Second sequence (without gaps).
-/// - path (array): Traceback path as coordinates (array or dictionary form), in end-to-start order.
+/// - path (array): Traceback path as `(row, col)` arrays, in end-to-start order.
 /// - gap-char (str): Character to display for gaps (default: "—").
 /// - match-char (str): Character to display for matches (default: "│").
 /// - mismatch-char (str): Character to display for mismatches (default: " ").
