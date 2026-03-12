@@ -884,6 +884,8 @@
   path,
   highlight-path-arrows,
   path-arrow-color,
+  arrow-width,
+  arrow-length-scale,
 ) = {
   for arrow in arrows {
     let from-coord = _parse-coord(arrow.at(0))
@@ -916,7 +918,7 @@
 
     let center-x = (from-center.x + to-center.x) / 2.0
     let center-y = (from-center.y + to-center.y) / 2.0
-    let arrow-half-length = cell-size * 0.215
+    let arrow-half-length = cell-size * 0.215 * arrow-length-scale
 
     let (start-x, start-y, end-x, end-y) = _calculate-arrow-positions(
       from-coord,
@@ -933,7 +935,7 @@
         end: (end-x, end-y),
         stroke: (
           paint: arr-color,
-          thickness: 1pt,
+          thickness: arrow-width,
           cap: "round",
         ),
         tip: _tiptoe-straight.with(width: 550%, length: 375%),
@@ -962,6 +964,8 @@
 /// - arrow-color (color): Default color for arrows (default: medium gray).
 /// - highlight-path-arrows (bool): Whether arrows on the path use a different color (default: true).
 /// - path-arrow-color (color): Color for arrows on the traceback path (default: dark gray).
+/// - arrow-width (length): Width of the arrows (default: 1pt).
+/// - arrow-length-scale (int, float): Multiplier for arrow length (default: 1).
 /// - cell-size (length): Size of each square cell (default: 34pt).
 /// - stroke-width (length): Width of cell borders (default: 0.6pt).
 /// - stroke-color (color): Color of cell borders (default: medium gray).
@@ -980,12 +984,23 @@
   arrow-color: _medium-gray,
   highlight-path-arrows: true,
   path-arrow-color: _dark-gray,
+  arrow-width: 1pt,
+  arrow-length-scale: 1,
   cell-size: 34pt,
   stroke-width: 0.6pt,
   stroke-color: _medium-gray,
 ) = {
   assert(type(seq-1) == str, message: "seq-1 must be a string.")
   assert(type(seq-2) == str, message: "seq-2 must be a string.")
+  assert(type(arrow-width) == length, message: "arrow-width must be a length.")
+  assert(
+    type(arrow-length-scale) == int or type(arrow-length-scale) == float,
+    message: "arrow-length-scale must be numeric.",
+  )
+  assert(
+    arrow-length-scale > 0,
+    message: "arrow-length-scale must be greater than 0.",
+  )
 
   // Cache cluster arrays to avoid repeated calls
   let seq1-raw-clusters = seq-1.clusters()
@@ -1101,6 +1116,8 @@
       path,
       highlight-path-arrows,
       path-arrow-color,
+      arrow-width,
+      arrow-length-scale,
     )
   })
 }
