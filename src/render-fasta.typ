@@ -6,7 +6,7 @@
 /// - sequences (dictionary): A dictionary mapping sequence identifiers to sequences.
 /// - max-width (int): Maximum characters per line (default: 60).
 /// - bold-header (bool): Render sequence headers in bold (default: false).
-/// - entry-spacing (length): Vertical spacing between entries; defaults to line spacing if none (default: none).
+/// - entry-spacing (length, none): Vertical spacing between entries; defaults to line spacing if none (default: none).
 /// -> content
 #let render-fasta(
   sequences,

@@ -343,7 +343,7 @@
 /// - label-leader-offset (length): Gap between leader and gene block (default: 4pt).
 /// - label-track-gap (length): Gap between labels and track (default: 4pt).
 /// - scale-bar (bool): Show scale bar (default: false).
-/// - scale-length (float, auto): Scale length (default: auto).
+/// - scale-length (auto, int, float): Scale length (default: auto).
 /// - unit (str, none): Unit suffix for scale bar and coordinate axis (default: none).
 /// - coordinate-axis (bool): Show coordinate axis (default: false).
 /// - coordinate-axis-track-gap (length): Gap between track and coordinate axis (default: 6pt).

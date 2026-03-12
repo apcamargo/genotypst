@@ -434,7 +434,7 @@
   }
 }
 
-/// Rounds a scale length to 1/2.5/5 x 10^n.
+/// Rounds a scale length to 1/2.5/5/7.5 x 10^n.
 ///
 /// - target (float): Target scale length.
 /// -> float
