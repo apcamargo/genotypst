@@ -967,7 +967,7 @@
 /// - arrow-width (length): Width of the arrows (default: 1pt).
 /// - arrow-length-scale (int, float): Multiplier for arrow length (default: 1).
 /// - cell-size (length): Size of each square cell (default: 34pt).
-/// - stroke-width (length): Width of cell borders (default: 0.6pt).
+/// - stroke-width (length): Width of cell borders (default: 0.75pt).
 /// - stroke-color (color): Color of cell borders (default: medium gray).
 /// -> content
 #let render-dp-matrix(
@@ -987,7 +987,7 @@
   arrow-width: 1pt,
   arrow-length-scale: 1,
   cell-size: 34pt,
-  stroke-width: 0.6pt,
+  stroke-width: 0.75pt,
   stroke-color: _medium-gray,
 ) = {
   assert(type(seq-1) == str, message: "seq-1 must be a string.")
