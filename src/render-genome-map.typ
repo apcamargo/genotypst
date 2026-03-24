@@ -340,15 +340,16 @@
 /// - label-horizontal-gap (length): Horizontal spacing between labels (default: 0.8pt).
 /// - label-vertical-gap (length): Vertical gap between label levels (default: 0.8em).
 /// - label-line-distance (length): Horizontal clearance for line gaps (default: 0.7pt).
-/// - label-leader-offset (length): Gap between leader and gene block (default: 4pt).
-/// - label-track-gap (length): Gap between labels and track (default: 4pt).
+/// - label-leader-offset (length): Gap between leader and gene block (default: 4.5pt).
+/// - label-track-gap (length): Gap between labels and track (default: 4.5pt).
 /// - scale-bar (bool): Show scale bar (default: false).
 /// - scale-length (auto, int, float): Scale length (default: auto).
+/// - min-auto-bar-width (length): Minimum auto-selected scale-bar width when space allows (default: 2em).
 /// - unit (str, none): Unit suffix for scale bar and coordinate axis (default: none).
 /// - coordinate-axis (bool): Show coordinate axis (default: false).
 /// - coordinate-axis-track-gap (length): Gap between track and coordinate axis (default: 6pt).
 /// - scale-track-gap (length): Gap between coordinate axis and scale bar (default: 6pt).
-/// - tick-height (length): Tick height for scale bar and coordinate axis (default: 4.5pt).
+/// - tick-height (length): Tick height for scale bar and coordinate axis (default: 4.25pt).
 /// -> content
 #let render-genome-map(
   genes,
@@ -366,15 +367,16 @@
   label-horizontal-gap: 0.8pt,
   label-vertical-gap: 0.8em,
   label-line-distance: 0.7pt,
-  label-leader-offset: 4pt,
-  label-track-gap: 4pt,
+  label-leader-offset: 4.5pt,
+  label-track-gap: 4.5pt,
   scale-bar: false,
   scale-length: auto,
+  min-auto-bar-width: 2em,
   unit: none,
   coordinate-axis: false,
   coordinate-axis-track-gap: 6pt,
   scale-track-gap: 6pt,
-  tick-height: 4.5pt,
+  tick-height: 4.25pt,
 ) = block(width: width)[
   #layout(size => context {
     assert(type(genes) == array, message: "genes must be an array")
@@ -454,6 +456,7 @@
         region-span,
         x-scale,
         track-width,
+        min-auto-bar-width: min-auto-bar-width,
         zero-length-message: "region span must be at least 1 bp",
       )
     } else {

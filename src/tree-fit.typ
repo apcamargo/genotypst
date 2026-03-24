@@ -193,7 +193,10 @@
 /// - viewport-limit (length): Available screen span.
 /// -> bool
 #let _span-acceptable(span, viewport-limit) = {
-  _resolve-length(span) <= _resolve-length(viewport-limit) + _fit-acceptance-tolerance
+  (
+    _resolve-length(span)
+      <= _resolve-length(viewport-limit) + _fit-acceptance-tolerance
+  )
 }
 
 /// Computes a mixed-unit line endpoint.
@@ -264,7 +267,8 @@
       orientation,
       resolve-anchor,
     ),
-    rotation: if orientation == "vertical" and primitive.rotation-mode == "rotate-with-tree" {
+    rotation: if orientation == "vertical"
+      and primitive.rotation-mode == "rotate-with-tree" {
       -90deg
     } else {
       0deg
@@ -309,7 +313,12 @@
   let fitted-primitives = ()
   let bounds = _empty-bounds()
   let node-positions = (:)
-  let resolve-anchor = _coordinate-resolve-anchor(tree-plan, style, x-scale, y-scale)
+  let resolve-anchor = _coordinate-resolve-anchor(
+    tree-plan,
+    style,
+    x-scale,
+    y-scale,
+  )
 
   for id in range(tree-plan.node-count) {
     let node = tree-plan.nodes.at(_tree-node-key(id))
@@ -537,8 +546,12 @@
       "spread",
       other-scale: next-x,
     )
-    let x-converged = _resolve-length(calc.abs(next-x - x-scale)) <= _fit-scale-convergence
-    let y-converged = _resolve-length(calc.abs(next-y - y-scale)) <= _fit-scale-convergence
+    let x-converged = (
+      _resolve-length(calc.abs(next-x - x-scale)) <= _fit-scale-convergence
+    )
+    let y-converged = (
+      _resolve-length(calc.abs(next-y - y-scale)) <= _fit-scale-convergence
+    )
     let converged = x-converged and y-converged
     if converged {
       x-scale = next-x
@@ -557,7 +570,10 @@
   )
 
   let issues = ()
-  if not _span-acceptable(evaluated-plan.tree-occupied-bounds.width, viewport-width) {
+  if not _span-acceptable(
+    evaluated-plan.tree-occupied-bounds.width,
+    viewport-width,
+  ) {
     issues.push(
       "width is too small for the tree labels and fixed margins (current: "
         + repr(_resolve-length(viewport-width))
@@ -566,7 +582,10 @@
         + ")",
     )
   }
-  if not _span-acceptable(evaluated-plan.tree-occupied-bounds.height, viewport-height) {
+  if not _span-acceptable(
+    evaluated-plan.tree-occupied-bounds.height,
+    viewport-height,
+  ) {
     issues.push(
       "height is too small for the tree labels and fixed margins (current: "
         + repr(_resolve-length(viewport-height))
@@ -582,8 +601,14 @@
       + ". Increase width or height, reduce labels, reduce label size, or reduce root-length.",
   )
 
-  let translate-x = (viewport-width - evaluated-plan.tree-occupied-bounds.width) / 2 - evaluated-plan.tree-occupied-bounds.min-x
-  let translate-y = (viewport-height - evaluated-plan.tree-occupied-bounds.height) / 2 - evaluated-plan.tree-occupied-bounds.min-y
+  let translate-x = (
+    (viewport-width - evaluated-plan.tree-occupied-bounds.width) / 2
+      - evaluated-plan.tree-occupied-bounds.min-x
+  )
+  let translate-y = (
+    (viewport-height - evaluated-plan.tree-occupied-bounds.height) / 2
+      - evaluated-plan.tree-occupied-bounds.min-y
+  )
   let translated-primitives = ()
   for primitive in evaluated-plan.tree-primitives {
     if primitive.kind == "line" {
@@ -659,6 +684,7 @@
 /// - branch-weight (length): Scale bar stroke thickness.
 /// - scale-length (auto, int, float): Requested scale length.
 /// - scale-unit (str, none): Optional scale-bar unit.
+/// - min-auto-bar-width (length): Minimum rendered width used in auto mode.
 /// - scale-tick-height (length): Tick height.
 /// - scale-label-size (length): Label size.
 /// - scale-label-gap (length): Gap between bar and label.
@@ -669,13 +695,18 @@
   branch-weight,
   scale-length,
   scale-unit,
+  min-auto-bar-width,
   scale-tick-height,
   scale-label-size,
   scale-label-gap,
 ) = {
   let row-width = fitted-plan.tree-viewport-width
-  let root-position = fitted-plan.node-positions.at(_tree-node-key(fitted-plan.root-id))
-  let bar-left = if fitted-plan.orientation == "vertical" { 0pt } else { root-position.x }
+  let root-position = fitted-plan.node-positions.at(_tree-node-key(
+    fitted-plan.root-id,
+  ))
+  let bar-left = if fitted-plan.orientation == "vertical" { 0pt } else {
+    root-position.x
+  }
   let max-bar-width = if fitted-plan.orientation == "vertical" {
     calc.min(fitted-plan.tree-depth-span, row-width)
   } else {
@@ -686,6 +717,7 @@
     fitted-plan.tree-depth,
     fitted-plan.x-scale,
     max-bar-width,
+    min-auto-bar-width: min-auto-bar-width,
     zero-length-message: "Cannot render scale bar for zero-depth tree.",
   )
   let scale-label = _format-scale-label(resolved-scale.length, scale-unit)

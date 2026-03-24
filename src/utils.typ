@@ -472,10 +472,16 @@
 
 /// Resolves the effective scale-bar length and width.
 ///
+/// When `scale-length` is `auto`, targets the larger of `region-length / 10`
+/// and the length needed to reach `min-auto-bar-width`.
+/// Prefers a rounded value when it fits, otherwise falls back to the exact
+/// target or the largest fitting rounded value.
+///
 /// - scale-length (auto, int, float): Requested scale length.
-/// - region-length (float): Length of the underlying coordinate region.
+/// - region-length (float): Underlying coordinate span in scale units.
 /// - x-scale (length): Length per coordinate unit.
 /// - max-bar-width (length): Maximum drawable bar width.
+/// - min-auto-bar-width (length): Minimum rendered width used only in auto mode.
 /// - zero-length-message (str): Error message used when region-length <= 0.
 /// -> dictionary
 #let _resolve-scale-bar-length(
@@ -483,6 +489,7 @@
   region-length,
   x-scale,
   max-bar-width,
+  min-auto-bar-width: 0pt,
   zero-length-message: "Cannot render scale bar for zero-length region.",
 ) = {
   assert(
@@ -506,13 +513,24 @@
     x-scale-abs > 0pt,
     message: "Cannot render scale bar: scale conversion is zero.",
   )
+  let min-auto-bar-width-abs = _resolve-length(min-auto-bar-width)
+  assert(
+    min-auto-bar-width-abs >= 0pt,
+    message: "min-auto-bar-width must be non-negative.",
+  )
 
   let max-fit-length = max-bar-width-abs / x-scale-abs
 
   let resolved-length = if scale-length == auto {
-    let candidate = _round-scale(region-length / 10)
+    let auto-target = calc.max(
+      region-length / 10,
+      min-auto-bar-width-abs / x-scale-abs,
+    )
+    let candidate = _round-scale(auto-target)
     if candidate <= max-fit-length {
       candidate
+    } else if auto-target <= max-fit-length {
+      auto-target
     } else {
       _floor-scale(max-fit-length)
     }

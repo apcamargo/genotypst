@@ -307,7 +307,8 @@
 
   for (idx, highlight) in highlights.enumerate() {
     assert(
-      type(highlight) == array and (highlight.len() == 2 or highlight.len() == 3),
+      type(highlight) == array
+        and (highlight.len() == 2 or highlight.len() == 3),
       message: "Highlight at index "
         + str(idx)
         + " must be (row, col) or (row, col, color).",
@@ -368,9 +369,7 @@
     )
     assert(
       calc.max(row-delta, col-delta) == 1,
-      message: "Arrow at index "
-        + str(idx)
-        + " must connect adjacent cells.",
+      message: "Arrow at index " + str(idx) + " must connect adjacent cells.",
     )
   }
 
@@ -387,9 +386,7 @@
   for (idx, entry) in cell-values.enumerate() {
     assert(
       type(entry) == array and entry.len() == 2,
-      message: "Cell value at index "
-        + str(idx)
-        + " must have (coord, value).",
+      message: "Cell value at index " + str(idx) + " must have (coord, value).",
     )
 
     let coord = _parse-and-validate-coord(

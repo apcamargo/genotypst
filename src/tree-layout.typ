@@ -89,7 +89,10 @@
     true
   } else {
     let children = _tree-node-children(node)
-    children.any(child => _tree-has-explicit-non-root-length(child, is-root: false))
+    children.any(child => _tree-has-explicit-non-root-length(
+      child,
+      is-root: false,
+    ))
   }
 }
 
@@ -173,7 +176,9 @@
 /// -> dictionary
 #let _normalize-tree(tree-data, cladogram: false) = {
   _validate-tree-data(tree-data)
-  let has-explicit-non-root-length = _tree-has-explicit-non-root-length(tree-data)
+  let has-explicit-non-root-length = _tree-has-explicit-non-root-length(
+    tree-data,
+  )
   let effective-cladogram = cladogram or not has-explicit-non-root-length
 
   let result = _normalize-tree-node(

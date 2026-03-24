@@ -6,7 +6,7 @@
 /// Tree layout constants.
 #let _label-x-offset = 0.3em
 #let _internal-label-gap = 0.35em
-#let _auto-height-scale = 1.75em
+#let _auto-height-scale = 1.9em
 
 /// Validates the `render-tree` arguments that affect layout and sizing.
 ///
@@ -149,6 +149,7 @@
 /// - scale-bar (bool): Whether scale bar rendering is enabled.
 /// - scale-length (auto, int, float): Requested scale-bar length.
 /// - scale-unit (str, none): Optional scale-bar unit.
+/// - min-auto-bar-width (length): Minimum rendered width used in auto mode.
 /// - scale-bar-gap (length): Gap between tree and scale bar.
 /// - scale-tick-height (length): Scale-bar tick height.
 /// - scale-label-size (length): Scale-bar label size.
@@ -172,6 +173,7 @@
   scale-bar,
   scale-length,
   scale-unit,
+  min-auto-bar-width,
   scale-bar-gap,
   scale-tick-height,
   scale-label-size,
@@ -237,6 +239,7 @@
       branch-weight,
       scale-length,
       scale-unit,
+      min-auto-bar-width,
       scale-tick-height,
       scale-label-size,
       scale-label-gap,
@@ -275,8 +278,9 @@
 ///   Scale bars are unavailable for cladograms.
 /// - scale-length (auto, int, float): Scale-bar length in branch-length units (default: auto).
 /// - scale-unit (str, none): Optional scale-bar unit suffix (default: none).
+/// - min-auto-bar-width (length): Minimum auto-selected scale-bar width when space allows (default: 2em).
 /// - scale-bar-gap (length): Gap between tree and scale bar (default: 0.6em).
-/// - scale-tick-height (length): Scale-bar tick height (default: 4.5pt).
+/// - scale-tick-height (length): Scale-bar tick height (default: 4.25pt).
 /// - scale-label-size (length): Scale-bar label size (default: 0.8em).
 /// - scale-label-gap (length): Gap between scale bar and scale label (default: 2.5pt).
 /// -> content
@@ -297,8 +301,9 @@
   scale-bar: false,
   scale-length: auto,
   scale-unit: none,
+  min-auto-bar-width: 2em,
   scale-bar-gap: 0.6em,
-  scale-tick-height: 4.5pt,
+  scale-tick-height: 4.25pt,
   scale-label-size: 0.8em,
   scale-label-gap: 2.5pt,
 ) = {
@@ -337,13 +342,18 @@
         scale-bar,
         scale-length,
         scale-unit,
+        min-auto-bar-width,
         scale-bar-gap,
         scale-tick-height,
         scale-label-size,
         scale-label-gap,
         size,
       )
-      _render-tree-plan(prepared.fitted-plan, prepared.scale-plan, scale-bar-gap)
+      _render-tree-plan(
+        prepared.fitted-plan,
+        prepared.scale-plan,
+        scale-bar-gap,
+      )
     })
   }
 }

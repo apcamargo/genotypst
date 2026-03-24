@@ -10,7 +10,8 @@
   let sequence = seq-parts.join()
   assert(
     not (seq-id in sequences),
-    message: "Duplicate FASTA identifier '" + seq-id
+    message: "Duplicate FASTA identifier '"
+      + seq-id
       + "'. FASTA identifiers must be unique.",
   )
   sequence
