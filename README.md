@@ -41,7 +41,7 @@ You can perform a simple pairwise alignments and visualize both the alignment an
 )
 ```
 
-![](./docs/pair_alignment_example.svg)
+![Local alignment of a pair of DNA sequences](./docs/pair_alignment_example.svg)
 
 ```typst
 // Render the dynamic programming matrix
@@ -54,7 +54,7 @@ You can perform a simple pairwise alignments and visualize both the alignment an
 )
 ```
 
-![](./docs/dp_matrix_example.svg)
+![Dynamic programming matrix for a local DNA sequence alignment](./docs/dp_matrix_example.svg)
 
 Read a FASTA file containing a multiple sequence alignment:
 
@@ -86,7 +86,7 @@ A region of the multiple sequence alignment can be rendered with `render-msa`:
 }
 ```
 
-![](./docs/msa_example.svg)
+![Protein multiple sequence alignment with residue coloring and conservation](./docs/msa_example.svg)
 
 The same region of the alignment can also be visualized as a sequence logo using `render-sequence-logo`:
 
@@ -95,7 +95,7 @@ The same region of the alignment can also be visualized as a sequence logo using
 #render-sequence-logo(sequences, start: 100, end: 135)
 ```
 
-![](./docs/logo_example.svg)
+![Sequence logo for a protein multiple sequence alignment](./docs/logo_example.svg)
 
 To render a genomic locus, you can pass an array of genomic features to the `render-genome-map` function:
 
@@ -116,7 +116,7 @@ To render a genomic locus, you can pass an array of genomic features to the `ren
 )
 ```
 
-![](./docs/genome_map_example.svg)
+![Genome map showing five labeled features and the coordinate axis](./docs/genome_map_example.svg)
 
 You can also use `genotypst` to parse Newick data and visualize phylogenetic trees:
 
@@ -129,4 +129,4 @@ You can also use `genotypst` to parse Newick data and visualize phylogenetic tre
 #render-tree(tree)
 ```
 
-![](./docs/tree_example.svg)
+![Phylogenetic tree with three leaves and a root](./docs/tree_example.svg)
