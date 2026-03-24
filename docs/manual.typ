@@ -387,6 +387,7 @@ To render the tree, use the `render-tree` function. By default, it produces a ho
 
 #grid(
   columns: (1fr, 1fr),
+  gutter: 0.8cm,
   figure(
     render-tree(
       hominoidea_tree,
@@ -567,6 +568,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
 #grid(
   columns: (1fr, 1fr),
   align: center + bottom,
+  gutter: 0.8cm,
   figure(
     render-tree(
       hominoidea_tree,
