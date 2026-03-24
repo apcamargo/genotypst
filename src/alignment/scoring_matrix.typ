@@ -1,7 +1,7 @@
-#import "utils.typ": (
-  _alignment-plugin, _convert-infinity, _flat-to-2d, resolve-matrix-name,
+#import "./alignment_backend.typ": (
+  _alignment-backend, _convert-infinity, _flat-to-2d, resolve-matrix-name,
 )
-#import "constants.typ": _diverging-gradient
+#import "../common/colors.typ": _diverging-gradient
 
 /// Retrieves a scoring matrix by name from the WASM plugin.
 ///
@@ -27,7 +27,7 @@
   assert(canonical != none, message: "Unknown scoring matrix: '" + name + "'.")
 
   // Call WASM plugin
-  let raw-result = json(_alignment-plugin.matrix_info(bytes(canonical)))
+  let raw-result = json(_alignment-backend.matrix_info(bytes(canonical)))
 
   // Convert flat scores to 2D
   let n = raw-result.alphabet.len()

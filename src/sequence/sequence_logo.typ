@@ -1,7 +1,8 @@
-#import "constants.typ": _light-gray
-#import "utils.typ": (
-  _check-palette-coverage, _compute-sequence-conservation,
-  _draw-coordinate-axis, _get-column-stats, _resolve-1indexed-window,
+#import "../common/colors.typ": _light-gray
+#import "../common/interval.typ": _resolve-1indexed-window
+#import "../common/axis_scale.typ": _draw-coordinate-axis
+#import "./sequence_alphabet.typ": (
+  _check-palette-coverage, _compute-sequence-conservation, _get-column-stats,
   _resolve-alphabet-config, _validate-msa,
 )
 

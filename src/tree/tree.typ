@@ -1,11 +1,12 @@
-#import "constants.typ": _medium-gray
-#import "tree-fit.typ": _build-scale-plan, _fit-tree-plan, _render-tree-plan
-#import "tree-layout.typ": _layout-tree, _normalize-tree
-#import "tree-plan.typ": _build-tree-plan
+#import "../common/colors.typ": _medium-gray
+#import "./tree_composition.typ": (
+  _build-scale-plan, _build-tree-plan, _fit-tree-plan, _render-tree-plan,
+)
+#import "./tree_layout.typ": _layout-tree, _normalize-tree
 
 /// Tree layout constants.
-#let _label-x-offset = 0.3em
-#let _internal-label-gap = 0.35em
+#let _label-x-offset = 0.32em
+#let _internal-label-gap = 0.42em
 #let _auto-height-scale = 1.9em
 
 /// Validates the `render-tree` arguments that affect layout and sizing.
@@ -83,7 +84,7 @@
   }
 }
 
-/// Builds the style record consumed by the private tree pipeline.
+/// Builds the style record consumed by the private tree composition module.
 ///
 /// - branch-weight (length): Branch stroke thickness.
 /// - branch-color (color): Branch color.

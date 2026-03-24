@@ -1,4 +1,5 @@
-#import "../src/constants.typ": _medium-gray, residue-palette
+#import "../src/common/colors.typ": _medium-gray
+#import "../src/sequence/residue_palette.typ": residue-palette
 
 #let project(
   title: "",

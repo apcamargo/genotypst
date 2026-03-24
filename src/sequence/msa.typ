@@ -1,8 +1,9 @@
-#import "constants.typ": _light-gray
-#import "utils.typ": (
-  _check-palette-coverage, _compute-sequence-conservation, _fixed-width-grid,
-  _get-column-stats, _resolve-1indexed-window, _resolve-alphabet-config,
-  _validate-msa,
+#import "../common/colors.typ": _light-gray
+#import "../common/fixed_grid.typ": _fixed-width-grid
+#import "../common/interval.typ": _resolve-1indexed-window
+#import "./sequence_alphabet.typ": (
+  _check-palette-coverage, _compute-sequence-conservation, _get-column-stats,
+  _resolve-alphabet-config, _validate-msa,
 )
 
 /// Renders a single character in an MSA with optional coloring.
