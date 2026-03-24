@@ -17,7 +17,10 @@
 /// represented as `float.inf` or `-float.inf`.
 ///
 /// - name (str): Matrix name (case-insensitive, e.g., "BLOSUM62" or "blosum62").
-/// -> dictionary
+/// -> dictionary with keys:
+///   - name (str): Canonical matrix name.
+///   - alphabet (array): Symbols covered by the matrix.
+///   - matrix (array): 2D score matrix aligned to `alphabet`.
 #let get-scoring-matrix(name) = {
   // Validate and resolve matrix name
   let canonical = resolve-matrix-name(name)

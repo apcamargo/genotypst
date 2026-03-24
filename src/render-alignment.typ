@@ -186,7 +186,16 @@
 /// - mismatch-score (int, none): Score for mismatching characters. Required if matrix is none (default: none).
 /// - gap-penalty (int): Gap penalty.
 /// - mode (str): Alignment mode: "global" or "local" (default: "global").
-/// -> dictionary
+/// -> dictionary with keys:
+///   - seq-1 (str): Cleaned first input sequence.
+///   - seq-2 (str): Cleaned second input sequence.
+///   - score (int): Alignment score.
+///   - mode (str): Alignment mode.
+///   - scoring (dictionary): Scoring settings used for the alignment.
+///   - alignments (array): Aligned sequence result(s).
+///   - traceback-paths (array): Traceback path coordinates.
+///   - dp-matrix (dictionary): DP matrix data with dimensions, scores, and arrows.
+///   - has-alignment (bool): Whether at least one alignment was found.
 #let align-seq-pair(
   seq-1,
   seq-2,

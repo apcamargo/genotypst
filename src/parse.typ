@@ -23,7 +23,7 @@
 /// sequences as strings. Duplicate identifiers are rejected.
 ///
 /// - data (str): A string containing the FASTA data.
-/// -> dictionary
+/// -> dictionary mapping sequence identifiers to sequence strings
 #let parse-fasta(data) = {
   let sequences = (:)
   let current-id = none
@@ -62,7 +62,11 @@
 /// into a dictionary structure suitable for rendering.
 ///
 /// - data (str): A string containing the Newick data.
-/// -> dictionary
+/// -> dictionary representing the root node with keys:
+///   - children (array): Child node dictionaries.
+///   - name (str, none): Optional node label.
+///   - length (int, float, none): Optional branch length.
+///   - rooted (bool, none): Optional root-only rootedness flag.
 #let parse-newick(data) = {
   let result = newick_plugin.parse_newick(bytes(data.trim()))
   json(result)
