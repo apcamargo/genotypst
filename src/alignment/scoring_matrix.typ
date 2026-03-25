@@ -9,9 +9,9 @@
 /// dictionary containing the alphabet and a 2D score matrix. Matrix names
 /// are case-insensitive.
 ///
-/// Available matrices: BLOSUM30, BLOSUM40, BLOSUM50, BLOSUM62, BLOSUM70,
-/// BLOSUM80, BLOSUM90, BLOSUM100, PAM1, PAM10, PAM40, PAM80, PAM120, PAM160,
-/// PAM250, EDNAFULL.
+/// Available scoring matrices: BLOSUM30, BLOSUM40, BLOSUM45, BLOSUM50,
+/// BLOSUM62, BLOSUM70, BLOSUM80, BLOSUM90, BLOSUM100, PAM1, PAM10, PAM40,
+/// PAM80, PAM120, PAM160, PAM250, EDNAFULL. Matrix names are case-insensitive.
 ///
 /// Infinite values in the matrix (used for forbidden substitutions) are
 /// represented as `float.inf` or `-float.inf`.

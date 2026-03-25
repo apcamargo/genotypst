@@ -159,9 +159,9 @@
 /// Sequences are automatically cleaned: whitespace is removed and characters
 /// are converted to uppercase. This allows input like "ACG TGC\nAAA".
 ///
-/// Available scoring matrices: BLOSUM30, BLOSUM40, BLOSUM50, BLOSUM62, BLOSUM70,
-/// BLOSUM80, BLOSUM90, BLOSUM100, PAM1, PAM10, PAM40, PAM80, PAM120, PAM160,
-/// PAM250, EDNAFULL. Matrix names are case-insensitive.
+/// Available scoring matrices: BLOSUM30, BLOSUM40, BLOSUM45, BLOSUM50,
+/// BLOSUM62, BLOSUM70, BLOSUM80, BLOSUM90, BLOSUM100, PAM1, PAM10, PAM40,
+/// PAM80, PAM120, PAM160, PAM250, EDNAFULL. Matrix names are case-insensitive.
 ///
 /// - seq-1 (str): First sequence to align.
 /// - seq-2 (str): Second sequence to align.
