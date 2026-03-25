@@ -51,20 +51,16 @@
 /// - node-id (int): Related node identifier.
 /// - stroke (stroke): Stroke styling.
 /// - stroke-thickness (length): Stroke thickness used for bounds.
-/// - tree-start (dictionary): Start point in tree space.
-/// - tree-end (dictionary): End point in tree space.
-/// - page-start (dictionary): Start offset in page space.
-/// - page-end (dictionary): End offset in page space.
+/// - start-anchor (dictionary): Start anchor with `tree` and `page` points.
+/// - end-anchor (dictionary): End anchor with `tree` and `page` points.
 /// -> dictionary
 #let _line-primitive(
   role,
   node-id,
   stroke,
   stroke-thickness,
-  tree-start,
-  tree-end,
-  page-start: _zero-point,
-  page-end: _zero-point,
+  start-anchor,
+  end-anchor,
 ) = {
   (
     kind: "line",
@@ -72,10 +68,8 @@
     node-id: node-id,
     stroke: stroke,
     stroke-thickness: stroke-thickness,
-    tree-start: tree-start,
-    tree-end: tree-end,
-    page-start: page-start,
-    page-end: page-end,
+    start-anchor: start-anchor,
+    end-anchor: end-anchor,
   )
 }
 
@@ -134,10 +128,14 @@
       root.id,
       style.branch-stroke,
       style.branch-weight,
-      (x: root.x-unit, y: root.y-unit),
-      (x: root.x-unit, y: root.y-unit),
-      page-start: (x: -style.root-length, y: 0pt),
-      page-end: _zero-point,
+      (
+        tree: (x: root.x-unit, y: root.y-unit),
+        page: (x: -style.root-length, y: 0pt),
+      ),
+      (
+        tree: (x: root.x-unit, y: root.y-unit),
+        page: _zero-point,
+      ),
     ))
   }
 
@@ -152,8 +150,8 @@
         node.id,
         style.branch-stroke,
         style.branch-weight,
-        (x: parent.x-unit, y: node.y-unit),
-        node-point,
+        (tree: (x: parent.x-unit, y: node.y-unit), page: _zero-point),
+        (tree: node-point, page: _zero-point),
       ))
     }
 
@@ -178,8 +176,14 @@
         node.id,
         style.branch-stroke,
         style.branch-weight,
-        (x: node.x-unit, y: first-child.y-unit),
-        (x: node.x-unit, y: last-child.y-unit),
+        (
+          tree: (x: node.x-unit, y: first-child.y-unit),
+          page: _zero-point,
+        ),
+        (
+          tree: (x: node.x-unit, y: last-child.y-unit),
+          page: _zero-point,
+        ),
       ))
 
       if node.label-text != none {
@@ -317,20 +321,15 @@
   measured-plan
 }
 
-/// Resolves fit-time style lengths and normalizes primitive page-space offsets.
+/// Resolves fit-time style lengths and primitive page-space offsets.
 ///
 /// This keeps later fit evaluation in absolute lengths and lets downstream code
-/// treat rooted and non-rooted primitives uniformly.
-///
-/// The current tree primitive model only uses a non-zero page-space offset for
-/// the rooted edge, so normalization resolves that offset once here and clears
-/// the remaining page-space offsets.
+/// materialize all line primitives through the same endpoint-anchor path.
 ///
 /// - tree-plan (dictionary): Measured tree primitive plan.
 /// - style (dictionary): Tree style configuration.
 /// -> dictionary: `(fit-offsets: ..., fit-plan: ...)`
 #let _prepare-fit-inputs(tree-plan, style) = {
-  let resolved-root-length = _resolve-length(style.root-length)
   let fit-offsets = (
     label-x-offset: _resolve-length(style.label-x-offset),
     internal-label-gap: _resolve-length(style.internal-label-gap),
@@ -340,15 +339,38 @@
   for primitive in tree-plan.tree-primitives {
     let fit-primitive = primitive
     if primitive.kind == "line" {
-      fit-primitive.insert(
-        "page-start",
-        if primitive.role == "root-edge" {
-          (x: -resolved-root-length, y: 0pt)
-        } else {
-          _zero-point
-        },
-      )
-      fit-primitive.insert("page-end", _zero-point)
+      let start-page = primitive.start-anchor.page
+      let end-page = primitive.end-anchor.page
+      fit-primitive.insert("start-anchor", (
+        tree: primitive.start-anchor.tree,
+        page: (
+          x: if start-page.x < 0pt {
+            -_resolve-length(-start-page.x)
+          } else {
+            _resolve-length(start-page.x)
+          },
+          y: if start-page.y < 0pt {
+            -_resolve-length(-start-page.y)
+          } else {
+            _resolve-length(start-page.y)
+          },
+        ),
+      ))
+      fit-primitive.insert("end-anchor", (
+        tree: primitive.end-anchor.tree,
+        page: (
+          x: if end-page.x < 0pt {
+            -_resolve-length(-end-page.x)
+          } else {
+            _resolve-length(end-page.x)
+          },
+          y: if end-page.y < 0pt {
+            -_resolve-length(-end-page.y)
+          } else {
+            _resolve-length(end-page.y)
+          },
+        ),
+      ))
       fit-primitive.insert(
         "half-stroke",
         _resolve-length(primitive.stroke-thickness) / 2,
@@ -381,25 +403,26 @@
   span <= viewport-limit + _fit-acceptance-tolerance
 }
 
-/// Resolves a normalized line primitive into screen coordinates.
+/// Resolves a prepared line primitive into screen coordinates.
 ///
-/// - primitive (dictionary): Line primitive with absolute page offsets.
+/// - primitive (dictionary): Line primitive with absolute anchor page offsets.
 /// - x-scale (length): Depth-axis scale.
 /// - y-scale (length): Spread-axis scale.
 /// - orientation (str): Tree orientation.
 /// -> dictionary
 #let _materialize-line(primitive, x-scale, y-scale, orientation) = {
-  let start = _transform-point(
-    primitive.tree-start.x * x-scale + primitive.page-start.x,
-    primitive.tree-start.y * y-scale + primitive.page-start.y,
-    orientation,
+  (
+    start: _transform-point(
+      primitive.start-anchor.tree.x * x-scale + primitive.start-anchor.page.x,
+      primitive.start-anchor.tree.y * y-scale + primitive.start-anchor.page.y,
+      orientation,
+    ),
+    end: _transform-point(
+      primitive.end-anchor.tree.x * x-scale + primitive.end-anchor.page.x,
+      primitive.end-anchor.tree.y * y-scale + primitive.end-anchor.page.y,
+      orientation,
+    ),
   )
-  let end = _transform-point(
-    primitive.tree-end.x * x-scale + primitive.page-end.x,
-    primitive.tree-end.y * y-scale + primitive.page-end.y,
-    orientation,
-  )
-  (start: start, end: end)
 }
 
 /// Computes the occupied bounds for a resolved line primitive.
@@ -423,19 +446,6 @@
   let dx = calc.abs(line.end.x - line.start.x)
   let dy = calc.abs(line.end.y - line.start.y)
   dx <= _fit-tolerance and dy <= _fit-tolerance
-}
-
-/// Returns whether a normalized line primitive has non-zero geometry.
-///
-/// - primitive (dictionary): Line primitive with normalized page offsets.
-/// -> bool
-#let _line-has-extent(primitive) = {
-  (
-    primitive.tree-start.x != primitive.tree-end.x
-      or primitive.tree-start.y != primitive.tree-end.y
-      or primitive.page-start.x != primitive.page-end.x
-      or primitive.page-start.y != primitive.page-end.y
-  )
 }
 
 /// Resolves the final label origin and rotation for a measured label primitive.
@@ -525,6 +535,71 @@
   }
 }
 
+/// Resolves one prepared primitive into fitted screen geometry and bounds.
+///
+/// Degenerate resolved lines are treated as nonexistent here so solve-time and
+/// final fit evaluation use the same inclusion rule.
+///
+/// - primitive (dictionary): Prepared tree primitive.
+/// - fit-offsets (dictionary): Absolute fit offsets from `_prepare-fit-inputs`.
+/// - x-scale (length): Depth-axis scale.
+/// - y-scale (length): Spread-axis scale.
+/// - orientation (str): Tree orientation.
+/// -> dictionary, none
+#let _materialize-fitted-primitive(
+  primitive,
+  fit-offsets,
+  x-scale,
+  y-scale,
+  orientation,
+) = {
+  if primitive.kind == "line" {
+    let resolved-line = _materialize-line(
+      primitive,
+      x-scale,
+      y-scale,
+      orientation,
+    )
+    if _line-is-degenerate(resolved-line) {
+      none
+    } else {
+      (
+        primitive: (
+          ..primitive,
+          start: resolved-line.start,
+          end: resolved-line.end,
+        ),
+        bounds: _line-bounds(
+          resolved-line.start,
+          resolved-line.end,
+          primitive.half-stroke,
+        ),
+      )
+    }
+  } else {
+    let resolved-label = _materialize-label-origin(
+      primitive,
+      fit-offsets,
+      x-scale,
+      y-scale,
+      orientation,
+    )
+    (
+      primitive: (
+        ..primitive,
+        origin: resolved-label.origin,
+        rotation: resolved-label.rotation,
+      ),
+      bounds: _label-bounds(
+        resolved-label.origin,
+        primitive.measure-width,
+        primitive.measure-height,
+        resolved-label.rotation,
+      ),
+    )
+  }
+}
+
 /// Evaluates bounds and fitted primitives for a pair of axis scales.
 ///
 /// - tree-plan (dictionary): Prepared tree primitive plan for fitting.
@@ -554,56 +629,22 @@
   }
 
   for primitive in tree-plan.tree-primitives {
-    if primitive.kind == "line" {
-      let resolved-line = _materialize-line(
-        primitive,
-        x-scale,
-        y-scale,
-        orientation,
-      )
-      if not _line-is-degenerate(resolved-line) {
-        let line-bounds = _line-bounds(
-          resolved-line.start,
-          resolved-line.end,
-          primitive.half-stroke,
-        )
-        bounds = _expand-bounds(
-          bounds,
-          line-bounds.min-x,
-          line-bounds.min-y,
-          line-bounds.max-x,
-          line-bounds.max-y,
-        )
-        let fitted-line = primitive
-        fitted-line.insert("start", resolved-line.start)
-        fitted-line.insert("end", resolved-line.end)
-        fitted-primitives.push(fitted-line)
-      }
-    } else {
-      let resolved-label = _materialize-label-origin(
-        primitive,
-        fit-offsets,
-        x-scale,
-        y-scale,
-        orientation,
-      )
-      let label-bounds = _label-bounds(
-        resolved-label.origin,
-        primitive.measure-width,
-        primitive.measure-height,
-        resolved-label.rotation,
-      )
+    let fitted-primitive = _materialize-fitted-primitive(
+      primitive,
+      fit-offsets,
+      x-scale,
+      y-scale,
+      orientation,
+    )
+    if fitted-primitive != none {
       bounds = _expand-bounds(
         bounds,
-        label-bounds.min-x,
-        label-bounds.min-y,
-        label-bounds.max-x,
-        label-bounds.max-y,
+        fitted-primitive.bounds.min-x,
+        fitted-primitive.bounds.min-y,
+        fitted-primitive.bounds.max-x,
+        fitted-primitive.bounds.max-y,
       )
-      let fitted-label = primitive
-      fitted-label.insert("origin", resolved-label.origin)
-      fitted-label.insert("rotation", resolved-label.rotation)
-      fitted-primitives.push(fitted-label)
+      fitted-primitives.push(fitted-primitive.primitive)
     }
   }
 
@@ -649,42 +690,17 @@
     let max-edge = none
 
     for primitive in tree-plan.tree-primitives {
-      let interval = if primitive.kind == "line" {
-        let resolved-line = _materialize-line(
-          primitive,
-          x-scale,
-          y-scale,
-          orientation,
-        )
-        if (
-          _line-is-degenerate(resolved-line) and not _line-has-extent(primitive)
-        ) {
-          none
-        } else {
-          _bounds-axis-interval(
-            _line-bounds(
-              resolved-line.start,
-              resolved-line.end,
-              primitive.half-stroke,
-            ),
-            screen-axis,
-          )
-        }
+      let fitted-primitive = _materialize-fitted-primitive(
+        primitive,
+        fit-offsets,
+        x-scale,
+        y-scale,
+        orientation,
+      )
+      let interval = if fitted-primitive == none {
+        none
       } else {
-        let resolved-label = _materialize-label-origin(
-          primitive,
-          fit-offsets,
-          x-scale,
-          y-scale,
-          orientation,
-        )
-        let label-bounds = _label-bounds(
-          resolved-label.origin,
-          primitive.measure-width,
-          primitive.measure-height,
-          resolved-label.rotation,
-        )
-        _bounds-axis-interval(label-bounds, screen-axis)
+        _bounds-axis-interval(fitted-primitive.bounds, screen-axis)
       }
 
       if interval != none {
