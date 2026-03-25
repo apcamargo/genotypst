@@ -46,17 +46,6 @@
   }
 }
 
-/// Private: Validates the alignment mode parameter.
-///
-/// - mode (str): The alignment mode.
-/// -> none
-#let _validate-alignment-mode(mode) = {
-  assert(
-    mode in ("global", "local"),
-    message: "mode must be 'global' or 'local'.",
-  )
-}
-
 /// Private: Builds the JSON configuration dictionary for WASM.
 ///
 /// - canonical-matrix (str, none): Canonical matrix name.
@@ -210,7 +199,10 @@
   )
   assert(gap-penalty != none, message: "gap-penalty is required.")
   assert(type(gap-penalty) == int, message: "gap-penalty must be an integer.")
-  _validate-alignment-mode(mode)
+  assert(
+    mode in ("global", "local"),
+    message: "mode must be 'global' or 'local'.",
+  )
 
   // Build config and call WASM
   let config = _build-config(

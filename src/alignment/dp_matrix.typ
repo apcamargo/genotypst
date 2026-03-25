@@ -19,7 +19,7 @@
         + " must be (row, col) or (row, col, color).",
     )
 
-    let _discard = _parse-and-validate-coord(
+    let _ = _parse-and-validate-coord(
       (highlight.at(0), highlight.at(1)),
       max-row,
       max-col,

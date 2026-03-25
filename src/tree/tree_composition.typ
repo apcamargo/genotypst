@@ -69,7 +69,6 @@
   (
     kind: "line",
     role: role,
-    unit-space: "mixed",
     node-id: node-id,
     stroke: stroke,
     stroke-thickness: stroke-thickness,
@@ -105,7 +104,6 @@
     kind: "label",
     role: role,
     placement-role: role,
-    unit-space: "mixed",
     node-id: node-id,
     anchor-tree: anchor-tree,
     anchor-page: _zero-point,

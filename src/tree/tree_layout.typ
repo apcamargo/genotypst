@@ -119,7 +119,7 @@
 
   let children = _tree-node-children(node)
   let is-leaf = children.len() == 0
-  let raw-name = node.at("name", default: none)
+  let label-text = _normalize-tree-label(node.at("name", default: none))
 
   let entry = (
     id: id,
@@ -131,8 +131,7 @@
       false
     },
     is-leaf: is-leaf,
-    raw-name: raw-name,
-    label-text: _normalize-tree-label(raw-name),
+    label-text: label-text,
     length: node.at("length", default: none),
     resolved-length: if cladogram {
       if is-root { 0.0 } else { 1.0 }
