@@ -120,14 +120,23 @@
   }
 }
 
+/// Private: Convert coordinates to a stable lookup key.
+#let _coord-key(row, col) = str(row) + "," + str(col)
+
+/// Private: Convert a directed edge to a stable lookup key.
+#let _edge-key(from-coord, to-coord) = (
+  _coord-key(from-coord.row, from-coord.col)
+    + "->"
+    + _coord-key(to-coord.row, to-coord.col)
+)
+
 /// Private: Convert sparse cell value entries to a coordinate map.
 #let _cell-values-to-map(cell-values) = {
   let cell-map = (:)
 
   for entry in cell-values {
     let coord = _parse-coord(entry.at(0))
-    let key = str(coord.row) + "," + str(coord.col)
-    cell-map.insert(key, entry.at(1))
+    cell-map.insert(_coord-key(coord.row, coord.col), entry.at(1))
   }
 
   cell-map
@@ -165,52 +174,25 @@
   }
 }
 
-/// Private: Build grid content arrays for background and text layers.
-#let _build-grid-content(
+/// Private: Build logical grid cells for the background and text layers.
+#let _build-grid-cells(
   top-clusters,
   left-clusters,
   cell-value-map,
-  highlights,
-  highlight-color,
-  path,
-  path-cell-bold,
+  highlight-map,
+  path-cell-set,
   stroke-width,
   stroke-color,
   cell-inset,
   corner-radius,
 ) = {
-  let bg-grid-content = ()
-  let text-grid-content = ()
-
-  let key-of = (row, col) => str(row) + "," + str(col)
-
-  let highlight-map = (:)
-  for h in highlights {
-    let h-coord = _parse-coord(h)
-    let key = key-of(h-coord.row, h-coord.col)
-
-    // Preserve existing behavior: first matching highlight wins.
-    if not (key in highlight-map) {
-      let color = if h.len() > 2 { h.at(2) } else { highlight-color }
-      highlight-map.insert(key, color)
-    }
-  }
-
-  let path-set = (:)
-  if path-cell-bold and path != none {
-    for p in path {
-      let p-coord = _parse-coord(p)
-      path-set.insert(key-of(p-coord.row, p-coord.col), true)
-    }
-  }
+  let cells = ()
 
   // Header row: empty top-left corner, then top sequence characters
-  bg-grid-content.push(_label-cell(none))
-  text-grid-content.push(_label-cell(none))
+  cells.push((bg: _label-cell(none), text: _label-cell(none)))
 
   for char in top-clusters {
-    bg-grid-content.push(_label-cell(none))
-    text-grid-content.push(_label-cell(char))
+    cells.push((bg: _label-cell(none), text: _label-cell(char)))
   }
 
   // Calculate last row and column indices
@@ -219,16 +201,15 @@
 
   // Data rows: left label, then cell values
   for (row-idx, row-label) in left-clusters.enumerate() {
-    bg-grid-content.push(_label-cell(none))
-    text-grid-content.push(_label-cell(row-label))
+    cells.push((bg: _label-cell(none), text: _label-cell(row-label)))
 
     for col-idx in range(top-clusters.len()) {
-      let key = key-of(row-idx, col-idx)
+      let key = _coord-key(row-idx, col-idx)
       let value = cell-value-map.at(key, default: none)
       let cell-content = if value == none {
         []
       } else {
-        let content = if path-cell-bold and (key in path-set) {
+        let content = if key in path-cell-set {
           strong[#value]
         } else {
           value
@@ -245,44 +226,42 @@
         corner-radius,
       )
 
-      // Background layer: boxes with rounded corners and fills
-      bg-grid-content.push(box(
-        width: 100%,
-        height: 100%,
-        fill: fill-color,
-        stroke: stroke-width + stroke-color,
-        radius: cell-radius,
-        inset: cell-inset,
-      )[])
-
-      // Text layer: only text, no fills
-      text-grid-content.push(box(
-        width: 100%,
-        height: 100%,
-        inset: cell-inset,
-      )[#cell-content])
+      cells.push((
+        bg: box(
+          width: 100%,
+          height: 100%,
+          fill: fill-color,
+          stroke: stroke-width + stroke-color,
+          radius: cell-radius,
+          inset: cell-inset,
+        )[],
+        text: box(
+          width: 100%,
+          height: 100%,
+          inset: cell-inset,
+        )[#cell-content],
+      ))
     }
   }
 
-  (bg: bg-grid-content, text: text-grid-content)
+  cells
 }
 
 /// Private: Render path overlay.
 #let _render-path(
-  path,
+  parsed-path,
   path-color,
   path-width,
   label-col-width,
   label-row-height,
   cell-size,
 ) = {
-  if path == none or path.len() <= 1 {
+  if parsed-path.len() <= 1 {
     return
   }
 
   // Calculate path coordinates
-  let path-coords = path.map(pt => {
-    let coord = _parse-coord(pt)
+  let path-coords = parsed-path.map(coord => {
     let center = _cell-center(
       coord.row,
       coord.col,
@@ -310,30 +289,6 @@
       ..curve-components,
     )
   })
-}
-
-/// Private: Check if an arrow is part of the traceback path.
-#let _is-arrow-on-path(arrow-from, arrow-to, path) = {
-  if path == none or path.len() < 2 {
-    return false
-  }
-  let parsed-arrow-from = _parse-coord(arrow-from)
-  let parsed-arrow-to = _parse-coord(arrow-to)
-
-  // Path is ordered from end to start, so consecutive pairs are (from, to)
-  for i in range(path.len() - 1) {
-    let path-from = _parse-coord(path.at(i))
-    let path-to = _parse-coord(path.at(i + 1))
-    if (
-      parsed-arrow-from.row == path-from.row
-        and parsed-arrow-from.col == path-from.col
-        and parsed-arrow-to.row == path-to.row
-        and parsed-arrow-to.col == path-to.col
-    ) {
-      return true
-    }
-  }
-  false
 }
 
 /// Private: Calculate arrow start and end positions based on direction.
@@ -373,27 +328,23 @@
 
 /// Private: Render all arrows.
 #let _render-arrows(
-  arrows,
+  parsed-arrows,
   arrow-color,
   cell-size,
   label-col-width,
   label-row-height,
-  path,
-  highlight-path-arrows,
+  path-edge-set,
   path-arrow-color,
   arrow-width,
   arrow-length-scale,
 ) = {
-  for arrow in arrows {
-    let from-coord = _parse-coord(arrow.at(0))
-    let to-coord = _parse-coord(arrow.at(1))
-
-    let arr-color = arrow-color
-    if (
-      highlight-path-arrows
-        and _is-arrow-on-path(arrow.at(0), arrow.at(1), path)
-    ) {
-      arr-color = path-arrow-color
+  for arrow in parsed-arrows {
+    let from-coord = arrow.from
+    let to-coord = arrow.to
+    let arr-color = if _edge-key(from-coord, to-coord) in path-edge-set {
+      path-arrow-color
+    } else {
+      arrow-color
     }
 
     let from-center = _cell-center(
@@ -524,6 +475,40 @@
     _validate-path(path.rev(), max-row, max-col)
   }
 
+  let parsed-path = if path == none { () } else { path.map(_parse-coord) }
+  let parsed-arrows = arrows.map(arrow => (
+    from: _parse-coord(arrow.at(0)),
+    to: _parse-coord(arrow.at(1)),
+  ))
+
+  let highlight-map = (:)
+  for h in highlights {
+    let coord = _parse-coord(h)
+    let key = _coord-key(coord.row, coord.col)
+
+    // Preserve existing behavior: first matching highlight wins.
+    if not (key in highlight-map) {
+      let color = if h.len() > 2 { h.at(2) } else { highlight-color }
+      highlight-map.insert(key, color)
+    }
+  }
+
+  let path-cell-set = (:)
+  if path-cell-bold {
+    for coord in parsed-path {
+      path-cell-set.insert(_coord-key(coord.row, coord.col), true)
+    }
+  }
+
+  let path-edge-set = (:)
+  if highlight-path-arrows and parsed-path.len() > 1 {
+    for i in range(parsed-path.len() - 1) {
+      let from-coord = parsed-path.at(i)
+      let to-coord = parsed-path.at(i + 1)
+      path-edge-set.insert(_edge-key(from-coord, to-coord), true)
+    }
+  }
+
   let label-scale = 0.65
   let cell-inset = 5pt
   let corner-radius = 3pt
@@ -531,14 +516,12 @@
   let label-col-width = cell-size * label-scale
   let label-row-height = cell-size * label-scale
 
-  let grid-content = _build-grid-content(
+  let grid-cells = _build-grid-cells(
     top-clusters,
     left-clusters,
     cell-value-map,
-    highlights,
-    highlight-color,
-    path,
-    path-cell-bold,
+    highlight-map,
+    path-cell-set,
     stroke-width,
     stroke-color,
     cell-inset,
@@ -553,7 +536,7 @@
     rows: row-heights,
     stroke: none,
     inset: 0pt,
-    ..grid-content.bg
+    ..grid-cells.map(cell => cell.bg)
   )
 
   let text-grid = grid(
@@ -561,7 +544,7 @@
     rows: row-heights,
     stroke: none,
     inset: 0pt,
-    ..grid-content.text
+    ..grid-cells.map(cell => cell.text)
   )
 
   if path == none and arrows.len() == 0 {
@@ -575,7 +558,7 @@
     bg-grid
 
     _render-path(
-      path,
+      parsed-path,
       path-color,
       path-width,
       label-col-width,
@@ -586,13 +569,12 @@
     place(top + left, dx: 0pt, dy: 0pt, text-grid)
 
     _render-arrows(
-      arrows,
+      parsed-arrows,
       arrow-color,
       cell-size,
       label-col-width,
       label-row-height,
-      path,
-      highlight-path-arrows,
+      path-edge-set,
       path-arrow-color,
       arrow-width,
       arrow-length-scale,
