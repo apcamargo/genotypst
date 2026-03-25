@@ -19,7 +19,7 @@
 /// - logo-height (length): Total height of the logo.
 /// - sampling-correction (bool): Apply small sample correction.
 /// - alphabet-size (int): Size of the alphabet.
-/// - alphabet-chars (array): Array of valid alphabet characters.
+/// - alphabet-characters (array): Array of valid alphabet characters.
 /// -> array, none: Array of columns, each column is an array of dictionaries with keys:
 ///   - char: str, the character
 ///   - height: length, the height of that character in the stack
@@ -30,7 +30,7 @@
   logo-height,
   sampling-correction,
   alphabet-size,
-  alphabet-chars,
+  alphabet-characters,
 ) = {
   if sequences.len() == 0 { return }
 
@@ -42,7 +42,7 @@
   let max-observed-r = 0.0
 
   for i in range(actual-start, actual-end) {
-    let stats = _get-column-stats(sequences, i, alphabet-chars)
+    let stats = _get-column-stats(sequences, i, alphabet-characters)
 
     if stats.total-non-gap == 0 {
       column-data.push((r: 0.0, stats: stats))
@@ -66,7 +66,7 @@
   for col in column-data {
     let column-letters = ()
     if col.r > 0 {
-      for char in alphabet-chars {
+      for char in alphabet-characters {
         if char in col.stats.counts {
           let f-rel = col.stats.counts.at(char) / col.stats.total-non-gap
           let symbol-height = (f-rel * col.r / divisor) * logo-height
@@ -126,7 +126,7 @@
 /// - msa-dict (dictionary): A dictionary mapping sequence identifiers to sequences.
 /// - start (int, none): Starting position (1-indexed, inclusive) (default: none).
 /// - end (int, none): Ending position (1-indexed, inclusive) (default: none).
-/// - width (length): Total width of the logo (default: 100%).
+/// - width (length, fraction): Total width of the logo (default: 100%).
 /// - height (length): Total height of the logo (default: 60pt).
 /// - sampling-correction (bool): Apply small sample correction (default: true).
 /// - alphabet (auto, str): Sequence type: auto, "aa", "dna", or "rna" (default: auto).

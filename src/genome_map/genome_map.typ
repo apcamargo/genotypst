@@ -103,10 +103,10 @@
 /// - head-length (length, auto): Arrowhead length (default: auto).
 /// - min-head-length (length): Minimum arrowhead length (default: 3.5pt).
 /// - default-color (color): Default gene fill (default: light gray).
-/// - gene-outline-color (color): Gene outline color (default: black).
+/// - gene-outline-color (color): Gene outline and label leader/underline color (default: black).
+/// - label-color (color, none): Feature label color (default: none, inherits from the document).
 /// - stroke-width (length): Stroke width for gene outlines, label leaders/underlines, and scale/axis lines (default: 0.7pt).
 /// - label-size (length): Label font size (default: 0.8em).
-/// - label-color (color): Label text color (default: black).
 /// - label-horizontal-gap (length): Horizontal spacing between labels (default: 0.8pt).
 /// - label-vertical-gap (length): Vertical gap between label levels (default: 0.8em).
 /// - label-line-distance (length): Horizontal clearance for line gaps (default: 0.7pt).
@@ -114,12 +114,14 @@
 /// - label-track-gap (length): Gap between labels and track (default: 4.5pt).
 /// - scale-bar (bool): Show scale bar (default: false).
 /// - scale-length (auto, int, float): Scale length (default: auto).
-/// - min-auto-bar-width (length): Minimum auto-selected scale-bar width when space allows (default: 2em).
+/// - min-auto-bar-width (length): Minimum auto-selected scale-bar width when space allows (default: 2.5em).
 /// - unit (str, none): Unit suffix for scale bar and coordinate axis (default: none).
 /// - coordinate-axis (bool): Show coordinate axis (default: false).
 /// - coordinate-axis-track-gap (length): Gap between track and coordinate axis (default: 6pt).
-/// - scale-track-gap (length): Gap between coordinate axis and scale bar (default: 6pt).
-/// - tick-height (length): Tick height for scale bar and coordinate axis (default: 4.25pt).
+/// - coordinate-axis-label-size (length): Coordinate-axis tick-label size (default: 0.8em).
+/// - scale-bar-gap (length): Vertical gap above the scale bar (default: 6pt).
+/// - scale-tick-height (length): Tick height for scale bar and coordinate axis (default: 4.25pt).
+/// - scale-label-size (length): Scale-bar label size (default: 0.8em).
 /// -> content
 #let render-genome-map(
   genes,
@@ -131,9 +133,9 @@
   min-head-length: 3.5pt,
   default-color: _light-gray,
   gene-outline-color: black,
+  label-color: none,
   stroke-width: 0.7pt,
   label-size: 0.8em,
-  label-color: black,
   label-horizontal-gap: 0.8pt,
   label-vertical-gap: 0.8em,
   label-line-distance: 0.7pt,
@@ -141,21 +143,35 @@
   label-track-gap: 4.5pt,
   scale-bar: false,
   scale-length: auto,
-  min-auto-bar-width: 2em,
+  min-auto-bar-width: 2.5em,
   unit: none,
   coordinate-axis: false,
   coordinate-axis-track-gap: 6pt,
-  scale-track-gap: 6pt,
-  tick-height: 4.25pt,
+  coordinate-axis-label-size: 0.8em,
+  scale-bar-gap: 6pt,
+  scale-tick-height: 4.25pt,
+  scale-label-size: 0.8em,
 ) = block(width: width)[
   #layout(size => context {
+    if coordinate-axis {
+      assert(
+        coordinate-axis-label-size > 0pt,
+        message: "coordinate-axis-label-size must be positive.",
+      )
+    }
+    if scale-bar {
+      assert(
+        scale-label-size > 0pt,
+        message: "scale-label-size must be positive.",
+      )
+    }
     let prepared = _prepare-genome-map-layout(
       genes,
       start,
       end,
       default-color,
-      label-size,
       label-color,
+      label-size,
       label-horizontal-gap,
       label-vertical-gap,
       label-line-distance,
@@ -167,8 +183,10 @@
       unit,
       coordinate-axis,
       coordinate-axis-track-gap,
-      scale-track-gap,
-      tick-height,
+      coordinate-axis-label-size,
+      scale-bar-gap,
+      scale-tick-height,
+      scale-label-size,
       gene-height,
       head-length,
       min-head-length,
@@ -181,7 +199,7 @@
       join: "miter",
     )
     let label-stroke = (
-      paint: label-color,
+      paint: gene-outline-color,
       thickness: stroke-width,
       cap: "round",
     )
@@ -278,11 +296,11 @@
         prepared.region-end - prepared.region-start,
         prepared.axis-width,
         prepared.coordinate-axis-top,
-        prepared.tick-height,
+        prepared.scale-tick-height,
         prepared.coordinate-axis-label-gap,
-        label-size,
+        coordinate-axis-label-size,
         unit,
-        black,
+        none,
         scale-stroke,
         axis-left: prepared.axis-left,
       )
@@ -294,10 +312,10 @@
           prepared.scale-top,
           0pt,
           prepared.scale-width,
-          prepared.tick-height,
+          prepared.scale-tick-height,
           prepared.scale-label-gap,
-          label-size,
-          black,
+          scale-label-size,
+          none,
           prepared.scale-label,
           black,
           stroke-width,

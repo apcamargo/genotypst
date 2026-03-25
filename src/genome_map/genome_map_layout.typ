@@ -136,8 +136,8 @@
 /// - region-start (int): Inclusive region start coordinate.
 /// - x-scale (length): Rendered width per genomic position.
 /// - track-width (length): Width of the genome track.
+/// - label-color (color, none): Feature label color.
 /// - label-size (length): Label font size.
-/// - label-color (color): Label text color.
 /// - label-horizontal-gap (length): Horizontal spacing between labels.
 /// - label-vertical-gap (length): Vertical gap between label levels.
 /// -> dictionary
@@ -146,8 +146,8 @@
   region-start,
   x-scale,
   track-width,
-  label-size,
   label-color,
+  label-size,
   label-horizontal-gap,
   label-vertical-gap,
 ) = {
@@ -168,7 +168,11 @@
       )
       let gene-center = geometry.center-x
       let gene-width = geometry.width
-      let label-text = text(size: label-size, fill: label-color)[#gene.label]
+      let label-text = if label-color == none {
+        text(size: label-size)[#gene.label]
+      } else {
+        text(size: label-size, fill: label-color)[#gene.label]
+      }
       let label-width = measure(label-text).width
       let raw-left = gene-center - label-width / 2
       let max-left = track-width - label-width
@@ -243,8 +247,8 @@
 /// - start (int, auto): 1-indexed inclusive region start coordinate.
 /// - end (int, auto): 1-indexed inclusive region end coordinate.
 /// - default-color (color): Default fill color for genes.
+/// - label-color (color, none): Feature label color.
 /// - label-size (length): Label font size.
-/// - label-color (color): Label text color.
 /// - label-horizontal-gap (length): Horizontal spacing between labels.
 /// - label-vertical-gap (length): Vertical gap between label levels.
 /// - label-line-distance (length): Horizontal clearance for line gaps.
@@ -256,8 +260,10 @@
 /// - unit (str, none): Optional unit suffix.
 /// - coordinate-axis (bool): Whether to draw the coordinate axis.
 /// - coordinate-axis-track-gap (length): Gap between track and coordinate axis.
-/// - scale-track-gap (length): Gap between coordinate axis and scale bar.
-/// - tick-height (length): Tick height.
+/// - coordinate-axis-label-size (length): Coordinate-axis tick-label size.
+/// - scale-bar-gap (length): Vertical gap above the scale bar.
+/// - scale-tick-height (length): Tick height.
+/// - scale-label-size (length): Scale-bar label size.
 /// - gene-height (length): Gene block height.
 /// - head-length (length, auto): Arrowhead length.
 /// - min-head-length (length): Minimum arrowhead length.
@@ -268,8 +274,8 @@
   start,
   end,
   default-color,
-  label-size,
   label-color,
+  label-size,
   label-horizontal-gap,
   label-vertical-gap,
   label-line-distance,
@@ -281,8 +287,10 @@
   unit,
   coordinate-axis,
   coordinate-axis-track-gap,
-  scale-track-gap,
-  tick-height,
+  coordinate-axis-label-size,
+  scale-bar-gap,
+  scale-tick-height,
+  scale-label-size,
   gene-height,
   head-length,
   min-head-length,
@@ -325,7 +333,7 @@
   let label-line-distance = _resolve-length(label-line-distance)
   let label-track-gap = _resolve-length(label-track-gap)
   let label-leader-offset = _resolve-length(label-leader-offset)
-  let tick-height = _resolve-length(tick-height)
+  let scale-tick-height = _resolve-length(scale-tick-height)
   let gene-height = _resolve-length(gene-height)
   let min-head-length = _resolve-length(min-head-length)
   let head-length = if head-length == auto { auto } else {
@@ -340,8 +348,8 @@
     region-start,
     x-scale,
     track-width,
-    label-size,
     label-color,
+    label-size,
     label-horizontal-gap,
     label-vertical-gap,
   )
@@ -378,21 +386,18 @@
     0pt
   } else {
     measure(text(
-      size: label-size,
-      fill: black,
+      size: scale-label-size,
       bottom-edge: "descender",
     )[#scale-label]).height
   }
 
   let axis-label-height = if coordinate-axis {
     let axis-start-label = text(
-      size: label-size,
-      fill: black,
+      size: coordinate-axis-label-size,
       bottom-edge: "descender",
     )[#_format-scale-label(region-start, unit)]
     let axis-end-label = text(
-      size: label-size,
-      fill: black,
+      size: coordinate-axis-label-size,
       bottom-edge: "descender",
     )[#_format-scale-label(region-end, unit)]
     calc.max(
@@ -404,7 +409,7 @@
   }
 
   let coordinate-axis-height = if coordinate-axis {
-    tick-height + coordinate-axis-label-gap + axis-label-height
+    scale-tick-height + coordinate-axis-label-gap + axis-label-height
   } else {
     0pt
   }
@@ -413,7 +418,7 @@
   let axis-gap = if coordinate-axis { coordinate-axis-track-gap } else { 0pt }
   let coordinate-axis-top = track-bottom + axis-gap
   let scale-top = if scale-bar {
-    track-bottom + axis-gap + coordinate-axis-height + scale-track-gap
+    track-bottom + axis-gap + coordinate-axis-height + scale-bar-gap
   } else {
     0pt
   }
@@ -423,7 +428,12 @@
       + coordinate-axis-height
       + (
         if scale-bar {
-          scale-track-gap + tick-height + scale-label-gap + scale-label-height
+          (
+            scale-bar-gap
+              + scale-tick-height
+              + scale-label-gap
+              + scale-label-height
+          )
         } else { 0pt }
       )
   )
@@ -448,7 +458,7 @@
     total-height: total-height,
     coordinate-axis-label-gap: coordinate-axis-label-gap,
     scale-label-gap: scale-label-gap,
-    tick-height: tick-height,
+    scale-tick-height: scale-tick-height,
     gene-height: gene-height,
     head-length: head-length,
     min-head-length: min-head-length,

@@ -37,7 +37,7 @@
 /// - n-seqs (int): Total number of sequences.
 /// - sampling-correction (bool): Whether to apply small sample correction.
 /// - alphabet-size (int): Size of the alphabet.
-/// - alphabet-chars (array): Array of valid alphabet characters.
+/// - alphabet-characters (array): Array of valid alphabet characters.
 /// - max-bits (float): Maximum possible information content (log2 of alphabet size).
 /// - cell-width (length): Width of each character cell.
 /// -> content
@@ -48,7 +48,7 @@
   n-seqs,
   sampling-correction,
   alphabet-size,
-  alphabet-chars,
+  alphabet-characters,
   max-bits,
   cell-width,
 ) = {
@@ -56,7 +56,7 @@
   let bars = ()
 
   for i in range(block-start, block-end) {
-    let stats = _get-column-stats(sequences, i, alphabet-chars)
+    let stats = _get-column-stats(sequences, i, alphabet-characters)
     let r = _compute-sequence-conservation(
       stats.counts,
       stats.total-non-gap,

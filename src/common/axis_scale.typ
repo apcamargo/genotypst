@@ -190,7 +190,7 @@
 /// - tick-height (length): Tick height.
 /// - label-gap (length): Gap between ticks and label.
 /// - label-size (length): Label font size.
-/// - label-color (color): Label color.
+/// - label-color (color, none): Label color.
 /// - label (str): Label text.
 /// - stroke-color (color): Stroke color for bar and ticks.
 /// - stroke-width (length): Stroke thickness for bar and ticks.
@@ -212,11 +212,18 @@
   let bar-left-abs = _resolve-length(bar-left)
   let bar-width-abs = _resolve-length(bar-width)
   let stroke = (paint: stroke-color, thickness: stroke-width, cap: "round")
-  let label-text = text(
-    size: label-size,
-    fill: label-color,
-    bottom-edge: "descender",
-  )[#label]
+  let label-text = if label-color == none {
+    text(
+      size: label-size,
+      bottom-edge: "descender",
+    )[#label]
+  } else {
+    text(
+      size: label-size,
+      fill: label-color,
+      bottom-edge: "descender",
+    )[#label]
+  }
   let label-size-box = measure(label-text)
   let label-width-abs = _resolve-length(label-size-box.width)
   let label-left = _clamp(
@@ -264,7 +271,7 @@
 /// - label-gap (length): Gap between tick and label.
 /// - label-size (length): Label font size.
 /// - unit (str, none): Unit suffix.
-/// - axis-color (color): Axis label color.
+/// - axis-color (color, none): Axis label color.
 /// - axis-stroke (stroke): Stroke styling.
 /// - axis-left (length): Left offset for axis line and ticks (default: 0pt).
 /// -> content
@@ -289,11 +296,18 @@
     if region-length <= 0 {
       let tick = region-start
       let label = _format-scale-label(tick, unit)
-      let label-text = text(
-        size: label-size,
-        fill: axis-color,
-        bottom-edge: "descender",
-      )[#label]
+      let label-text = if axis-color == none {
+        text(
+          size: label-size,
+          bottom-edge: "descender",
+        )[#label]
+      } else {
+        text(
+          size: label-size,
+          fill: axis-color,
+          bottom-edge: "descender",
+        )[#label]
+      }
       let label-width = measure(label-text).width
       let label-max-left = calc.max(
         axis-left,
@@ -318,11 +332,18 @@
     while tick <= region-end {
       let x = axis-left + track-width * ((tick - region-start) / region-length)
       let label = _format-scale-label(tick, unit)
-      let label-text = text(
-        size: label-size,
-        fill: axis-color,
-        bottom-edge: "descender",
-      )[#label]
+      let label-text = if axis-color == none {
+        text(
+          size: label-size,
+          bottom-edge: "descender",
+        )[#label]
+      } else {
+        text(
+          size: label-size,
+          fill: axis-color,
+          bottom-edge: "descender",
+        )[#label]
+      }
       let label-width = measure(label-text).width
       let label-max-left = calc.max(
         axis-left,

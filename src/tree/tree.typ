@@ -12,7 +12,7 @@
 /// Validates the `render-tree` arguments that affect layout and sizing.
 ///
 /// - width (length, fraction): Requested rendered width.
-/// - height (length, auto): Requested tree viewport height.
+/// - height (length, auto): Requested rendered tree height.
 /// - branch-weight (length): Branch stroke thickness.
 /// - tip-label-size (length): Tip label size.
 /// - internal-label-size (length): Internal label size.
@@ -20,11 +20,10 @@
 /// - orientation (str): Tree orientation.
 /// - cladogram (bool): Whether cladogram mode is enabled.
 /// - scale-bar (bool): Whether scale bar rendering is enabled.
-/// - scale-unit (str, none): Optional scale unit string.
+/// - unit (str, none): Optional unit string.
 /// - scale-bar-gap (length): Gap between tree and scale bar.
 /// - scale-tick-height (length): Scale bar tick height.
 /// - scale-label-size (length): Scale bar label size.
-/// - scale-label-gap (length): Gap between bar and scale label.
 /// -> none
 #let _validate-render-tree-args(
   width,
@@ -36,11 +35,10 @@
   orientation,
   cladogram,
   scale-bar,
-  scale-unit,
+  unit,
   scale-bar-gap,
   scale-tick-height,
   scale-label-size,
-  scale-label-gap,
 ) = {
   assert(type(cladogram) == bool, message: "cladogram must be a boolean")
   assert(type(scale-bar) == bool, message: "scale-bar must be a boolean")
@@ -65,8 +63,8 @@
   )
   if scale-bar {
     assert(
-      scale-unit == none or type(scale-unit) == str,
-      message: "scale-unit must be a string or none.",
+      unit == none or type(unit) == str,
+      message: "unit must be a string or none.",
     )
     assert(scale-bar-gap >= 0pt, message: "scale-bar-gap must be non-negative.")
     assert(
@@ -77,10 +75,6 @@
       scale-label-size > 0pt,
       message: "scale-label-size must be positive.",
     )
-    assert(
-      scale-label-gap >= 0pt,
-      message: "scale-label-gap must be non-negative.",
-    )
   }
 }
 
@@ -89,10 +83,10 @@
 /// - branch-weight (length): Branch stroke thickness.
 /// - branch-color (color): Branch color.
 /// - tip-label-size (length): Tip label size.
-/// - tip-label-color (color): Tip label color.
+/// - tip-label-color (color, none): Tip label color.
 /// - tip-label-italics (bool): Whether tip labels are italicized.
 /// - internal-label-size (length): Internal label size.
-/// - internal-label-color (color): Internal label color.
+/// - internal-label-color (color, none): Internal label color.
 /// - root-length (length): Root-edge length.
 /// -> dictionary
 #let _build-render-tree-style(
@@ -109,12 +103,6 @@
     thickness: branch-weight,
     paint: branch-color,
     cap: "square",
-  ),
-  root-stroke: stroke(
-    thickness: branch-weight,
-    paint: branch-color,
-    dash: "dotted",
-    cap: "round",
   ),
   branch-color: branch-color,
   branch-weight: branch-weight,
@@ -136,25 +124,24 @@
 ///
 /// - tree-data (dictionary): Parsed or manual tree data.
 /// - width (length, fraction): Width of the rendered tree including labels.
-/// - height (length, auto): Height of the tree viewport.
+/// - height (length, auto): Height of the rendered tree area.
 /// - branch-weight (length): Branch stroke thickness.
 /// - branch-color (color): Branch color.
 /// - tip-label-size (length): Tip label size.
-/// - tip-label-color (color): Tip label color.
+/// - tip-label-color (color, none): Tip label color.
 /// - tip-label-italics (bool): Whether tip labels are italicized.
 /// - internal-label-size (length): Internal label size.
-/// - internal-label-color (color): Internal label color.
+/// - internal-label-color (color, none): Internal label color.
 /// - root-length (length): Root-edge length.
 /// - orientation (str): Tree orientation.
 /// - cladogram (bool): Whether cladogram mode is enabled.
 /// - scale-bar (bool): Whether scale bar rendering is enabled.
-/// - scale-length (auto, int, float): Requested scale-bar length.
-/// - scale-unit (str, none): Optional scale-bar unit.
+/// - scale-length (auto, int, float): Requested scale-bar length in branch-length units.
+/// - unit (str, none): Optional scale-bar unit.
 /// - min-auto-bar-width (length): Minimum rendered width used in auto mode.
 /// - scale-bar-gap (length): Gap between tree and scale bar.
 /// - scale-tick-height (length): Scale-bar tick height.
 /// - scale-label-size (length): Scale-bar label size.
-/// - scale-label-gap (length): Gap between scale bar and label.
 /// - layout-size (dictionary): Layout callback size used to resolve fractional widths.
 /// -> dictionary
 #let _prepare-tree-render-at-size(
@@ -173,12 +160,11 @@
   cladogram,
   scale-bar,
   scale-length,
-  scale-unit,
+  unit,
   min-auto-bar-width,
   scale-bar-gap,
   scale-tick-height,
   scale-label-size,
-  scale-label-gap,
   layout-size,
 ) = {
   _validate-render-tree-args(
@@ -191,11 +177,10 @@
     orientation,
     cladogram,
     scale-bar,
-    scale-unit,
+    unit,
     scale-bar-gap,
     scale-tick-height,
     scale-label-size,
-    scale-label-gap,
   )
 
   let style = _build-render-tree-style(
@@ -239,11 +224,10 @@
       branch-color,
       branch-weight,
       scale-length,
-      scale-unit,
+      unit,
       min-auto-bar-width,
       scale-tick-height,
       scale-label-size,
-      scale-label-gap,
     )
   } else {
     none
@@ -268,22 +252,22 @@
 /// - branch-weight (length): Thickness of tree branches (default: 1pt).
 /// - branch-color (color): Color of tree branches (default: black).
 /// - tip-label-size (length): Font size of tip labels (default: 1em).
-/// - tip-label-color (color): Color of tip labels (default: black).
+/// - tip-label-color (color, none): Color of tip labels (default: none, inherits from the document).
 /// - tip-label-italics (bool): Use italics to draw tip labels (default: false).
 /// - internal-label-size (length): Font size of internal node labels (default: 0.85em).
-/// - internal-label-color (color): Color of internal node labels (default: medium gray).
-/// - root-length (length): Length of the dotted root branch (default: 1.25em).
+/// - internal-label-color (color, none): Color of internal node labels (default: medium gray; `none` inherits from the document).
+/// - root-length (length): Length of the root branch (default: 1.2em).
 /// - orientation (str): "horizontal" (root left, tips right) or "vertical" (root bottom, tips up) (default: "horizontal").
 /// - cladogram (bool): Whether to draw the tree as a cladogram with equal branch lengths (default: false).
 /// - scale-bar (bool): Whether to draw a branch-length scale bar below the tree (default: false).
 ///   Scale bars are unavailable for cladograms.
+///   In vertical orientation, the scale bar can use the full rendered row width.
 /// - scale-length (auto, int, float): Scale-bar length in branch-length units (default: auto).
-/// - scale-unit (str, none): Optional scale-bar unit suffix (default: none).
-/// - min-auto-bar-width (length): Minimum auto-selected scale-bar width when space allows (default: 2em).
+/// - unit (str, none): Optional scale-bar unit suffix (default: none).
+/// - min-auto-bar-width (length): Minimum auto-selected scale-bar width when space allows (default: 2.5em).
 /// - scale-bar-gap (length): Gap between tree and scale bar (default: 0.6em).
 /// - scale-tick-height (length): Scale-bar tick height (default: 4.25pt).
 /// - scale-label-size (length): Scale-bar label size (default: 0.8em).
-/// - scale-label-gap (length): Gap between scale bar and scale label (default: 2.5pt).
 /// -> content
 #let render-tree(
   tree-data,
@@ -292,21 +276,20 @@
   branch-weight: 1pt,
   branch-color: black,
   tip-label-size: 1em,
-  tip-label-color: black,
+  tip-label-color: none,
   tip-label-italics: false,
   internal-label-size: 0.85em,
   internal-label-color: _medium-gray,
-  root-length: 1.25em,
+  root-length: 1.2em,
   orientation: "horizontal",
   cladogram: false,
   scale-bar: false,
   scale-length: auto,
-  scale-unit: none,
-  min-auto-bar-width: 2em,
+  unit: none,
+  min-auto-bar-width: 2.5em,
   scale-bar-gap: 0.6em,
   scale-tick-height: 4.25pt,
   scale-label-size: 0.8em,
-  scale-label-gap: 2.5pt,
 ) = {
   _validate-render-tree-args(
     width,
@@ -318,11 +301,10 @@
     orientation,
     cladogram,
     scale-bar,
-    scale-unit,
+    unit,
     scale-bar-gap,
     scale-tick-height,
     scale-label-size,
-    scale-label-gap,
   )
   context {
     layout(size => {
@@ -342,12 +324,11 @@
         cladogram,
         scale-bar,
         scale-length,
-        scale-unit,
+        unit,
         min-auto-bar-width,
         scale-bar-gap,
         scale-tick-height,
         scale-label-size,
-        scale-label-gap,
         size,
       )
       _render-tree-plan(

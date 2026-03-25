@@ -392,8 +392,8 @@
 
 /// Private: Build the three alignment strings from sequences and operations.
 ///
-/// - seq1 (str): First sequence.
-/// - seq2 (str): Second sequence.
+/// - seq-1 (str): First sequence.
+/// - seq-2 (str): Second sequence.
 /// - path (array): Path coordinates.
 /// - operations (array): Array of operation strings.
 /// - gap-char (str): Character for gaps.
@@ -402,8 +402,8 @@
 /// - hide-unaligned (bool): Whether to hide unaligned characters entirely.
 /// -> dictionary
 #let _build-alignment-strings(
-  seq1,
-  seq2,
+  seq-1,
+  seq-2,
   path,
   operations,
   gap-char,
@@ -411,8 +411,8 @@
   mismatch-char,
   hide-unaligned,
 ) = {
-  let seq1-chars = seq1.clusters()
-  let seq2-chars = seq2.clusters()
+  let seq-1-chars = seq-1.clusters()
+  let seq-2-chars = seq-2.clusters()
 
   let first-coord = _parse-coord(path.at(0))
 
@@ -425,76 +425,76 @@
   // Handle leading unaligned region (local alignment starting after position 0)
   // Show unaligned characters if hide-unaligned is false
   if not hide-unaligned {
-    // Add seq1 unaligned chars (rows before path starts)
+    // Add seq-1 unaligned chars (rows before path starts)
     for i in range(first-coord.row) {
-      aligned1.push(seq1-chars.at(i))
+      aligned1.push(seq-1-chars.at(i))
       match-line.push(" ")
       aligned2.push(" ")
       unaligned-mask.push(true)
     }
 
-    // Add seq2 unaligned chars (cols before path starts)
+    // Add seq-2 unaligned chars (cols before path starts)
     for j in range(first-coord.col) {
       aligned1.push(" ")
       match-line.push(" ")
-      aligned2.push(seq2-chars.at(j))
+      aligned2.push(seq-2-chars.at(j))
       unaligned-mask.push(true)
     }
   }
 
   // Track current position in each sequence
-  let seq1-pos = first-coord.row
-  let seq2-pos = first-coord.col
+  let seq-1-pos = first-coord.row
+  let seq-2-pos = first-coord.col
 
   // Process each operation
   for op in operations {
     if op == "match-or-mismatch" {
-      let char1 = seq1-chars.at(seq1-pos)
-      let char2 = seq2-chars.at(seq2-pos)
+      let char1 = seq-1-chars.at(seq-1-pos)
+      let char2 = seq-2-chars.at(seq-2-pos)
 
       aligned1.push(char1)
       aligned2.push(char2)
       match-line.push(if char1 == char2 { match-char } else { mismatch-char })
       unaligned-mask.push(false)
 
-      seq1-pos += 1
-      seq2-pos += 1
+      seq-1-pos += 1
+      seq-2-pos += 1
     } else if op == "gap-in-seq1" {
       aligned1.push(gap-char)
-      aligned2.push(seq2-chars.at(seq2-pos))
+      aligned2.push(seq-2-chars.at(seq-2-pos))
       match-line.push(mismatch-char)
       unaligned-mask.push(false)
 
-      seq2-pos += 1
+      seq-2-pos += 1
     } else if op == "gap-in-seq2" {
-      aligned1.push(seq1-chars.at(seq1-pos))
+      aligned1.push(seq-1-chars.at(seq-1-pos))
       aligned2.push(gap-char)
       match-line.push(mismatch-char)
       unaligned-mask.push(false)
 
-      seq1-pos += 1
+      seq-1-pos += 1
     }
   }
 
   // Handle trailing unaligned region
   // Show unaligned characters if hide-unaligned is false
   if not hide-unaligned {
-    // Add remaining seq1 characters
-    while seq1-pos < seq1-chars.len() {
-      aligned1.push(seq1-chars.at(seq1-pos))
+    // Add remaining seq-1 characters
+    while seq-1-pos < seq-1-chars.len() {
+      aligned1.push(seq-1-chars.at(seq-1-pos))
       match-line.push(" ")
       aligned2.push(" ")
       unaligned-mask.push(true)
-      seq1-pos += 1
+      seq-1-pos += 1
     }
 
-    // Add remaining seq2 characters
-    while seq2-pos < seq2-chars.len() {
+    // Add remaining seq-2 characters
+    while seq-2-pos < seq-2-chars.len() {
       aligned1.push(" ")
       match-line.push(" ")
-      aligned2.push(seq2-chars.at(seq2-pos))
+      aligned2.push(seq-2-chars.at(seq-2-pos))
       unaligned-mask.push(true)
-      seq2-pos += 1
+      seq-2-pos += 1
     }
   }
 
