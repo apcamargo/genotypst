@@ -90,28 +90,22 @@
 /// -> content
 #let _render-logo-letter(letter, col-width, palette) = {
   context {
-    let letter-text = text(
+    let color = palette.at(letter.char, default: _light-gray)
+    let glyph = text(
+      fill: color,
       size: 10pt,
       weight: "bold",
       top-edge: "bounds",
       bottom-edge: "bounds",
       letter.char,
     )
-    let m = measure(letter-text)
+    let m = measure(glyph)
     let sx = (col-width / m.width) * 100%
     let sy = (letter.height / m.height) * 100%
-    let color = palette.at(letter.char, default: _light-gray)
 
     box(width: col-width, height: letter.height)[
       #set align(center + bottom)
-      #set text(
-        fill: color,
-        size: 10pt,
-        weight: "bold",
-        top-edge: "bounds",
-        bottom-edge: "bounds",
-      )
-      #scale(x: sx, y: sy, origin: bottom)[#letter.char]
+      #scale(x: sx, y: sy, origin: bottom)[#glyph]
     ]
   }
 }
