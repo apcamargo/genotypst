@@ -353,147 +353,115 @@
   }
 }
 
-/// Private: Convert path coordinates to alignment operations.
+/// Private: Build the three alignment rows directly from a traceback path.
 ///
-/// - path (array): Path coordinates as `(row, col)` arrays.
-/// -> array
-#let _path-to-operations(path) = {
-  let operations = ()
-
-  for i in range(1, path.len()) {
-    let prev = _parse-coord(path.at(i - 1))
-    let curr = _parse-coord(path.at(i))
-
-    let row-delta = curr.row - prev.row
-    let col-delta = curr.col - prev.col
-
-    if row-delta == 1 and col-delta == 1 {
-      // Diagonal: match or mismatch
-      operations.push("match-or-mismatch")
-    } else if row-delta == 1 and col-delta == 0 {
-      // Down: gap in seq2 (seq1 advances, seq2 doesn't)
-      operations.push("gap-in-seq2")
-    } else if row-delta == 0 and col-delta == 1 {
-      // Right: gap in seq1 (seq2 advances, seq1 doesn't)
-      operations.push("gap-in-seq1")
-    }
-  }
-
-  operations
-}
-
-/// Private: Build the three alignment strings from sequences and operations.
-///
-/// - seq-1 (str): First sequence.
-/// - seq-2 (str): Second sequence.
-/// - path (array): Path coordinates.
-/// - operations (array): Array of operation strings.
+/// - seq-1-chars (array): First sequence as grapheme clusters.
+/// - seq-2-chars (array): Second sequence as grapheme clusters.
+/// - path (array): Traceback path as `(row, col)` arrays in start-to-end order.
 /// - gap-char (str): Character for gaps.
 /// - match-char (str): Character for matches.
 /// - mismatch-char (str): Character for mismatches.
 /// - hide-unaligned (bool): Whether to hide unaligned characters entirely.
-/// -> dictionary
-#let _build-alignment-strings(
-  seq-1,
-  seq-2,
+/// - build-unaligned-mask (bool): Whether to track unaligned cells for optional coloring.
+/// -> dictionary with keys:
+///   - aligned1 (array): First rendered alignment row as cell contents.
+///   - match-line (array): Match or mismatch indicator row as cell contents.
+///   - aligned2 (array): Second rendered alignment row as cell contents.
+///   - unaligned-mask (array, none): Marks visible unaligned cells when requested.
+#let _build-alignment-lines(
+  seq-1-chars,
+  seq-2-chars,
   path,
-  operations,
   gap-char,
   match-char,
   mismatch-char,
   hide-unaligned,
+  build-unaligned-mask,
 ) = {
-  let seq-1-chars = seq-1.clusters()
-  let seq-2-chars = seq-2.clusters()
-
   let first-coord = _parse-coord(path.at(0))
 
-  // Initialize result strings and unaligned mask
   let aligned1 = ()
   let match-line = ()
   let aligned2 = ()
-  let unaligned-mask = ()
+  let unaligned-mask = if build-unaligned-mask { () } else { none }
 
-  // Handle leading unaligned region (local alignment starting after position 0)
-  // Show unaligned characters if hide-unaligned is false
   if not hide-unaligned {
-    // Add seq-1 unaligned chars (rows before path starts)
     for i in range(first-coord.row) {
       aligned1.push(seq-1-chars.at(i))
       match-line.push(" ")
       aligned2.push(" ")
-      unaligned-mask.push(true)
+      if unaligned-mask != none { unaligned-mask.push(true) }
     }
 
-    // Add seq-2 unaligned chars (cols before path starts)
     for j in range(first-coord.col) {
       aligned1.push(" ")
       match-line.push(" ")
       aligned2.push(seq-2-chars.at(j))
-      unaligned-mask.push(true)
+      if unaligned-mask != none { unaligned-mask.push(true) }
     }
   }
 
-  // Track current position in each sequence
   let seq-1-pos = first-coord.row
   let seq-2-pos = first-coord.col
+  let prev-coord = first-coord
 
-  // Process each operation
-  for op in operations {
-    if op == "match-or-mismatch" {
+  for i in range(1, path.len()) {
+    let curr-coord = _parse-coord(path.at(i))
+    let row-delta = curr-coord.row - prev-coord.row
+    let col-delta = curr-coord.col - prev-coord.col
+
+    if row-delta == 1 and col-delta == 1 {
       let char1 = seq-1-chars.at(seq-1-pos)
       let char2 = seq-2-chars.at(seq-2-pos)
 
       aligned1.push(char1)
       aligned2.push(char2)
       match-line.push(if char1 == char2 { match-char } else { mismatch-char })
-      unaligned-mask.push(false)
+      if unaligned-mask != none { unaligned-mask.push(false) }
 
       seq-1-pos += 1
       seq-2-pos += 1
-    } else if op == "gap-in-seq1" {
+    } else if row-delta == 0 and col-delta == 1 {
       aligned1.push(gap-char)
       aligned2.push(seq-2-chars.at(seq-2-pos))
       match-line.push(mismatch-char)
-      unaligned-mask.push(false)
+      if unaligned-mask != none { unaligned-mask.push(false) }
 
       seq-2-pos += 1
-    } else if op == "gap-in-seq2" {
+    } else {
       aligned1.push(seq-1-chars.at(seq-1-pos))
       aligned2.push(gap-char)
       match-line.push(mismatch-char)
-      unaligned-mask.push(false)
+      if unaligned-mask != none { unaligned-mask.push(false) }
 
       seq-1-pos += 1
     }
+
+    prev-coord = curr-coord
   }
 
-  // Handle trailing unaligned region
-  // Show unaligned characters if hide-unaligned is false
   if not hide-unaligned {
-    // Add remaining seq-1 characters
     while seq-1-pos < seq-1-chars.len() {
       aligned1.push(seq-1-chars.at(seq-1-pos))
       match-line.push(" ")
       aligned2.push(" ")
-      unaligned-mask.push(true)
+      if unaligned-mask != none { unaligned-mask.push(true) }
       seq-1-pos += 1
     }
 
-    // Add remaining seq-2 characters
     while seq-2-pos < seq-2-chars.len() {
       aligned1.push(" ")
       match-line.push(" ")
       aligned2.push(seq-2-chars.at(seq-2-pos))
-      unaligned-mask.push(true)
+      if unaligned-mask != none { unaligned-mask.push(true) }
       seq-2-pos += 1
     }
   }
 
   (
-    aligned1: aligned1.join(),
-    match-line: match-line.join(),
-    aligned2: aligned2.join(),
+    aligned1: aligned1,
+    match-line: match-line,
+    aligned2: aligned2,
     unaligned-mask: unaligned-mask,
   )
 }
@@ -512,7 +480,7 @@
 /// - match-char (str): Character to display for matches (default: "│").
 /// - mismatch-char (str): Character to display for mismatches (default: " ").
 /// - hide-unaligned (bool): Hide unaligned characters entirely (default: false).
-/// - unaligned-color (color, none): Color for unaligned characters (default: none, which uses the default text color).
+/// - unaligned-color (color, none): Color for visible unaligned characters (default: none, which uses the default text color).
 /// -> content
 #let render-pair-alignment(
   seq-1,
@@ -544,45 +512,40 @@
   // Validate path
   _validate-path(reversed-path, seq1-chars.len(), seq2-chars.len())
 
-  // Convert path to operations
-  let operations = _path-to-operations(reversed-path)
+  let build-unaligned-mask = not hide-unaligned and unaligned-color != none
 
-  // Build alignment strings
-  let result = _build-alignment-strings(
-    seq-1,
-    seq-2,
+  let result = _build-alignment-lines(
+    seq1-chars,
+    seq2-chars,
     reversed-path,
-    operations,
     gap-char,
     match-char,
     mismatch-char,
     hide-unaligned,
+    build-unaligned-mask,
   )
 
-  // Render with regular font in fixed-width grid cells
   context {
     let unaligned-mask = result.unaligned-mask
-    let mask-length = unaligned-mask.len()
-    let has-unaligned-color = unaligned-color != none
 
     let make-line-cells = (chars, apply-unaligned) => {
-      chars
-        .enumerate()
-        .map(item => {
+      if not apply-unaligned or unaligned-mask == none {
+        return chars
+      }
+
+      chars.enumerate().map(item => {
           let (i, char) = item
-          let should-color = (
-            apply-unaligned
-              and has-unaligned-color
-              and i < mask-length
-              and unaligned-mask.at(i)
-          )
-          if should-color { text(char, fill: unaligned-color) } else { char }
+          if unaligned-mask.at(i) {
+            text(char, fill: unaligned-color)
+          } else {
+            char
+          }
         })
     }
 
-    let line1-cells = make-line-cells(result.aligned1.clusters(), true)
-    let line2-cells = make-line-cells(result.match-line.clusters(), false)
-    let line3-cells = make-line-cells(result.aligned2.clusters(), true)
+    let line1-cells = make-line-cells(result.aligned1, true)
+    let line2-cells = make-line-cells(result.match-line, false)
+    let line3-cells = make-line-cells(result.aligned2, true)
 
     block(breakable: false, _fixed-width-grid(
       (line1-cells, line2-cells, line3-cells),
