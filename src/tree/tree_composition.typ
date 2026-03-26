@@ -222,6 +222,23 @@
   measured-plan
 }
 
+/// Resolves a page-space offset while preserving sign.
+///
+/// - point (dictionary): Page-space offset record with `x` and `y`.
+/// -> dictionary
+#let _resolve-page-offset(point) = (
+  x: if point.x < 0pt {
+    -_resolve-length(-point.x)
+  } else {
+    _resolve-length(point.x)
+  },
+  y: if point.y < 0pt {
+    -_resolve-length(-point.y)
+  } else {
+    _resolve-length(point.y)
+  },
+)
+
 /// Resolves fit-time style lengths and prepares absolute primitive data.
 ///
 /// - tree-plan (dictionary): Measured tree primitive plan.
@@ -242,33 +259,11 @@
       prepared-lines.push((
         start-anchor: (
           tree: primitive.start-anchor.tree,
-          page: (
-            x: if start-page.x < 0pt {
-              -_resolve-length(-start-page.x)
-            } else {
-              _resolve-length(start-page.x)
-            },
-            y: if start-page.y < 0pt {
-              -_resolve-length(-start-page.y)
-            } else {
-              _resolve-length(start-page.y)
-            },
-          ),
+          page: _resolve-page-offset(start-page),
         ),
         end-anchor: (
           tree: primitive.end-anchor.tree,
-          page: (
-            x: if end-page.x < 0pt {
-              -_resolve-length(-end-page.x)
-            } else {
-              _resolve-length(end-page.x)
-            },
-            y: if end-page.y < 0pt {
-              -_resolve-length(-end-page.y)
-            } else {
-              _resolve-length(end-page.y)
-            },
-          ),
+          page: _resolve-page-offset(end-page),
         ),
         half-stroke: _resolve-length(primitive.stroke-thickness) / 2,
         stroke: primitive.stroke,
@@ -409,6 +404,32 @@
   }
 }
 
+/// Resolves the label-placement policy shared by fitting and rendering.
+///
+/// - primitive (dictionary): Prepared label primitive.
+/// - fit-offsets (dictionary): Absolute fit offsets from `_prepare-fit-inputs`.
+/// - orientation (str): Tree orientation.
+/// -> dictionary
+#let _label-placement-adjustment(primitive, fit-offsets, orientation) = (
+  dx: if primitive.placement-role == "tip-label" {
+    fit-offsets.label-x-offset
+  } else if orientation == "vertical" {
+    -fit-offsets.internal-label-gap
+  } else {
+    -primitive.measure-width - fit-offsets.label-x-offset
+  },
+  dy: if primitive.placement-role == "tip-label" {
+    -fit-offsets.label-y-offset
+  } else if orientation == "vertical" {
+    fit-offsets.label-x-offset
+  } else {
+    -primitive.measure-height - fit-offsets.internal-label-gap
+  },
+  rotates-with-tree: (
+    orientation == "vertical" and primitive.rotation-mode == "rotate-with-tree"
+  ),
+)
+
 /// Builds a solve-time span descriptor for a prepared line primitive.
 ///
 /// - primitive (dictionary): Prepared line primitive.
@@ -470,28 +491,15 @@
     primitive.anchor-page,
     axis-kind,
   )
-  let canonical-origin = if primitive.placement-role == "tip-label" {
-    (
-      x: _shift-affine-formula(anchor.x, fit-offsets.label-x-offset),
-      y: _shift-affine-formula(anchor.y, -fit-offsets.label-y-offset),
-    )
-  } else if orientation == "vertical" {
-    (
-      x: _shift-affine-formula(anchor.x, -fit-offsets.internal-label-gap),
-      y: _shift-affine-formula(anchor.y, fit-offsets.label-x-offset),
-    )
-  } else {
-    (
-      x: _shift-affine-formula(
-        anchor.x,
-        -primitive.measure-width - fit-offsets.label-x-offset,
-      ),
-      y: _shift-affine-formula(
-        anchor.y,
-        -primitive.measure-height - fit-offsets.internal-label-gap,
-      ),
-    )
-  }
+  let placement = _label-placement-adjustment(
+    primitive,
+    fit-offsets,
+    orientation,
+  )
+  let canonical-origin = (
+    x: _shift-affine-formula(anchor.x, placement.dx),
+    y: _shift-affine-formula(anchor.y, placement.dy),
+  )
   let origin = _transform-point-formulas(
     canonical-origin.x,
     canonical-origin.y,
@@ -499,11 +507,8 @@
   )
   let axis = _solve-screen-axis(orientation, axis-kind)
   let origin-axis = _point-axis-formula(origin, axis)
-  let rotation = (
-    orientation == "vertical" and primitive.rotation-mode == "rotate-with-tree"
-  )
 
-  if rotation {
+  if placement.rotates-with-tree {
     if axis == "x" {
       (
         min-coeff: origin-axis.coeff,
@@ -678,22 +683,15 @@
 ) = {
   let anchor-x = primitive.anchor-tree.x * x-scale + primitive.anchor-page.x
   let anchor-y = primitive.anchor-tree.y * y-scale + primitive.anchor-page.y
-  let canonical-origin = if primitive.placement-role == "tip-label" {
-    (
-      x: anchor-x + fit-offsets.label-x-offset,
-      y: anchor-y - fit-offsets.label-y-offset,
-    )
-  } else if orientation == "vertical" {
-    (
-      x: anchor-x - fit-offsets.internal-label-gap,
-      y: anchor-y + fit-offsets.label-x-offset,
-    )
-  } else {
-    (
-      x: anchor-x - primitive.measure-width - fit-offsets.label-x-offset,
-      y: anchor-y - primitive.measure-height - fit-offsets.internal-label-gap,
-    )
-  }
+  let placement = _label-placement-adjustment(
+    primitive,
+    fit-offsets,
+    orientation,
+  )
+  let canonical-origin = (
+    x: anchor-x + placement.dx,
+    y: anchor-y + placement.dy,
+  )
 
   (
     origin: _transform-point(
@@ -701,12 +699,7 @@
       canonical-origin.y,
       orientation,
     ),
-    rotation: if orientation == "vertical"
-      and primitive.rotation-mode == "rotate-with-tree" {
-      -90deg
-    } else {
-      0deg
-    },
+    rotation: if placement.rotates-with-tree { -90deg } else { 0deg },
   )
 }
 
