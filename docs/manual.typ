@@ -392,7 +392,6 @@ To render the tree, use the `render-tree` function. By default, it produces a ho
     render-tree(
       hominoidea_tree,
       tip-label-italics: true,
-      width: 1fr,
       height: 7.75cm,
     ),
     caption: [Tree with horizontal orientation],
@@ -402,7 +401,6 @@ To render the tree, use the `render-tree` function. By default, it produces a ho
     render-tree(
       hominoidea_tree,
       tip-label-italics: true,
-      width: 1fr,
       height: 7.75cm,
       orientation: "vertical",
     ),
@@ -573,7 +571,6 @@ By default, the visualizations produced by `genotypst` are rendered using the de
     render-tree(
       hominoidea_tree,
       tip-label-italics: true,
-      width: 1fr,
       orientation: "horizontal",
     ),
     caption: [Default document font],
@@ -585,7 +582,6 @@ By default, the visualizations produced by `genotypst` are rendered using the de
       render-tree(
         hominoidea_tree,
         tip-label-italics: true,
-        width: 1fr,
         orientation: "horizontal",
       )
     },

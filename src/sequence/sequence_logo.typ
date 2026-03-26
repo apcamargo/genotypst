@@ -126,7 +126,7 @@
 /// - msa-dict (dictionary): A dictionary mapping sequence identifiers to sequences.
 /// - start (int, none): Starting position (1-indexed, inclusive) (default: none).
 /// - end (int, none): Ending position (1-indexed, inclusive) (default: none).
-/// - width (length, fraction): Total width of the logo (default: 100%).
+/// - width (auto, relative): Total width of the logo (default: 100%).
 /// - height (length): Total height of the logo (default: 60pt).
 /// - sampling-correction (bool): Apply small sample correction (default: true).
 /// - alphabet (auto, str): Sequence type: auto, "aa", "dna", or "rna" (default: auto).

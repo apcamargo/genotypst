@@ -96,7 +96,7 @@
 /// - color (color, none): Fill color (none uses default-color).
 ///
 /// - genes (array): Gene dictionaries to render.
-/// - width (length, fraction): Total map width (default: 100%).
+/// - width (auto, relative): Total map width (default: 100%).
 /// - start (int, auto): 1-indexed inclusive region start coordinate (default: auto).
 /// - end (int, auto): 1-indexed inclusive region end coordinate (default: auto).
 /// - gene-height (length): Gene block height (default: 12pt).
