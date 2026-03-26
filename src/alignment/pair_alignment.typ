@@ -51,7 +51,7 @@
 /// - canonical-matrix (str, none): Canonical matrix name.
 /// - match-score (int, none): Match score.
 /// - mismatch-score (int, none): Mismatch score.
-/// - gap-penalty (int): Gap penalty.
+/// - gap-penalty (int): Gap penalty (required).
 /// - mode (str): Alignment mode.
 /// -> dictionary
 #let _build-config(
@@ -103,7 +103,7 @@
 /// - canonical-matrix (str, none): Canonical matrix name.
 /// - match-score (int, none): Match score.
 /// - mismatch-score (int, none): Mismatch score.
-/// - gap-penalty (int): Gap penalty.
+/// - gap-penalty (int): Gap penalty (required).
 /// -> dictionary
 #let _transform-result(
   wasm-result,
@@ -168,7 +168,7 @@
 /// - matrix (str, none): Scoring matrix name (e.g., "BLOSUM62"). Mutually exclusive with match/mismatch scores (default: none).
 /// - match-score (int, none): Score for matching characters. Required if matrix is none (default: none).
 /// - mismatch-score (int, none): Score for mismatching characters. Required if matrix is none (default: none).
-/// - gap-penalty (int): Gap penalty.
+/// - gap-penalty (int): Gap penalty (required).
 /// - mode (str): Alignment mode: "global" or "local" (default: "global").
 /// -> dictionary with keys:
 ///   - seq-1 (str): Cleaned first input sequence.

@@ -126,10 +126,10 @@
 /// - msa-dict (dictionary): A dictionary mapping sequence identifiers to sequences.
 /// - start (int, none): Starting position (1-indexed, inclusive) (default: none).
 /// - end (int, none): Ending position (1-indexed, inclusive) (default: none).
-/// - width (auto, relative): Total width of the logo (default: 100%).
+/// - width (length, auto, ratio, relative): Total width of the logo (default: 100%).
 /// - height (length): Total height of the logo (default: 60pt).
 /// - sampling-correction (bool): Apply small sample correction (default: true).
-/// - alphabet (auto, str): Sequence type: auto, "aa", "dna", or "rna" (default: auto).
+/// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna" (default: auto).
 /// - palette (dictionary, auto): Residue color palette (default: auto).
 /// - coordinate-axis (bool): Show coordinate axis under the logo (default: false).
 /// - axis-color (color): Axis line and label color (default: black).

@@ -410,7 +410,7 @@
 /// - highlight-path-arrows (bool): Whether arrows on the path use a different color (default: true).
 /// - path-arrow-color (color): Color for arrows on the traceback path (default: dark gray).
 /// - arrow-width (length): Width of the arrows (default: 1pt).
-/// - arrow-length-scale (int, float): Multiplier for arrow length (default: 1).
+/// - arrow-length-scale (int, float): Positive multiplier for arrow length (default: 1).
 /// - cell-size (length): Size of each square cell (default: 34pt).
 /// - stroke-width (length): Width of cell borders (default: 0.75pt).
 /// - stroke-color (color): Color of cell borders (default: medium gray).
@@ -440,7 +440,7 @@
   assert(type(arrow-width) == length, message: "arrow-width must be a length.")
   assert(
     type(arrow-length-scale) == int or type(arrow-length-scale) == float,
-    message: "arrow-length-scale must be numeric.",
+    message: "arrow-length-scale must be an integer or a float.",
   )
   assert(
     arrow-length-scale > 0,

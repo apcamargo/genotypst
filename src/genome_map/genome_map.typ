@@ -96,7 +96,7 @@
 /// - color (color, none): Fill color (none uses default-color).
 ///
 /// - genes (array): Gene dictionaries to render.
-/// - width (auto, relative): Total map width (default: 100%).
+/// - width (length, auto, ratio, relative): Total map width (default: 100%).
 /// - start (int, auto): 1-indexed inclusive region start coordinate (default: auto).
 /// - end (int, auto): 1-indexed inclusive region end coordinate (default: auto).
 /// - gene-height (length): Gene block height (default: 12pt).
@@ -113,7 +113,7 @@
 /// - label-leader-offset (length): Gap between leader and gene block (default: 4.5pt).
 /// - label-track-gap (length): Gap between labels and track (default: 4.5pt).
 /// - scale-bar (bool): Show scale bar (default: false).
-/// - scale-length (auto, int, float): Scale length (default: auto).
+/// - scale-length (auto, int, float): Scale length. Positive when specified (default: auto).
 /// - min-auto-bar-width (length): Minimum auto-selected scale-bar width when space allows (default: 2.5em).
 /// - unit (str, none): Unit suffix for scale bar and coordinate axis (default: none).
 /// - coordinate-axis (bool): Show coordinate axis (default: false).

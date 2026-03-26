@@ -62,7 +62,7 @@
 /// Prefers a rounded value when it fits, otherwise falls back to the exact
 /// target or the largest fitting rounded value.
 ///
-/// - scale-length (auto, int, float): Requested scale length.
+/// - scale-length (auto, int, float): Requested scale length. Positive when not auto.
 /// - region-length (float): Underlying coordinate span in scale units.
 /// - x-scale (length): Length per coordinate unit.
 /// - max-bar-width (length): Maximum drawable bar width.
@@ -81,7 +81,7 @@
     scale-length == auto
       or type(scale-length) == int
       or type(scale-length) == float,
-    message: "scale-length must be auto or a positive number.",
+    message: "scale-length must be auto, an integer, or a float.",
   )
   if scale-length != auto {
     assert(scale-length > 0, message: "scale-length must be positive.")

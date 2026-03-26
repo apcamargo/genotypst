@@ -28,7 +28,7 @@
 
   if not observed-keys.any(char => char in all-known) {
     panic(
-      "Could not guess sequence type. Please explicitly define sequence type.",
+      "Could not guess sequence alphabet. Please set alphabet to 'aa', 'dna', or 'rna'.",
     )
   }
 
@@ -120,9 +120,9 @@
 ///
 /// Returns a configuration dictionary containing the alphabet size, character set,
 /// and color palette. If alphabet is auto, automatically detects the
-/// sequence type.
+/// sequence alphabet.
 ///
-/// - alphabet (auto, str): The alphabet type: auto, "aa", "dna", or "rna".
+/// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna".
 /// - sequences (array): Array of sequence strings for auto-detection.
 /// -> dictionary with keys:
 ///   - size: int, size of the alphabet (20 for amino acids, 4 for DNA/RNA)
@@ -131,7 +131,7 @@
 #let _resolve-alphabet-config(alphabet, sequences) = {
   assert(
     alphabet == auto or alphabet in ("aa", "dna", "rna"),
-    message: "Alphabet must be auto, 'aa', 'dna', or 'rna'.",
+    message: "alphabet must be auto, 'aa', 'dna', or 'rna'.",
   )
 
   let type = if alphabet == auto { _guess-seq-alphabet(sequences) } else {

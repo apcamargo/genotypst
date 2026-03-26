@@ -135,7 +135,7 @@
 /// - colors (bool): Color residues by chemical properties (default: false).
 /// - conservation (bool): Show conservation bars (default: false).
 /// - sampling-correction (bool): Apply small sample correction (default: true).
-/// - alphabet (auto, str): Sequence type: auto, "aa", "dna", or "rna" (default: auto).
+/// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna" (default: auto).
 /// - breakable (bool): Allow blocks to break across pages (default: true).
 /// - palette (dictionary, auto): Residue color palette (default: auto).
 /// -> content

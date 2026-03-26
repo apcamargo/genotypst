@@ -11,14 +11,9 @@
 #let _rectangular-fit-band-samples = 1
 #let _rectangular-fit-max-bands = 24
 
-/// Returns whether the public `width` argument is explicitly valid.
+/// Returns whether the public `width` argument is valid.
 ///
-/// Parent-dependent widths are allowed here because they may only resolve once
-/// Typst knows the containing block width. Mixed relative widths stay valid as
-/// long as either term can contribute positive width. Explicit zero and
-/// negative widths remain invalid.
-///
-/// - width (length, auto, relative): Requested rendered width.
+/// - width (length, auto, ratio, relative): Requested rendered width.
 /// -> bool
 #let _render-tree-width-is-valid(width) = {
   if width == auto {
@@ -36,8 +31,7 @@
 
 /// Validates the `render-tree` arguments that affect layout and sizing.
 ///
-/// - width (length, auto, relative): Requested rendered width following
-///   `block(width: ...)`.
+/// - width (length, auto, ratio, relative): Requested rendered width.
 /// - height (length, auto): Requested rendered tree height.
 /// - branch-weight (length): Branch stroke thickness.
 /// - tip-label-size (length): Tip label size.
@@ -77,7 +71,7 @@
   assert(root-length >= 0pt, message: "root-length must be non-negative.")
   assert(
     _render-tree-width-is-valid(width),
-    message: "width must be auto or a positive length/relative width.",
+    message: "width must be auto or a positive length, ratio, or relative width.",
   )
   assert(
     height == auto or height > 0pt,
@@ -104,7 +98,7 @@
   }
 }
 
-/// Builds the style record consumed by the private tree composition module.
+/// Builds the style record for tree rendering.
 ///
 /// - branch-weight (length): Branch stroke thickness.
 /// - branch-color (color): Branch color.
@@ -142,14 +136,10 @@
   auto-height-scale: _auto-height-scale,
 )
 
-/// Prepares the normalized/layout/plan/fitted tree data for rendering.
-///
-/// Call this helper from within `context` and a `layout` callback because it
-/// measures text and forwards the original wrapper width together with the
-/// current `layout-size`.
+/// Prepares tree data for rendering.
 ///
 /// - tree-data (dictionary): Parsed or manual tree data.
-/// - width (length, auto, relative): Original rendered width argument.
+/// - width (length, auto, ratio, relative): Original rendered width argument.
 /// - height (length, auto): Height of the rendered tree area.
 /// - branch-weight (length): Branch stroke thickness.
 /// - branch-color (color): Branch color.
@@ -162,14 +152,16 @@
 /// - orientation (str): Tree orientation.
 /// - cladogram (bool): Whether cladogram mode is enabled.
 /// - scale-bar (bool): Whether scale bar rendering is enabled.
-/// - scale-length (auto, int, float): Requested scale-bar length in branch-length units.
+/// - scale-length (auto, int, float): Requested scale-bar length in branch-length units. Positive when not auto.
 /// - unit (str, none): Optional scale-bar unit.
 /// - min-auto-bar-width (length): Minimum rendered width used in auto mode.
 /// - scale-bar-gap (length): Gap between tree and scale bar.
 /// - scale-tick-height (length): Scale-bar tick height.
 /// - scale-label-size (length): Scale-bar label size.
-/// - layout-size (dictionary): Layout callback size from the wrapper block.
-/// -> dictionary: `(fitted-plan: ..., scale-plan: ...)`
+/// - layout-size (dictionary): Available layout size.
+/// -> dictionary with keys:
+///   - fitted-plan (dictionary): Prepared tree layout data.
+///   - scale-plan (content, none): Optional scale-bar row.
 #let _prepare-tree-render-at-size(
   tree-data,
   width,
@@ -258,10 +250,8 @@
 /// Supports customization of dimensions, styling, and orientation.
 ///
 /// - tree-data (dictionary): Parsed or manually constructed tree data.
-/// - width (length, auto, relative): Width of the tree visualization
-///   including labels. Follows `block(width: ...)`; absolute widths fit
-///   immediately, while parent-dependent widths such as `auto` and `100%`
-///   need a resolved parent width for final fitting (default: 100%).
+/// - width (length, auto, ratio, relative): Width of the tree visualization
+///   including labels (default: 100%).
 /// - height (length, auto): Height of the tree area (default: auto).
 /// - branch-weight (length): Thickness of tree branches (default: 1pt).
 /// - branch-color (color): Color of tree branches (default: black).
@@ -271,14 +261,13 @@
 /// - internal-label-size (length): Font size of internal node labels (default: 0.85em).
 /// - internal-label-color (color, none): Color of internal node labels (default: medium gray; `none` inherits from the document).
 /// - root-length (length): Length of the rendered root edge (default: 1.2em).
-///   Input root-node lengths are ignored for rectangular tree depth and scale-bar sizing.
 /// - orientation (str): "horizontal" (root left, tips right) or "vertical" (root bottom, tips up) (default: "horizontal").
 /// - cladogram (bool): Whether to draw the tree as a cladogram with equal branch lengths (default: false).
 /// - scale-bar (bool): Whether to draw a branch-length scale bar below the tree (default: false).
 ///   Scale bars are unavailable for cladograms and for trees that fall back to
 ///   cladogram rendering because they lack branch length information.
 ///   In vertical orientation, the scale bar can use the full rendered row width.
-/// - scale-length (auto, int, float): Scale-bar length in branch-length units (default: auto).
+/// - scale-length (auto, int, float): Scale-bar length in branch-length units. Positive when specified (default: auto).
 /// - unit (str, none): Optional scale-bar unit suffix (default: none).
 /// - min-auto-bar-width (length): Minimum auto-selected scale-bar width when space allows (default: 2.5em).
 /// - scale-bar-gap (length): Gap between tree and scale bar (default: 0.6em).

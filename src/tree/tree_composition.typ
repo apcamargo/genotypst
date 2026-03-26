@@ -581,10 +581,10 @@
   (depth: depth, spread: spread)
 }
 
-/// Returns whether a public width value is still provisional in `layout()`.
+/// Returns whether a public width value is still provisional.
 ///
 /// - width (length, auto, ratio, relative): Requested rendered width.
-/// - raw-width (length): Width reported by the wrapper block during layout.
+/// - raw-width (length): Measured width.
 /// -> bool
 #let _tree-width-is-unresolved(width, raw-width) = {
   if width == auto {
@@ -858,7 +858,7 @@
   _finalize-bounds(bounds)
 }
 
-/// Materializes fitted geometry and occupied bounds for the final chosen scales.
+/// Materializes fitted geometry and occupied bounds.
 ///
 /// - prepared-lines (array): Prepared line geometry records.
 /// - prepared-labels (array): Prepared label geometry records.
@@ -867,10 +867,6 @@
 /// - x-scale (length): Depth-axis scale.
 /// - y-scale (length): Spread-axis scale.
 /// - orientation (str): Tree orientation.
-///
-/// The returned line and label arrays stay untranslated. `_fit-tree-plan(...)`
-/// attaches the viewport centering offset separately so rendering can reuse the
-/// same fitted geometry without rebuilding primitive dictionaries.
 /// -> dictionary
 #let _materialize-fitted-tree(
   prepared-lines,
@@ -1044,16 +1040,11 @@
 /// - tree-plan (dictionary): Tree primitive plan.
 /// - style (dictionary): Tree style configuration.
 /// - orientation (str): Tree orientation.
-/// - width (length, auto, relative): Original rendered width argument.
+/// - width (length, auto, ratio, relative): Original rendered width argument.
 /// - height (length, auto): Target rendered tree height.
-/// - layout-size (dictionary): Layout callback size.
+/// - layout-size (dictionary): Available layout size.
 /// - fit-band-samples (int): Number of samples evaluated per fit band.
 /// - fit-max-bands (int): Maximum number of exponentially growing bands.
-///
-/// The returned fitted geometry stays split into untranslated line/label
-/// arrays. The viewport-centering offset is returned separately in
-/// `tree-translation`, while `root-position` is already translated into
-/// viewport coordinates.
 /// -> dictionary
 #let _fit-tree-plan(
   tree-plan,
@@ -1239,7 +1230,7 @@
 /// - fitted-plan (dictionary): Output from `_fit-tree-plan`.
 /// - branch-color (color): Scale bar color.
 /// - branch-weight (length): Scale bar stroke thickness.
-/// - scale-length (auto, int, float): Requested scale length in branch-length units.
+/// - scale-length (auto, int, float): Requested scale length in branch-length units. Positive when not auto.
 /// - unit (str, none): Optional scale-bar unit.
 /// - min-auto-bar-width (length): Minimum rendered width used in auto mode.
 /// - scale-tick-height (length): Tick height.
@@ -1297,10 +1288,6 @@
 /// - fitted-plan (dictionary): Output from `_fit-tree-plan`.
 /// - scale-plan (content, none): Optional scale row.
 /// - scale-bar-gap (length): Gap between tree and scale bar.
-///
-/// The fitted line and label arrays stay untranslated. This renderer applies
-/// `tree-translation` at draw time so the same centering offset can be reused
-/// without rebuilding primitive dictionaries.
 /// -> content
 #let _render-tree-plan(fitted-plan, scale-plan, scale-bar-gap) = {
   let tree-translation = fitted-plan.tree-translation

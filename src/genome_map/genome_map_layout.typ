@@ -255,7 +255,7 @@
 /// - label-leader-offset (length): Gap between leader and gene block.
 /// - label-track-gap (length): Gap between labels and track.
 /// - scale-bar (bool): Whether to draw a scale bar.
-/// - scale-length (auto, int, float): Requested scale-bar length.
+/// - scale-length (auto, int, float): Requested scale-bar length. Positive when not auto.
 /// - min-auto-bar-width (length): Minimum rendered width used in auto mode.
 /// - unit (str, none): Optional unit suffix.
 /// - coordinate-axis (bool): Whether to draw the coordinate axis.
