@@ -3,7 +3,7 @@
 #import "../common/axis_scale.typ": _draw-coordinate-axis
 #import "./sequence_alphabet.typ": (
   _check-palette-coverage, _compute-sequence-conservation, _get-column-stats,
-  _resolve-alphabet-config, _validate-msa,
+  _resolve-alphabet-config, _validate-alignment,
 )
 
 /// Computes residue heights for a sequence logo.
@@ -117,7 +117,7 @@
 /// content (conservation), and character height within a stack indicates
 /// relative frequency.
 ///
-/// - msa-dict (dictionary): A dictionary mapping sequence identifiers to sequences.
+/// - alignment (dictionary): A dictionary mapping sequence identifiers to aligned sequences.
 /// - start (int, none): Starting position (1-indexed, inclusive) (default: none).
 /// - end (int, none): Ending position (1-indexed, inclusive) (default: none).
 /// - width (length, auto, ratio, relative): Total width of the logo (default: 100%).
@@ -134,7 +134,7 @@
 /// - axis-logo-gap (length): Gap between logo and axis (default: 6pt).
 /// -> content
 #let render-sequence-logo(
-  msa-dict,
+  alignment,
   start: none,
   end: none,
   width: 100%,
@@ -150,8 +150,8 @@
   axis-label-gap: 2.5pt,
   axis-logo-gap: 6pt,
 ) = {
-  _validate-msa(msa-dict)
-  let sequences = msa-dict.values()
+  _validate-alignment(alignment)
+  let sequences = alignment.values()
   let config = _resolve-alphabet-config(alphabet, sequences)
   let palette-to-use = if palette == auto { config.palette } else { palette }
   let max-len = sequences.map(s => s.len()).fold(0, calc.max)

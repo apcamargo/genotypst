@@ -3,7 +3,7 @@
 #import "../common/interval.typ": _resolve-1indexed-window
 #import "./sequence_alphabet.typ": (
   _check-palette-coverage, _compute-sequence-conservation, _get-column-stats,
-  _resolve-alphabet-config, _validate-msa,
+  _resolve-alphabet-config, _validate-alignment,
 )
 
 /// Renders a single character in an MSA with optional coloring.
@@ -127,7 +127,7 @@
 /// conservation bars. Sequences are displayed in blocks of `max-seq-width`
 /// characters to fit within the document.
 ///
-/// - msa-dict (dictionary): A dictionary mapping sequence identifiers to sequences.
+/// - alignment (dictionary): A dictionary mapping sequence identifiers to aligned sequences.
 /// - max-acc-width (int): Maximum width for accession display (default: 20).
 /// - max-seq-width (int): Maximum characters per line in a block (default: 50).
 /// - start (int, none): Starting position (1-indexed, inclusive) (default: none).
@@ -140,7 +140,7 @@
 /// - palette (dictionary, auto): Residue color palette (default: auto).
 /// -> content
 #let render-msa(
-  msa-dict,
+  alignment,
   max-acc-width: 20,
   max-seq-width: 50,
   start: none,
@@ -152,11 +152,11 @@
   breakable: true,
   palette: auto,
 ) = {
-  let pairs = msa-dict.pairs()
+  let pairs = alignment.pairs()
   if pairs.len() == 0 { return }
 
-  _validate-msa(msa-dict)
-  let sequences = msa-dict.values()
+  _validate-alignment(alignment)
+  let sequences = alignment.values()
   let total-max-len = sequences.first().len()
 
   let config = _resolve-alphabet-config(alphabet, sequences)

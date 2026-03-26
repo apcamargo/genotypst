@@ -201,10 +201,10 @@
 /// Ensures that all sequences in a multiple sequence alignment have identical
 /// lengths. Throws an error if sequences have different lengths.
 ///
-/// - msa-dict (dictionary): Dictionary mapping sequence identifiers to sequences.
+/// - alignment (dictionary): Dictionary mapping sequence identifiers to aligned sequences.
 /// -> none
-#let _validate-msa(msa-dict) = {
-  let sequences = msa-dict.values()
+#let _validate-alignment(alignment) = {
+  let sequences = alignment.values()
   if sequences.len() > 0 {
     let expected-len = sequences.first().len()
     assert(
