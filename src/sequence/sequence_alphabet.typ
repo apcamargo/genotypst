@@ -26,11 +26,10 @@
   let dna-rna-chars = _dna-characters + _rna-characters
   let all-known = _aa-characters + dna-rna-chars
 
-  if not observed-keys.any(char => char in all-known) {
-    panic(
-      "Could not guess sequence alphabet. Please set alphabet to 'aa', 'dna', or 'rna'.",
-    )
-  }
+  assert(
+    observed-keys.any(char => char in all-known),
+    message: "Could not guess sequence alphabet. Please set alphabet to 'aa', 'dna', or 'rna'.",
+  )
 
   if observed-keys.any(char => (
     char in _aa-characters and char not in dna-rna-chars
