@@ -154,38 +154,28 @@
 ///
 /// - palette (dictionary): Dictionary mapping residues to colors.
 /// - sequences (array): Array of sequence strings.
-/// - ignore-gaps (bool): Skip gap characters (default: true).
-/// - gap-chars (array): Gap characters to ignore (default: ("-", ".")).
-/// - case-sensitive (bool): Match residues case-sensitively (default: true).
 /// -> dictionary with keys:
 ///   - ok: bool
 ///   - missing: array
-#let _check-palette-coverage(
-  palette,
-  sequences,
-  ignore-gaps: true,
-  gap-chars: ("-", "."),
-  case-sensitive: true,
-) = {
+#let _check-palette-coverage(palette, sequences) = {
   assert(
     type(palette) == dictionary,
     message: "palette must be a dictionary mapping residues to colors.",
   )
   assert(type(sequences) == array, message: "sequences must be an array.")
 
+  let gap-chars = ("-", ".")
   let observed = (:)
   for seq in sequences {
     for char in seq.clusters() {
-      if ignore-gaps and char in gap-chars { continue }
-      let key = if case-sensitive { char } else { upper(char) }
-      observed.insert(key, true)
+      if char in gap-chars { continue }
+      observed.insert(char, true)
     }
   }
 
   let palette-keys = (:)
   for key in palette.keys() {
-    let normalized = if case-sensitive { key } else { upper(key) }
-    palette-keys.insert(normalized, true)
+    palette-keys.insert(key, true)
   }
 
   let missing = ()
