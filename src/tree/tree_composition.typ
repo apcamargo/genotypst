@@ -122,9 +122,8 @@
     }
   }
 
-  let plan = layout-tree
-  plan.insert("tree-primitives", primitives)
-  plan
+  layout-tree.insert("tree-primitives", primitives)
+  layout-tree
 }
 
 /// Numeric tolerance used when fitting trees into a viewport.
@@ -208,18 +207,16 @@
     if primitive.kind == "label" {
       let label-content = _build-tree-label-content(primitive)
       let label-size = measure(label-content)
-      let measured-primitive = primitive
-      measured-primitive.insert("content", label-content)
-      measured-primitive.insert("measure-width", label-size.width)
-      measured-primitive.insert("measure-height", label-size.height)
-      measured-primitives.push(measured-primitive)
+      primitive.insert("content", label-content)
+      primitive.insert("measure-width", label-size.width)
+      primitive.insert("measure-height", label-size.height)
+      measured-primitives.push(primitive)
     } else {
       measured-primitives.push(primitive)
     }
   }
-  let measured-plan = tree-plan
-  measured-plan.insert("tree-primitives", measured-primitives)
-  measured-plan
+  tree-plan.insert("tree-primitives", measured-primitives)
+  tree-plan
 }
 
 /// Resolves a page-space offset while preserving sign.

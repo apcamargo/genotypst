@@ -85,7 +85,7 @@
   let length = node.at("length", default: none)
 
   let child-ids = ()
-  let has_explicit_non_root_length = not is-root and length != none
+  let has-explicit-non-root-length = not is-root and length != none
   for child in children {
     let result = _normalize-tree-node(
       child,
@@ -96,8 +96,8 @@
     child-ids.push(result.id)
     nodes = result.nodes
     next-id = result.next-id
-    has_explicit_non_root_length = (
-      has_explicit_non_root_length or result.has-explicit-non-root-length
+    has-explicit-non-root-length = (
+      has-explicit-non-root-length or result.has-explicit-non-root-length
     )
   }
 
@@ -117,7 +117,7 @@
     nodes: nodes,
     id: id,
     next-id: next-id,
-    has-explicit-non-root-length: has_explicit_non_root_length,
+    has-explicit-non-root-length: has-explicit-non-root-length,
   )
 }
 
@@ -138,8 +138,7 @@
   for id in range(node-count) {
     let key = node-keys.at(id)
     let node = nodes.at(key)
-    let updated = node
-    updated.insert(
+    node.insert(
       "resolved-length",
       if effective-cladogram {
         if node.is-root { 0.0 } else { 1.0 }
@@ -149,7 +148,7 @@
         0.0
       },
     )
-    nodes.insert(key, updated)
+    nodes.insert(key, node)
   }
   nodes
 }
@@ -166,21 +165,21 @@
     0,
     is-root: true,
   )
-  let node_count = result.next-id
-  let node_keys = range(node_count).map(id => str(id))
-  let effective_cladogram = cladogram or not result.has-explicit-non-root-length
+  let node-count = result.next-id
+  let node-keys = range(node-count).map(id => str(id))
+  let effective-cladogram = cladogram or not result.has-explicit-non-root-length
   let nodes = _resolve-normalized-tree-lengths(
     result.nodes,
-    node_keys,
-    node_count,
-    effective_cladogram,
+    node-keys,
+    node-count,
+    effective-cladogram,
   )
   (
     nodes: nodes,
     root-id: result.id,
-    node-count: node_count,
-    effective-cladogram: effective_cladogram,
-    node-keys: node_keys,
+    node-count: node-count,
+    effective-cladogram: effective-cladogram,
+    node-keys: node-keys,
   )
 }
 
@@ -196,18 +195,17 @@
 #let _layout-tree(normalized-tree) = {
   let nodes = normalized-tree.nodes
   let root-id = normalized-tree.root-id
-  let node_count = normalized-tree.node-count
-  let node_keys = normalized-tree.node-keys
+  let node-count = normalized-tree.node-count
+  let node-keys = normalized-tree.node-keys
 
-  for id in range(node_count).rev() {
-    let node_key = node_keys.at(id)
-    let node = nodes.at(node_key)
+  for id in range(node-count).rev() {
+    let node-key = node-keys.at(id)
+    let node = nodes.at(node-key)
     if node.is-leaf {
-      let updated = node
-      updated.insert("subtree-height", 1.0)
-      updated.insert("y-local", 0.5)
-      updated.insert("child-offsets", ())
-      nodes.insert(node_key, updated)
+      node.insert("subtree-height", 1.0)
+      node.insert("y-local", 0.5)
+      node.insert("child-offsets", ())
+      nodes.insert(node-key, node)
     } else {
       let subtree-height = 0.0
       let child-offsets = ()
@@ -215,7 +213,7 @@
       let last-center = none
 
       for child-id in node.children-ids {
-        let child = nodes.at(node_keys.at(child-id))
+        let child = nodes.at(node-keys.at(child-id))
         child-offsets.push(subtree-height)
         let child-center = subtree-height + child.y-local
         if first-center == none { first-center = child-center }
@@ -223,49 +221,46 @@
         subtree-height += child.subtree-height
       }
 
-      let updated = node
-      updated.insert("subtree-height", subtree-height)
-      updated.insert(
+      node.insert("subtree-height", subtree-height)
+      node.insert(
         "y-local",
         (first-center + last-center) / 2.0,
       )
-      updated.insert("child-offsets", child-offsets)
-      nodes.insert(node_key, updated)
+      node.insert("child-offsets", child-offsets)
+      nodes.insert(node-key, node)
     }
   }
 
-  let root_key = node_keys.at(root-id)
-  let root = nodes.at(root_key)
-  let root = root
+  let root-key = node-keys.at(root-id)
+  let root = nodes.at(root-key)
   root.insert("x-unit", 0.0)
   root.insert("y-unit", root.y-local)
-  nodes.insert(root_key, root)
+  nodes.insert(root-key, root)
 
   let tree-depth = 0.0
-  for id in range(node_count) {
-    let node = nodes.at(node_keys.at(id))
+  for id in range(node-count) {
+    let node = nodes.at(node-keys.at(id))
     tree-depth = calc.max(tree-depth, node.x-unit)
 
     let subtree-top = node.y-unit - node.y-local
     for (index, child-id) in node.children-ids.enumerate() {
-      let child_key = node_keys.at(child-id)
-      let child = nodes.at(child_key)
-      let updated = child
-      updated.insert("x-unit", node.x-unit + child.resolved-length)
-      updated.insert(
+      let child-key = node-keys.at(child-id)
+      let child = nodes.at(child-key)
+      child.insert("x-unit", node.x-unit + child.resolved-length)
+      child.insert(
         "y-unit",
         subtree-top + node.child-offsets.at(index) + child.y-local,
       )
-      nodes.insert(child_key, updated)
-      tree-depth = calc.max(tree-depth, updated.x-unit)
+      nodes.insert(child-key, child)
+      tree-depth = calc.max(tree-depth, child.x-unit)
     }
   }
 
   (
     nodes: nodes,
-    node-keys: node_keys,
+    node-keys: node-keys,
     root-id: root-id,
-    node-count: node_count,
+    node-count: node-count,
     tree-depth: tree-depth,
     tree-height: root.subtree-height,
   )
