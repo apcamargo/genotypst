@@ -24,7 +24,7 @@
 /// Validates one tree node before normalization descends into its children.
 ///
 /// - node (dictionary): Tree node.
-/// - is-root (bool): Whether this is the root node.
+/// - is-root (bool): Whether this node is the root.
 /// -> none
 #let _validate-tree-node(node, is-root: false) = {
   assert(type(node) == dictionary, message: "tree nodes must be dictionaries.")

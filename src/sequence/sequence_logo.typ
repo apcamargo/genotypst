@@ -164,13 +164,24 @@
     window-name: "logo",
   )
 
-  assert(
-    axis-stroke-width > 0pt,
-    message: "axis-stroke-width must be positive.",
-  )
-  assert(axis-tick-height > 0pt, message: "axis-tick-height must be positive.")
-  assert(axis-label-gap >= 0pt, message: "axis-label-gap must be non-negative.")
-  assert(axis-logo-gap >= 0pt, message: "axis-logo-gap must be non-negative.")
+  if coordinate-axis {
+    assert(
+      axis-stroke-width > 0pt,
+      message: "axis-stroke-width must be positive.",
+    )
+    assert(
+      axis-tick-height > 0pt,
+      message: "axis-tick-height must be positive.",
+    )
+    assert(
+      axis-label-gap >= 0pt,
+      message: "axis-label-gap must be non-negative.",
+    )
+    assert(
+      axis-logo-gap >= 0pt,
+      message: "axis-logo-gap must be non-negative.",
+    )
+  }
   if palette != auto {
     let coverage = _check-palette-coverage(palette-to-use, sequences)
     assert(

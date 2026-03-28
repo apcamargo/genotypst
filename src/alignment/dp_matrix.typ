@@ -35,8 +35,6 @@
       )
     }
   }
-
-  none
 }
 
 /// Private: Validate flat arrow list structure and coordinate bounds.
@@ -77,8 +75,6 @@
       message: "Arrow at index " + str(idx) + " must connect adjacent cells.",
     )
   }
-
-  none
 }
 
 /// Private: Validate sparse DP matrix entries and bounds.
@@ -451,13 +447,12 @@
   let seq2-raw-clusters = seq-2.clusters()
   let expected-rows = seq1-raw-clusters.len() + 1
   let expected-cols = seq2-raw-clusters.len() + 1
-  let resolved-cell-values = if cell-values == none {
-    ()
-  } else {
+  if cell-values != none {
     _validate-dp-cell-values(cell-values, expected-rows, expected-cols)
-    cell-values
   }
-  let cell-value-map = _cell-values-to-map(resolved-cell-values)
+  let cell-value-map = if cell-values == none { (:) } else {
+    _cell-values-to-map(cell-values)
+  }
 
   let top-label-seq = "–" + seq-2
   let left-label-seq = "–" + seq-1

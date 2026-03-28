@@ -167,11 +167,10 @@
       )
       let gene-center = geometry.center-x
       let gene-width = geometry.width
-      let label-text = if label-color == none {
-        text(size: label-size)[#gene.label]
-      } else {
-        text(size: label-size, fill: label-color)[#gene.label]
-      }
+      let label-text = text(
+        size: label-size,
+        ..if label-color != none { (fill: label-color) },
+      )[#gene.label]
       let label-width = measure(label-text).width
       let raw-left = gene-center - label-width / 2
       let max-left = track-width - label-width

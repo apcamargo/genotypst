@@ -139,21 +139,11 @@
 
   let resolved-width = resolved-length * x-scale-abs
   let fit-tolerance = 0.01pt
-  let scale-length-label = if scale-length == auto {
-    "auto"
-  } else {
-    str(scale-length)
-  }
-
-  assert(
-    resolved-length > 0,
-    message: "Could not resolve a positive scale length that fits the available width.",
-  )
   assert(
     resolved-width <= max-bar-width-abs + fit-tolerance,
     message: (
       "scale-length "
-        + scale-length-label
+        + (if scale-length == auto { "auto" } else { str(scale-length) })
         + " does not fit the available width for the current dimensions."
     ),
   )
