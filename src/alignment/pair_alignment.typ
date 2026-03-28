@@ -189,7 +189,6 @@
   gap-penalty: none,
   mode: "global",
 ) = {
-  // Validate and clean inputs
   let cleaned-seq-1 = _validate-sequence(seq-1, "seq-1")
   let cleaned-seq-2 = _validate-sequence(seq-2, "seq-2")
   let canonical-matrix = _validate-scoring-params(
@@ -492,15 +491,12 @@
   hide-unaligned: false,
   unaligned-color: none,
 ) = {
-  // Validate inputs
   assert(type(seq-1) == str, message: "seq-1 must be a string.")
   assert(type(seq-2) == str, message: "seq-2 must be a string.")
 
-  // Parse sequences
   let seq1-chars = seq-1.clusters()
   let seq2-chars = seq-2.clusters()
 
-  // Finish validating inputs
   assert(seq1-chars.len() > 0, message: "seq-1 cannot be empty.")
   assert(seq2-chars.len() > 0, message: "seq-2 cannot be empty.")
   assert(type(path) == array, message: "path must be an array.")
@@ -509,7 +505,6 @@
   // Reverse the path (traceback goes end-to-start, we need start-to-end)
   let reversed-path = path.rev()
 
-  // Validate path
   _validate-path(reversed-path, seq1-chars.len(), seq2-chars.len())
 
   let build-unaligned-mask = not hide-unaligned and unaligned-color != none

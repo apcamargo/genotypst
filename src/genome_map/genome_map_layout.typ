@@ -45,10 +45,10 @@
   let normalized = ()
 
   for gene in genes {
-    assert(type(gene) == dictionary, message: "Each gene must be a dictionary")
+    assert(type(gene) == dictionary, message: "each gene must be a dictionary.")
     assert(
       "start" in gene and "end" in gene,
-      message: "Each gene must define start and end",
+      message: "each gene must define start and end.",
     )
     assert(gene.start != none, message: "gene.start must be an integer >= 1.")
     assert(gene.end != none, message: "gene.end must be an integer >= 1.")
@@ -57,19 +57,18 @@
 
     let gene-start = calc.min(gene.start, gene.end)
     let gene-end = calc.max(gene.start, gene.end)
-    let strand = if "strand" in gene { gene.strand } else { none }
+    let strand = gene.at("strand", default: none)
     let normalized-strand = if strand == "+" { 1 } else if strand == "-" {
       -1
     } else { strand }
     assert(
       normalized-strand in (1, -1, none),
-      message: "strand must be 1, -1, '+', '-', or none",
+      message: "strand must be 1, -1, '+', '-', or none.",
     )
 
-    let label = if "label" in gene { gene.label } else { none }
-    let color = if "color" in gene and gene.color != none { gene.color } else {
-      default-color
-    }
+    let label = gene.at("label", default: none)
+    let raw-color = gene.at("color", default: none)
+    let color = if raw-color != none { raw-color } else { default-color }
 
     normalized.push((
       start: gene-start,
@@ -296,8 +295,8 @@
   min-head-length,
   layout-size,
 ) = {
-  assert(type(genes) == array, message: "genes must be an array")
-  assert(genes.len() > 0, message: "genes cannot be empty")
+  assert(type(genes) == array, message: "genes must be an array.")
+  assert(genes.len() > 0, message: "genes cannot be empty.")
   assert(
     start != none,
     message: "start must be auto or an integer >= 1.",
@@ -324,7 +323,7 @@
   }
 
   let region-span = _inclusive-span(region-start, region-end)
-  assert(region-span >= 1, message: "region span must be at least 1 bp")
+  assert(region-span >= 1, message: "region span must be at least 1 bp.")
 
   let track-width = layout-size.width
   // Resolve relative lengths to absolute values for layout comparisons.

@@ -15,9 +15,9 @@
     let value = float(length)
     assert(
       not float.is-nan(value) and not float.is-infinite(value),
-      message: "Node length must be a finite number or none",
+      message: "node length must be a finite number or none.",
     )
-    assert(value >= 0.0, message: "Node length must be non-negative")
+    assert(value >= 0.0, message: "node length must be non-negative.")
   }
 }
 
@@ -27,13 +27,13 @@
 /// - is-root (bool): Whether this is the root node.
 /// -> none
 #let _validate-tree-node(node, is-root: false) = {
-  assert(type(node) == dictionary, message: "Tree nodes must be dictionaries")
-  assert("children" in node, message: "Tree nodes must define children")
+  assert(type(node) == dictionary, message: "tree nodes must be dictionaries.")
+  assert("children" in node, message: "tree nodes must define children.")
 
   if "name" in node {
     assert(
       node.name == none or type(node.name) == str,
-      message: "Node name must be a string or none",
+      message: "node name must be a string or none.",
     )
   }
 
@@ -42,19 +42,19 @@
       node.length == none
         or type(node.length) == int
         or type(node.length) == float,
-      message: "Node length must be a number or none",
+      message: "node length must be a number or none.",
     )
     _validate-tree-length(node.length)
   }
 
   if is-root and "rooted" in node {
-    assert(type(node.rooted) == bool, message: "rooted must be a boolean")
+    assert(type(node.rooted) == bool, message: "rooted must be a boolean.")
   }
 
   let children = node.children
   assert(
     children == none or type(children) == array,
-    message: "children must be an array or none",
+    message: "children must be an array or none.",
   )
 }
 

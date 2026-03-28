@@ -60,8 +60,8 @@
   scale-tick-height,
   scale-label-size,
 ) = {
-  assert(type(cladogram) == bool, message: "cladogram must be a boolean")
-  assert(type(scale-bar) == bool, message: "scale-bar must be a boolean")
+  assert(type(cladogram) == bool, message: "cladogram must be a boolean.")
+  assert(type(scale-bar) == bool, message: "scale-bar must be a boolean.")
   assert(branch-weight > 0pt, message: "branch-weight must be positive.")
   assert(tip-label-size > 0pt, message: "tip-label-size must be positive.")
   assert(
@@ -79,7 +79,7 @@
   )
   assert(
     orientation in ("horizontal", "vertical"),
-    message: "orientation must be 'horizontal' or 'vertical'",
+    message: "orientation must be 'horizontal' or 'vertical'.",
   )
   if scale-bar {
     assert(

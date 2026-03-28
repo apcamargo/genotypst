@@ -22,11 +22,9 @@
 ///   - alphabet (array): Symbols covered by the matrix.
 ///   - matrix (array): 2D score matrix aligned to `alphabet`.
 #let get-scoring-matrix(name) = {
-  // Validate and resolve matrix name
   let canonical = resolve-matrix-name(name)
   assert(canonical != none, message: "Unknown scoring matrix: '" + name + "'.")
 
-  // Call WASM plugin
   let raw-result = json(_alignment-backend.matrix_info(bytes(canonical)))
 
   // Convert flat scores to 2D
@@ -38,7 +36,6 @@
     score => _convert-infinity(score),
   ))
 
-  // Return structured result
   (
     name: raw-result.name,
     alphabet: raw-result.alphabet,
@@ -57,7 +54,6 @@
 /// - char2 (str): Second character (single character).
 /// -> int, float
 #let get-score-from-matrix(scoring-matrix, char1, char2) = {
-  // Validate input types
   assert(type(char1) == str, message: "char1 must be a string.")
   assert(type(char2) == str, message: "char2 must be a string.")
   assert(
@@ -94,7 +90,6 @@
       + " alphabet.",
   )
 
-  // Return score
   scoring-matrix.matrix.at(idx1).at(idx2)
 }
 
@@ -281,7 +276,6 @@
   stroke: none,
   color-map: _diverging-gradient,
 ) = {
-  // Validate triangle parameter
   assert(
     triangle in ("lower", "upper", "full"),
     message: "triangle must be 'lower', 'upper', or 'full'.",
@@ -345,7 +339,6 @@
     ((label-size,) + data-sizes, (label-size,) + data-sizes)
   }
 
-  // Render grid
   block(breakable: false, grid(
     columns: grid-cols,
     rows: grid-rows,
