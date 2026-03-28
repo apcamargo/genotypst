@@ -19,19 +19,6 @@
   }
 }
 
-/// Private: Converts a flat row-major array to a 2D array.
-///
-/// Takes a flat array and reshapes it into a 2D nested array using
-/// row-major indexing: element at (i, j) = flat[i * cols + j].
-///
-/// - cell-values (array): Flat array of cell values.
-/// - rows (int): Number of rows in the output.
-/// - cols (int): Number of columns in the output.
-/// -> array
-#let _flat-to-2d(cell-values, rows, cols) = {
-  range(rows).map(i => range(cols).map(j => cell-values.at(i * cols + j)))
-}
-
 /// Private: Converts WASM i32 infinity representations to Typst floats.
 ///
 /// The WASM plugin uses i32::MIN (-2147483648) for negative infinity

@@ -1,5 +1,5 @@
 #import "./alignment_backend.typ": (
-  _alignment-backend, _convert-infinity, _flat-to-2d, resolve-matrix-name,
+  _alignment-backend, _convert-infinity, resolve-matrix-name,
 )
 #import "../common/colors.typ": _diverging-gradient
 
@@ -27,9 +27,14 @@
 
   let raw-result = json(_alignment-backend.matrix_info(bytes(canonical)))
 
-  // Convert flat scores to 2D
   let n = raw-result.alphabet.len()
-  let matrix-2d = _flat-to-2d(raw-result.scores, n, n)
+  assert(
+    raw-result.scores.len() == n * n,
+    message: "scoring matrix backend returned an unexpected score count.",
+  )
+
+  // Validate backend shape and convert flat scores to rows.
+  let matrix-2d = raw-result.scores.chunks(n)
 
   // Convert infinity values
   let matrix-converted = matrix-2d.map(row => row.map(
@@ -75,7 +80,7 @@
 
   assert(
     idx1 != none,
-    message: "Character '"
+    message: "character '"
       + char1
       + "' not found in "
       + scoring-matrix.name
@@ -83,7 +88,7 @@
   )
   assert(
     idx2 != none,
-    message: "Character '"
+    message: "character '"
       + char2
       + "' not found in "
       + scoring-matrix.name
@@ -290,7 +295,7 @@
   for sym in display-symbols {
     assert(
       sym in scoring-matrix.alphabet,
-      message: "Symbol '"
+      message: "symbol '"
         + sym
         + "' not found in "
         + scoring-matrix.name

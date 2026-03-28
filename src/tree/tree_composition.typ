@@ -1152,9 +1152,12 @@
   let materialized-tree = fitted-width.materialized-tree
 
   let issues = ()
-  if not width-unresolved and not _span-acceptable(
-    materialized-tree.tree-occupied-bounds.width,
-    viewport-width,
+  if (
+    not width-unresolved
+      and not _span-acceptable(
+        materialized-tree.tree-occupied-bounds.width,
+        viewport-width,
+      )
   ) {
     issues.push(
       "width is too small for the tree labels and fixed margins (current: "

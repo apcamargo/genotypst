@@ -528,7 +528,9 @@
         return chars
       }
 
-      chars.enumerate().map(item => {
+      chars
+        .enumerate()
+        .map(item => {
           let (i, char) = item
           if unaligned-mask.at(i) {
             text(char, fill: unaligned-color)
