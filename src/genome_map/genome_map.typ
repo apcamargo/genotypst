@@ -205,7 +205,7 @@
     )
     let scale-stroke = (paint: black, thickness: stroke-width, cap: "round")
 
-    block(width: size.width, height: prepared.total-height, breakable: false, {
+    box(width: size.width, height: prepared.total-height, {
       // Baseline through the middle of the gene track.
       _draw-horizontal-segment(
         0pt,
