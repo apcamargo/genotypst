@@ -3,7 +3,7 @@
   _validate-interval, _validate-optional-int-at-least,
 )
 #import "../common/axis_scale.typ": (
-  _format-scale-label, _resolve-scale-bar-length,
+  _format-scale-label, _make-axis-scale-label, _resolve-scale-bar-length,
 )
 
 /// Returns the inclusive span between two 1-indexed coordinates.
@@ -384,21 +384,18 @@
   let scale-label-height = if scale-label == none {
     0pt
   } else {
-    measure(text(
-      size: scale-label-size,
-      bottom-edge: "descender",
-    )[#scale-label]).height
+    measure(_make-axis-scale-label(scale-label, scale-label-size)).height
   }
 
   let axis-label-height = if coordinate-axis {
-    let axis-start-label = text(
-      size: coordinate-axis-label-size,
-      bottom-edge: "descender",
-    )[#_format-scale-label(region-start, unit)]
-    let axis-end-label = text(
-      size: coordinate-axis-label-size,
-      bottom-edge: "descender",
-    )[#_format-scale-label(region-end, unit)]
+    let axis-start-label = _make-axis-scale-label(
+      _format-scale-label(region-start, unit),
+      coordinate-axis-label-size,
+    )
+    let axis-end-label = _make-axis-scale-label(
+      _format-scale-label(region-end, unit),
+      coordinate-axis-label-size,
+    )
     calc.max(
       measure(axis-start-label).height,
       measure(axis-end-label).height,

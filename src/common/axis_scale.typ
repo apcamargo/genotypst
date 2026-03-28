@@ -19,6 +19,20 @@
   }
 }
 
+/// Builds label content for axis and scale annotations.
+///
+/// Omits `fill` when `color` is `none` so labels inherit ambient text color.
+///
+/// - label (str, content): Label content.
+/// - size (length): Label font size.
+/// - color (color, none): Optional label color.
+/// -> content
+#let _make-axis-scale-label(label, size, color: none) = text(
+  size: size,
+  bottom-edge: "descender",
+  ..if color != none { (fill: color) },
+)[#label]
+
 /// Rounds a scale length to 1/2.5/5/7.5 x 10^n.
 ///
 /// - target (float): Target scale length.
@@ -212,18 +226,11 @@
   let bar-left-abs = _resolve-length(bar-left)
   let bar-width-abs = _resolve-length(bar-width)
   let stroke = (paint: stroke-color, thickness: stroke-width, cap: "round")
-  let label-text = if label-color == none {
-    text(
-      size: label-size,
-      bottom-edge: "descender",
-    )[#label]
-  } else {
-    text(
-      size: label-size,
-      fill: label-color,
-      bottom-edge: "descender",
-    )[#label]
-  }
+  let label-text = _make-axis-scale-label(
+    label,
+    label-size,
+    color: label-color,
+  )
   let label-size-box = measure(label-text)
   let label-width-abs = _resolve-length(label-size-box.width)
   let label-left = _clamp(
@@ -296,18 +303,11 @@
     if region-length <= 0 {
       let tick = region-start
       let label = _format-scale-label(tick, unit)
-      let label-text = if axis-color == none {
-        text(
-          size: label-size,
-          bottom-edge: "descender",
-        )[#label]
-      } else {
-        text(
-          size: label-size,
-          fill: axis-color,
-          bottom-edge: "descender",
-        )[#label]
-      }
+      let label-text = _make-axis-scale-label(
+        label,
+        label-size,
+        color: axis-color,
+      )
       let label-width = measure(label-text).width
       let label-max-left = calc.max(
         axis-left,
@@ -332,18 +332,11 @@
     while tick <= region-end {
       let x = axis-left + track-width * ((tick - region-start) / region-length)
       let label = _format-scale-label(tick, unit)
-      let label-text = if axis-color == none {
-        text(
-          size: label-size,
-          bottom-edge: "descender",
-        )[#label]
-      } else {
-        text(
-          size: label-size,
-          fill: axis-color,
-          bottom-edge: "descender",
-        )[#label]
-      }
+      let label-text = _make-axis-scale-label(
+        label,
+        label-size,
+        color: axis-color,
+      )
       let label-width = measure(label-text).width
       let label-max-left = calc.max(
         axis-left,

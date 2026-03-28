@@ -1,6 +1,8 @@
 #import "../common/colors.typ": _light-gray
 #import "../common/interval.typ": _resolve-1indexed-window
-#import "../common/axis_scale.typ": _draw-coordinate-axis
+#import "../common/axis_scale.typ": (
+  _draw-coordinate-axis, _make-axis-scale-label,
+)
 #import "./sequence_alphabet.typ": (
   _check-palette-coverage, _compute-sequence-conservation, _get-column-stats,
   _resolve-alphabet-config, _validate-alignment,
@@ -218,11 +220,11 @@
         size.width - col-width
       }
       let logo-height = measure(logo-grid).height
-      let axis-label-height = measure(text(
-        size: axis-label-size,
-        fill: axis-color,
-        bottom-edge: "descender",
-      )[#str(last-pos)]).height
+      let axis-label-height = measure(_make-axis-scale-label(
+        str(last-pos),
+        axis-label-size,
+        color: axis-color,
+      )).height
       let axis-top = logo-height + axis-logo-gap
       let total-height = (
         axis-top + axis-tick-height + axis-label-gap + axis-label-height
