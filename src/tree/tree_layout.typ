@@ -77,7 +77,6 @@
 
   let id = next-id
   let next-id = next-id + 1
-  let nodes = nodes
 
   let children = if node.children == none { () } else { node.children }
   let is-leaf = children.len() == 0
@@ -134,7 +133,6 @@
   node-count,
   effective-cladogram,
 ) = {
-  let nodes = nodes
   for id in range(node-count) {
     let key = node-keys.at(id)
     let node = nodes.at(key)
