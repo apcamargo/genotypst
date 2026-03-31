@@ -1,12 +1,16 @@
 #import "../common/colors.typ": _medium-gray
-#import "./tree_composition.typ": (
-  _build-scale-plan, _build-tree-plan, _fit-tree-plan, _render-tree-plan,
-)
-#import "./tree_layout.typ": _layout-tree, _normalize-tree
+#import "./tree_backend.typ": _tree-prepare-layout-backend
+#import "./tree_fit.typ": _fit-tree-plan
+#import "./tree_primitives.typ": _build-tree-plan
+#import "./tree_render.typ": _build-scale-plan, _render-tree-plan
+
+// `render-unrooted-tree` exposes a public `layout` parameter, so we keep a
+// distinct handle to Typst's `layout(...)` function for both renderers.
+#let _tree-render-layout = layout
 
 /// Tree layout constants.
-#let _label-x-offset = 0.32em
-#let _internal-label-gap = 0.42em
+#let _label-x-offset = 0.28em
+#let _internal-label-gap = 0.38em
 #let _auto-height-scale = 1.9em
 #let _rectangular-fit-band-samples = 1
 #let _rectangular-fit-max-bands = 24
@@ -98,7 +102,47 @@
   }
 }
 
-/// Builds the style record for tree rendering.
+/// Validates the `render-unrooted-tree` arguments.
+///
+/// - width (length, auto, ratio, relative): Requested rendered width.
+/// - height (length, auto): Requested rendered tree height.
+/// - branch-weight (length): Branch stroke thickness.
+/// - tip-label-size (length): Tip label size.
+/// - internal-label-size (length): Internal label size.
+/// - cladogram (bool): Whether cladogram mode is enabled.
+/// - layout (str): Unrooted layout name.
+/// -> none
+#let _validate-render-unrooted-tree-args(
+  width,
+  height,
+  branch-weight,
+  tip-label-size,
+  internal-label-size,
+  cladogram,
+  layout,
+) = {
+  assert(type(cladogram) == bool, message: "cladogram must be a boolean.")
+  assert(branch-weight > 0pt, message: "branch-weight must be positive.")
+  assert(tip-label-size > 0pt, message: "tip-label-size must be positive.")
+  assert(
+    internal-label-size > 0pt,
+    message: "internal-label-size must be positive.",
+  )
+  assert(
+    _render-tree-width-is-valid(width),
+    message: "width must be auto or a positive length, ratio, or relative width.",
+  )
+  assert(
+    height == auto or height > 0pt,
+    message: "height must be auto or a positive length.",
+  )
+  assert(
+    layout in ("equal-angle", "daylight"),
+    message: "layout must be 'equal-angle' or 'daylight'.",
+  )
+}
+
+/// Builds the shared style record for tree rendering.
 ///
 /// - branch-weight (length): Branch stroke thickness.
 /// - branch-color (color): Branch color.
@@ -107,7 +151,6 @@
 /// - tip-label-italics (bool): Whether tip labels are italicized.
 /// - internal-label-size (length): Internal label size.
 /// - internal-label-color (color, none): Internal label color.
-/// - root-length (length): Rendered root-edge length.
 /// -> dictionary
 #let _build-render-tree-style(
   branch-weight,
@@ -117,7 +160,6 @@
   tip-label-italics,
   internal-label-size,
   internal-label-color,
-  root-length,
 ) = (
   branch-stroke: stroke(
     thickness: branch-weight,
@@ -130,11 +172,51 @@
   tip-label-italics: tip-label-italics,
   internal-label-size: internal-label-size,
   internal-label-color: internal-label-color,
-  root-length: root-length,
   label-x-offset: _label-x-offset,
   internal-label-gap: _internal-label-gap,
   auto-height-scale: _auto-height-scale,
 )
+
+/// Builds the rectangular-tree style record and resolves label offsets.
+///
+/// - branch-weight (length): Branch stroke thickness.
+/// - branch-color (color): Branch color.
+/// - tip-label-size (length): Tip label size.
+/// - tip-label-color (color, none): Tip label color.
+/// - tip-label-italics (bool): Whether tip labels are italicized.
+/// - internal-label-size (length): Internal label size.
+/// - internal-label-color (color, none): Internal label color.
+/// - root-length (length): Rendered root-edge length.
+/// -> dictionary
+#let _build-rectangular-tree-style(
+  branch-weight,
+  branch-color,
+  tip-label-size,
+  tip-label-color,
+  tip-label-italics,
+  internal-label-size,
+  internal-label-color,
+  root-length,
+) = {
+  let style = _build-render-tree-style(
+    branch-weight,
+    branch-color,
+    tip-label-size,
+    tip-label-color,
+    tip-label-italics,
+    internal-label-size,
+    internal-label-color,
+  )
+  let x-height-text = text(
+    size: tip-label-size,
+    top-edge: "x-height",
+    bottom-edge: "baseline",
+    "x",
+  )
+  style.insert("root-length", root-length)
+  style.insert("label-y-offset", measure(x-height-text).height)
+  style
+}
 
 /// Prepares tree data for rendering.
 ///
@@ -185,7 +267,7 @@
   scale-label-size,
   layout-size,
 ) = {
-  let style = _build-render-tree-style(
+  let style = _build-rectangular-tree-style(
     branch-weight,
     branch-color,
     tip-label-size,
@@ -195,22 +277,17 @@
     internal-label-color,
     root-length,
   )
-  let normalized-tree = _normalize-tree(tree-data, cladogram: cladogram)
+  let layout-tree = _tree-prepare-layout-backend(
+    tree-data,
+    cladogram: cladogram,
+    suppress-unrooted: false,
+    layout-kind: "rectangular",
+  )
   assert(
-    not (normalized-tree.effective-cladogram and scale-bar),
+    not (layout-tree.effective-cladogram and scale-bar),
     message: "scale-bar cannot be used when the tree has no branch length information or when it is rendered as a cladogram.",
   )
-  let layout-tree = _layout-tree(normalized-tree)
-  let tree-plan = _build-tree-plan(layout-tree, style)
-
-  let x-height-text = text(
-    size: tip-label-size,
-    top-edge: "x-height",
-    bottom-edge: "baseline",
-    "x",
-  )
-  let style = style
-  style.insert("label-y-offset", measure(x-height-text).height)
+  let tree-plan = _build-tree-plan(layout-tree, style, orientation: orientation)
 
   let fitted-plan = _fit-tree-plan(
     tree-plan,
@@ -219,10 +296,11 @@
     width,
     height,
     layout-size,
+    _rectangular-fit-max-bands,
     // Rectangular occupied span is monotone enough that one sample per band
     // keeps the search cheap without changing the generic solver structure.
-    _rectangular-fit-band-samples,
-    _rectangular-fit-max-bands,
+    fit-band-samples: _rectangular-fit-band-samples,
+    optimize-uniform-rotation: false,
   )
   let scale-plan = if scale-bar and not fitted-plan.width-unresolved {
     _build-scale-plan(
@@ -242,6 +320,72 @@
     fitted-plan: fitted-plan,
     scale-plan: scale-plan,
   )
+}
+
+/// Prepares unrooted tree data for rendering.
+///
+/// - tree-data (dictionary): Parsed or manual tree data.
+/// - width (length, auto, ratio, relative): Original rendered width argument.
+/// - height (length, auto): Height of the rendered tree area.
+/// - branch-weight (length): Branch stroke thickness.
+/// - branch-color (color): Branch color.
+/// - tip-label-size (length): Tip label size.
+/// - tip-label-color (color, none): Tip label color.
+/// - tip-label-italics (bool): Whether tip labels are italicized.
+/// - internal-label-size (length): Internal label size.
+/// - internal-label-color (color, none): Internal label color.
+/// - cladogram (bool): Whether cladogram mode is enabled.
+/// - layout (str): Unrooted layout name.
+/// - layout-size (dictionary): Available layout size.
+/// - optimize-rotation (bool): Whether automatic global rotation search is enabled.
+/// -> dictionary with key `fitted-plan`
+#let _prepare-unrooted-tree-render-at-size(
+  tree-data,
+  width,
+  height,
+  branch-weight,
+  branch-color,
+  tip-label-size,
+  tip-label-color,
+  tip-label-italics,
+  internal-label-size,
+  internal-label-color,
+  cladogram,
+  layout,
+  layout-size,
+  optimize-rotation: true,
+) = {
+  let style = _build-render-tree-style(
+    branch-weight,
+    branch-color,
+    tip-label-size,
+    tip-label-color,
+    tip-label-italics,
+    internal-label-size,
+    internal-label-color,
+  )
+  let layout-tree = _tree-prepare-layout-backend(
+    tree-data,
+    cladogram: cladogram,
+    suppress-unrooted: true,
+    layout-kind: layout,
+  )
+  let tree-plan = _build-tree-plan(
+    layout-tree,
+    style,
+    orientation: "horizontal",
+  )
+  let fitted-plan = _fit-tree-plan(
+    tree-plan,
+    style,
+    "horizontal",
+    width,
+    height,
+    layout-size,
+    _rectangular-fit-max-bands,
+    optimize-uniform-rotation: optimize-rotation,
+  )
+  (fitted-plan: fitted-plan)
 }
 
 /// Draws a phylogenetic tree from parsed or manual tree data.
@@ -312,7 +456,7 @@
     scale-label-size,
   )
   block(width: width)[
-    #layout(size => context {
+    #_tree-render-layout(size => context {
       let prepared = _prepare-tree-render-at-size(
         tree-data,
         width,
@@ -340,6 +484,70 @@
         prepared.fitted-plan,
         prepared.scale-plan,
         scale-bar-gap,
+      )
+    })
+  ]
+}
+
+/// Draws an unrooted phylogenetic tree using an equal-angle or daylight layout.
+///
+/// - tree-data (dictionary): Parsed or manually constructed tree data.
+/// - width (length, auto, ratio, relative): Width of the tree visualization including labels (default: 100%).
+/// - height (length, auto): Height of the tree area (default: auto).
+/// - branch-weight (length): Thickness of tree branches (default: 1pt).
+/// - branch-color (color): Color of tree branches (default: black).
+/// - tip-label-size (length): Font size of tip labels (default: 1em).
+/// - tip-label-color (color, none): Color of tip labels (default: none, inherits from the document).
+/// - tip-label-italics (bool): Use italics to draw tip labels (default: false).
+/// - internal-label-size (length): Font size of internal node labels (default: 0.85em).
+/// - internal-label-color (color, none): Color of internal node labels (default: medium gray; `none` inherits from the document).
+/// - cladogram (bool): Whether to draw the tree as a cladogram with equal branch lengths (default: false).
+/// - layout (str): "equal-angle" or "daylight" (default: "equal-angle").
+/// -> content
+#let render-unrooted-tree(
+  tree-data,
+  width: 100%,
+  height: auto,
+  branch-weight: 1pt,
+  branch-color: black,
+  tip-label-size: 1em,
+  tip-label-color: none,
+  tip-label-italics: false,
+  internal-label-size: 0.85em,
+  internal-label-color: _medium-gray,
+  cladogram: false,
+  layout: "equal-angle",
+) = {
+  _validate-render-unrooted-tree-args(
+    width,
+    height,
+    branch-weight,
+    tip-label-size,
+    internal-label-size,
+    cladogram,
+    layout,
+  )
+  block(width: width)[
+    #_tree-render-layout(size => context {
+      let prepared = _prepare-unrooted-tree-render-at-size(
+        tree-data,
+        width,
+        height,
+        branch-weight,
+        branch-color,
+        tip-label-size,
+        tip-label-color,
+        tip-label-italics,
+        internal-label-size,
+        internal-label-color,
+        cladogram,
+        layout,
+        size,
+      )
+      _render-tree-plan(
+        prepared.fitted-plan,
+        none,
+        0pt,
       )
     })
   ]
