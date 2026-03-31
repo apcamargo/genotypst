@@ -6,15 +6,15 @@
 #let _diverging-gradient = (
   gradient
     .linear(
-      rgb("#d9353c"),
-      rgb("#f3634c"),
+      rgb("#e50d2e"),
+      rgb("#ff553c"),
       rgb("#ff936d"),
-      rgb("#f9c2a6"),
+      rgb("#fcc1a3"),
       rgb("#dedfe0"),
-      rgb("#a9dbed"),
-      rgb("#72c3e1"),
-      rgb("#57a2d0"),
-      rgb("#5b79c0"),
+      rgb("#a4dcf0"),
+      rgb("#69c4e5"),
+      rgb("#4fa2d5"),
+      rgb("#5477ce"),
     )
     .sharp(256)
     .stops()
