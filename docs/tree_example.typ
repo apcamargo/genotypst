@@ -15,4 +15,4 @@
   "(('Leaf A':0.2,'Leaf B':0.1)'Internal node':0.3,'Leaf C':0.6)Root;",
 )
 
-#render-tree(tree, width: 110mm, height: 35mm)
+#render-rectangular-tree(tree, width: 110mm, height: 35mm)

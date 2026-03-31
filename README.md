@@ -126,7 +126,7 @@ You can also use `genotypst` to parse Newick data and visualize phylogenetic tre
   "(('Leaf A':0.2,'Leaf B':0.1)'Internal node':0.3,'Leaf C':0.6)Root;"
 )
 // Render the phylogenetic tree
-#render-tree(tree)
+#render-rectangular-tree(tree)
 ```
 
 ![Phylogenetic tree with three leaves and a root](./docs/tree_example.svg)

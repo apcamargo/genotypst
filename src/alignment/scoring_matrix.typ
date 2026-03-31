@@ -1,6 +1,4 @@
-#import "./alignment_backend.typ": (
-  _alignment-backend, _convert-infinity, resolve-matrix-name,
-)
+#import "./alignment_backend.typ": _alignment-matrix-info, resolve-matrix-name
 #import "../common/colors.typ": _diverging-gradient
 
 /// Retrieves a scoring matrix by name from the WASM plugin.
@@ -16,7 +14,7 @@
 /// Infinite values in the matrix (used for forbidden substitutions) are
 /// represented as `float.inf` or `-float.inf`.
 ///
-/// - name (str): Matrix name (case-insensitive, e.g., "BLOSUM62" or "blosum62").
+/// - name (str): Matrix name (e.g., "BLOSUM62").
 /// -> dictionary with keys:
 ///   - name (str): Canonical matrix name.
 ///   - alphabet (array): Symbols covered by the matrix.
@@ -25,7 +23,7 @@
   let canonical = resolve-matrix-name(name)
   assert(canonical != none, message: "Unknown scoring matrix: '" + name + "'.")
 
-  let raw-result = json(_alignment-backend.matrix_info(bytes(canonical)))
+  let raw-result = _alignment-matrix-info(canonical)
 
   let n = raw-result.alphabet.len()
   assert(
@@ -33,18 +31,13 @@
     message: "scoring matrix backend returned an unexpected score count.",
   )
 
-  // Validate backend shape and convert flat scores to rows.
+  // Validate backend shape and reshape flat scores into rows.
   let matrix-2d = raw-result.scores.chunks(n)
-
-  // Convert infinity values
-  let matrix-converted = matrix-2d.map(row => row.map(
-    score => _convert-infinity(score),
-  ))
 
   (
     name: raw-result.name,
     alphabet: raw-result.alphabet,
-    matrix: matrix-converted,
+    matrix: matrix-2d,
   )
 }
 

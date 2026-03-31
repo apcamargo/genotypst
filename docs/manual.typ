@@ -369,42 +369,48 @@ Genome maps enable visualization of the genes and other genomic elements within 
 
 #let hominoidea_tree = parse-newick(read("/docs/data/hominoidea.nwk"))
 
-To render the tree, use the `render-tree` function. By default, it produces a horizontal rectangular tree, but a vertical layout can be specified using the `orientation: "vertical"` option.
+Two types of trees can be produced: rectangular trees (`render-rectangular-tree`) and unrooted trees (`render-unrooted-tree`). In the examples below:
+
+- `tip-label-italics: true` renders tip labels in italics.
+- `orientation: "horizontal"` sets the rectangular tree to be oriented horizontally. It can also be set to `"vertical"` for a vertical layout.
+- `hide-internal-labels: true` hides internal node labels.
+- `layout: "daylight"` applies the daylight layout algorithm to the unrooted tree. The default layout is `"equal-angle"`.
 
 ```typst
-#render-tree(
+#render-rectangular-tree(
   hominoidea_tree,
-  tip-label-italics: true,
   orientation: "horizontal",
+  tip-label-italics: true,
 )
 
-#render-tree(
+#render-unrooted-tree(
   hominoidea_tree,
   tip-label-italics: true,
-  orientation: "vertical",
+  hide-internal-labels: true,
+  layout: "daylight",
 )
 ```
 
 #grid(
   columns: (1fr, 1fr),
-  gutter: 0.8cm,
+  gutter: 0.6cm,
   figure(
-    render-tree(
+    render-rectangular-tree(
       hominoidea_tree,
       tip-label-italics: true,
-      height: 7.75cm,
+      orientation: "horizontal",
     ),
-    caption: [Tree with horizontal orientation],
+    caption: [Rectangular tree],
     supplement: none,
   ),
   figure(
-    render-tree(
+    render-unrooted-tree(
       hominoidea_tree,
       tip-label-italics: true,
-      height: 7.75cm,
-      orientation: "vertical",
+      hide-internal-labels: true,
+      layout: "daylight",
     ),
-    caption: [Tree with vertical orientation],
+    caption: [Unrooted tree],
     supplement: none,
   ),
 
@@ -557,7 +563,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
 #let hominoidea_tree = parse-newick(read("/docs/data/hominoidea.nwk"))
 #context {
   show text: set text(font: "Libertinus Serif")
-  #render-tree(hominoidea_tree, tip-label-italics: true)
+  #render-rectangular-tree(hominoidea_tree, tip-label-italics: true)
 }
 ```
 
@@ -568,7 +574,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
   align: center + bottom,
   gutter: 0.8cm,
   figure(
-    render-tree(
+    render-rectangular-tree(
       hominoidea_tree,
       tip-label-italics: true,
       orientation: "horizontal",
@@ -579,7 +585,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
   figure(
     context {
       show text: set text(font: "Libertinus Serif")
-      render-tree(
+      render-rectangular-tree(
         hominoidea_tree,
         tip-label-italics: true,
         orientation: "horizontal",

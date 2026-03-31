@@ -16,4 +16,4 @@
 
 // Tree
 #import "tree/newick_parser.typ": parse-newick
-#import "tree/tree.typ": render-tree
+#import "tree/tree.typ": render-rectangular-tree, render-unrooted-tree

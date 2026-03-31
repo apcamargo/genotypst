@@ -1,4 +1,4 @@
-#let _newick-plugin = plugin("newick.wasm")
+#import "./tree_backend.typ": _tree-parse-newick
 
 /// Parses a Newick string into a tree structure.
 ///
@@ -12,6 +12,5 @@
 ///   - length (int, float, none): Optional branch length.
 ///   - rooted (bool, none): Optional root-only rootedness flag.
 #let parse-newick(data) = {
-  let result = _newick-plugin.parse_newick(bytes(data.trim()))
-  json(result)
+  _tree-parse-newick(data)
 }

@@ -1,5 +1,5 @@
 #import "../common/colors.typ": _dark-gray, _medium-gray, _yellow
-#import "./pair_alignment.typ": (
+#import "./alignment_coords.typ": (
   _parse-and-validate-coord, _parse-coord, _validate-path,
 )
 #import "@preview/tiptoe:0.4.0": (

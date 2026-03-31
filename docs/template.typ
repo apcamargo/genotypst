@@ -8,7 +8,7 @@
 ) = {
   set document(author: author, title: title)
   set page(
-    margin: (y: 2.8cm, x: 2.8cm),
+    margin: (y: 2.6cm, x: 2.6cm),
     paper: "us-letter",
   )
 

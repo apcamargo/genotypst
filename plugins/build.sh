@@ -9,12 +9,12 @@ ALIGNMENT_TARGET_DIR="$PROJECT_ROOT/src/alignment"
 echo "Building WASM plugins..."
 mkdir -p "$TREE_TARGET_DIR" "$ALIGNMENT_TARGET_DIR"
 
-# Build newick plugin
-echo "- Building the newick plugin..."
-cd "$SCRIPT_DIR/newick"
+# Build tree plugin
+echo "- Building the tree plugin..."
+cd "$SCRIPT_DIR/tree"
 cargo build --release --target wasm32-unknown-unknown
-cp target/wasm32-unknown-unknown/release/newick.wasm "$TREE_TARGET_DIR/newick.wasm"
-echo "  Copied newick.wasm to $TREE_TARGET_DIR/newick.wasm"
+cp target/wasm32-unknown-unknown/release/tree.wasm "$TREE_TARGET_DIR/tree.wasm"
+echo "  Copied tree.wasm to $TREE_TARGET_DIR/tree.wasm"
 
 # Build alignment plugin
 echo "- Building the alignment plugin..."
