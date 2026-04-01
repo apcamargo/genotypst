@@ -6,7 +6,7 @@
 /// into a dictionary structure suitable for rendering.
 ///
 /// - data (str): A string containing the Newick data.
-/// -> dictionary representing the root node with keys:
+/// -> dictionary with keys:
 ///   - children (array, none): Child node dictionaries, or none for leaf nodes.
 ///   - name (str, none): Optional node label.
 ///   - length (int, float, none): Optional branch length.

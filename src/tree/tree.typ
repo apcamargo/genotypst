@@ -33,6 +33,46 @@
   }
 }
 
+/// Validates common tree rendering arguments shared by all tree renderers.
+///
+/// - width (length, auto, ratio, relative): Requested rendered width.
+/// - height (length, auto): Requested rendered tree height.
+/// - branch-weight (length): Branch stroke thickness.
+/// - tip-label-size (length): Tip label size.
+/// - internal-label-size (length): Internal label size.
+/// - hide-internal-labels (bool): Whether internal labels are suppressed.
+/// - cladogram (bool): Whether cladogram mode is enabled.
+/// -> none
+#let _validate-common-tree-args(
+  width,
+  height,
+  branch-weight,
+  tip-label-size,
+  internal-label-size,
+  hide-internal-labels,
+  cladogram,
+) = {
+  assert(type(cladogram) == bool, message: "cladogram must be a boolean.")
+  assert(branch-weight > 0pt, message: "branch-weight must be positive.")
+  assert(tip-label-size > 0pt, message: "tip-label-size must be positive.")
+  assert(
+    internal-label-size > 0pt,
+    message: "internal-label-size must be positive.",
+  )
+  assert(
+    type(hide-internal-labels) == bool,
+    message: "hide-internal-labels must be a boolean.",
+  )
+  assert(
+    _render-tree-width-is-valid(width),
+    message: "width must be auto or a positive length, ratio, or relative width.",
+  )
+  assert(
+    height == auto or height > 0pt,
+    message: "height must be auto or a positive length.",
+  )
+}
+
 /// Validates the `render-rectangular-tree` arguments that affect layout and sizing.
 ///
 /// - width (length, auto, ratio, relative): Requested rendered width.
@@ -66,27 +106,17 @@
   scale-tick-height,
   scale-label-size,
 ) = {
-  assert(type(cladogram) == bool, message: "cladogram must be a boolean.")
+  _validate-common-tree-args(
+    width,
+    height,
+    branch-weight,
+    tip-label-size,
+    internal-label-size,
+    hide-internal-labels,
+    cladogram,
+  )
   assert(type(scale-bar) == bool, message: "scale-bar must be a boolean.")
-  assert(branch-weight > 0pt, message: "branch-weight must be positive.")
-  assert(tip-label-size > 0pt, message: "tip-label-size must be positive.")
-  assert(
-    internal-label-size > 0pt,
-    message: "internal-label-size must be positive.",
-  )
-  assert(
-    type(hide-internal-labels) == bool,
-    message: "hide-internal-labels must be a boolean.",
-  )
   assert(root-length >= 0pt, message: "root-length must be non-negative.")
-  assert(
-    _render-tree-width-is-valid(width),
-    message: "width must be auto or a positive length, ratio, or relative width.",
-  )
-  assert(
-    height == auto or height > 0pt,
-    message: "height must be auto or a positive length.",
-  )
   assert(
     orientation in ("horizontal", "vertical"),
     message: "orientation must be 'horizontal' or 'vertical'.",
@@ -129,24 +159,14 @@
   cladogram,
   layout,
 ) = {
-  assert(type(cladogram) == bool, message: "cladogram must be a boolean.")
-  assert(branch-weight > 0pt, message: "branch-weight must be positive.")
-  assert(tip-label-size > 0pt, message: "tip-label-size must be positive.")
-  assert(
-    internal-label-size > 0pt,
-    message: "internal-label-size must be positive.",
-  )
-  assert(
-    type(hide-internal-labels) == bool,
-    message: "hide-internal-labels must be a boolean.",
-  )
-  assert(
-    _render-tree-width-is-valid(width),
-    message: "width must be auto or a positive length, ratio, or relative width.",
-  )
-  assert(
-    height == auto or height > 0pt,
-    message: "height must be auto or a positive length.",
+  _validate-common-tree-args(
+    width,
+    height,
+    branch-weight,
+    tip-label-size,
+    internal-label-size,
+    hide-internal-labels,
+    cladogram,
   )
   assert(
     layout in ("equal-angle", "daylight"),

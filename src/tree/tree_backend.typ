@@ -88,6 +88,12 @@
   measure_height_pt: primitive.measure-height / 1pt,
 )
 
+/// Private: Converts an optional length to pt-based JSON.
+///
+/// - value (length, none): Length to convert.
+/// -> float, none
+#let _optional-to-pt(value) = if value == none { none } else { value / 1pt }
+
 /// Private: Encodes a Typst-native fit payload for the Rust wire schema.
 ///
 /// - payload (dictionary): Typst-native fit payload.
@@ -109,17 +115,9 @@
   tree_depth: payload.tree-depth,
   tree_height: payload.tree-height,
   width_mode: payload.width-mode,
-  viewport_width_pt: if payload.viewport-width == none {
-    none
-  } else {
-    payload.viewport-width / 1pt
-  },
+  viewport_width_pt: _optional-to-pt(payload.viewport-width),
   height_mode: payload.height-mode,
-  viewport_height_pt: if payload.viewport-height == none {
-    none
-  } else {
-    payload.viewport-height / 1pt
-  },
+  viewport_height_pt: _optional-to-pt(payload.viewport-height),
   auto_height_floor_pt: payload.auto-height-floor / 1pt,
   fit_band_samples: payload.fit-band-samples,
   fit_max_bands: payload.fit-max-bands,

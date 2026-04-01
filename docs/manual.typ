@@ -379,8 +379,8 @@ Two types of trees can be produced: rectangular trees (`render-rectangular-tree`
 ```typst
 #render-rectangular-tree(
   hominoidea_tree,
-  orientation: "horizontal",
   tip-label-italics: true,
+  orientation: "horizontal",
 )
 
 #render-unrooted-tree(
@@ -400,7 +400,7 @@ Two types of trees can be produced: rectangular trees (`render-rectangular-tree`
       tip-label-italics: true,
       orientation: "horizontal",
     ),
-    caption: [Rectangular tree],
+    caption: [Horizontal rectangular tree],
     supplement: none,
   ),
   figure(
@@ -410,7 +410,7 @@ Two types of trees can be produced: rectangular trees (`render-rectangular-tree`
       hide-internal-labels: true,
       layout: "daylight",
     ),
-    caption: [Unrooted tree],
+    caption: [Unrooted tree using the daylight layout],
     supplement: none,
   ),
 

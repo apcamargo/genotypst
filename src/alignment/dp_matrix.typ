@@ -177,68 +177,45 @@
   for (row-idx, row-label) in left-clusters.enumerate() {
     cells.push((bg: _label-cell(none), text: _label-cell(row-label)))
 
-    if scores == none {
-      for col-idx in range(cols) {
-        let index = _matrix-index(row-idx, col-idx, cols)
-        let fill-color = highlight-map.at(_index-key(index), default: none)
-        let cell-radius = _get-cell-radius(
-          row-idx,
-          col-idx,
-          last-row,
-          last-col,
-          corner-radius,
-        )
+    for col-idx in range(cols) {
+      let index = _matrix-index(row-idx, col-idx, cols)
+      let key = _index-key(index)
+      let fill-color = highlight-map.at(key, default: none)
+      let cell-radius = _get-cell-radius(
+        row-idx,
+        col-idx,
+        last-row,
+        last-col,
+        corner-radius,
+      )
 
-        cells.push((
-          bg: box(
-            width: 100%,
-            height: 100%,
-            fill: fill-color,
-            stroke: stroke-width + stroke-color,
-            radius: cell-radius,
-            inset: cell-inset,
-          )[],
-          text: box(
-            width: 100%,
-            height: 100%,
-            inset: cell-inset,
-          )[],
-        ))
-      }
-    } else {
-      for col-idx in range(cols) {
-        let index = _matrix-index(row-idx, col-idx, cols)
+      let text-content = if scores == none {
+        []
+      } else {
         let value = scores.at(index)
-        let content = if _index-key(index) in path-cell-set {
-          strong[#value]
+        if key in path-cell-set {
+          align(center + horizon, strong[#value])
         } else {
-          value
+          align(center + horizon)[#value]
         }
-        let fill-color = highlight-map.at(_index-key(index), default: none)
-        let cell-radius = _get-cell-radius(
-          row-idx,
-          col-idx,
-          last-row,
-          last-col,
-          corner-radius,
-        )
-
-        cells.push((
-          bg: box(
-            width: 100%,
-            height: 100%,
-            fill: fill-color,
-            stroke: stroke-width + stroke-color,
-            radius: cell-radius,
-            inset: cell-inset,
-          )[],
-          text: box(
-            width: 100%,
-            height: 100%,
-            inset: cell-inset,
-          )[#align(center + horizon)[#content]],
-        ))
       }
+
+      cells.push((
+        bg: box(
+          width: 100%,
+          height: 100%,
+          fill: fill-color,
+          stroke: stroke-width + stroke-color,
+          radius: cell-radius,
+          inset: cell-inset,
+        )[],
+        text: box(
+          width: 100%,
+          height: 100%,
+          inset: cell-inset,
+          text-content,
+        ),
+      ))
     }
   }
 
@@ -543,11 +520,8 @@
     _validate-arrows(arrows, expected-rows, expected-cols)
   }
 
-  let top-label-seq = "–" + seq-2
-  let left-label-seq = "–" + seq-1
-
-  let top-clusters = top-label-seq.clusters()
-  let left-clusters = left-label-seq.clusters()
+  let top-clusters = ("–",) + seq2-raw-clusters
+  let left-clusters = ("–",) + seq1-raw-clusters
 
   let max-row = left-clusters.len() - 1
   let max-col = top-clusters.len() - 1

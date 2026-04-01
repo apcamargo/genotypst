@@ -24,7 +24,8 @@
 /// sequences as strings. Duplicate identifiers are rejected.
 ///
 /// - data (str): A string containing the FASTA data.
-/// -> dictionary mapping sequence identifiers to sequence strings
+/// -> dictionary with keys:
+///   - sequence-id (str): Sequence string keyed by each unique FASTA identifier.
 #let parse-fasta(data) = {
   let sequences = (:)
   let current-id = none

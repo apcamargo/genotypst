@@ -102,11 +102,10 @@
 #let _get-column-stats(sequences, pos, alphabet-characters) = {
   let counts = (:)
   let total-non-gap = 0
-  let alphabet-set = alphabet-characters.map(char => upper(char))
   for seq in sequences {
     if pos < seq.len() {
       let char = upper(seq.at(pos))
-      if char in alphabet-set {
+      if char in alphabet-characters {
         counts.insert(char, counts.at(char, default: 0) + 1)
         total-non-gap += 1
       }
