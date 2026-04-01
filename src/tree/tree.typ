@@ -37,7 +37,7 @@
 ///
 /// - width (length, auto, ratio, relative): Requested rendered width.
 /// - height (length, auto): Requested rendered tree height.
-/// - branch-weight (length): Branch stroke thickness.
+/// - branch-width (length): Branch stroke thickness.
 /// - tip-label-size (length): Tip label size.
 /// - internal-label-size (length): Internal label size.
 /// - hide-internal-labels (bool): Whether internal labels are suppressed.
@@ -46,14 +46,14 @@
 #let _validate-common-tree-args(
   width,
   height,
-  branch-weight,
+  branch-width,
   tip-label-size,
   internal-label-size,
   hide-internal-labels,
   cladogram,
 ) = {
   assert(type(cladogram) == bool, message: "cladogram must be a boolean.")
-  assert(branch-weight > 0pt, message: "branch-weight must be positive.")
+  assert(branch-width > 0pt, message: "branch-width must be positive.")
   assert(tip-label-size > 0pt, message: "tip-label-size must be positive.")
   assert(
     internal-label-size > 0pt,
@@ -77,7 +77,7 @@
 ///
 /// - width (length, auto, ratio, relative): Requested rendered width.
 /// - height (length, auto): Requested rendered tree height.
-/// - branch-weight (length): Branch stroke thickness.
+/// - branch-width (length): Branch stroke thickness.
 /// - tip-label-size (length): Tip label size.
 /// - internal-label-size (length): Internal label size.
 /// - hide-internal-labels (bool): Whether internal labels are suppressed.
@@ -93,7 +93,7 @@
 #let _validate-render-rectangular-tree-args(
   width,
   height,
-  branch-weight,
+  branch-width,
   tip-label-size,
   internal-label-size,
   hide-internal-labels,
@@ -109,7 +109,7 @@
   _validate-common-tree-args(
     width,
     height,
-    branch-weight,
+    branch-width,
     tip-label-size,
     internal-label-size,
     hide-internal-labels,
@@ -142,7 +142,7 @@
 ///
 /// - width (length, auto, ratio, relative): Requested rendered width.
 /// - height (length, auto): Requested rendered tree height.
-/// - branch-weight (length): Branch stroke thickness.
+/// - branch-width (length): Branch stroke thickness.
 /// - tip-label-size (length): Tip label size.
 /// - internal-label-size (length): Internal label size.
 /// - hide-internal-labels (bool): Whether internal labels are suppressed.
@@ -152,7 +152,7 @@
 #let _validate-render-unrooted-tree-args(
   width,
   height,
-  branch-weight,
+  branch-width,
   tip-label-size,
   internal-label-size,
   hide-internal-labels,
@@ -162,7 +162,7 @@
   _validate-common-tree-args(
     width,
     height,
-    branch-weight,
+    branch-width,
     tip-label-size,
     internal-label-size,
     hide-internal-labels,
@@ -176,7 +176,7 @@
 
 /// Builds the shared style record for tree rendering.
 ///
-/// - branch-weight (length): Branch stroke thickness.
+/// - branch-width (length): Branch stroke thickness.
 /// - branch-color (color): Branch color.
 /// - tip-label-size (length): Tip label size.
 /// - tip-label-color (color, none): Tip label color.
@@ -185,7 +185,7 @@
 /// - internal-label-color (color, none): Internal label color.
 /// -> dictionary
 #let _build-render-tree-style(
-  branch-weight,
+  branch-width,
   branch-color,
   tip-label-size,
   tip-label-color,
@@ -194,11 +194,11 @@
   internal-label-color,
 ) = (
   branch-stroke: stroke(
-    thickness: branch-weight,
+    thickness: branch-width,
     paint: branch-color,
     cap: "square",
   ),
-  branch-weight: branch-weight,
+  branch-width: branch-width,
   tip-label-size: tip-label-size,
   tip-label-color: tip-label-color,
   tip-label-italics: tip-label-italics,
@@ -211,7 +211,7 @@
 
 /// Builds the rectangular-tree style record and resolves label offsets.
 ///
-/// - branch-weight (length): Branch stroke thickness.
+/// - branch-width (length): Branch stroke thickness.
 /// - branch-color (color): Branch color.
 /// - tip-label-size (length): Tip label size.
 /// - tip-label-color (color, none): Tip label color.
@@ -221,7 +221,7 @@
 /// - root-length (length): Rendered root-edge length.
 /// -> dictionary
 #let _build-rectangular-tree-style(
-  branch-weight,
+  branch-width,
   branch-color,
   tip-label-size,
   tip-label-color,
@@ -231,7 +231,7 @@
   root-length,
 ) = {
   let style = _build-render-tree-style(
-    branch-weight,
+    branch-width,
     branch-color,
     tip-label-size,
     tip-label-color,
@@ -255,7 +255,7 @@
 /// - tree-data (dictionary): Parsed or manual tree data.
 /// - width (length, auto, ratio, relative): Original rendered width argument.
 /// - height (length, auto): Height of the rendered tree area.
-/// - branch-weight (length): Branch stroke thickness.
+/// - branch-width (length): Branch stroke thickness.
 /// - branch-color (color): Branch color.
 /// - tip-label-size (length): Tip label size.
 /// - tip-label-color (color, none): Tip label color.
@@ -282,7 +282,7 @@
   tree-data,
   width,
   height,
-  branch-weight,
+  branch-width,
   branch-color,
   tip-label-size,
   tip-label-color,
@@ -303,7 +303,7 @@
   hide-internal-labels: false,
 ) = {
   let style = _build-rectangular-tree-style(
-    branch-weight,
+    branch-width,
     branch-color,
     tip-label-size,
     tip-label-color,
@@ -342,7 +342,7 @@
     _build-scale-plan(
       fitted-plan,
       branch-color,
-      branch-weight,
+      branch-width,
       scale-length,
       unit,
       min-auto-bar-width,
@@ -363,7 +363,7 @@
 /// - tree-data (dictionary): Parsed or manual tree data.
 /// - width (length, auto, ratio, relative): Original rendered width argument.
 /// - height (length, auto): Height of the rendered tree area.
-/// - branch-weight (length): Branch stroke thickness.
+/// - branch-width (length): Branch stroke thickness.
 /// - branch-color (color): Branch color.
 /// - tip-label-size (length): Tip label size.
 /// - tip-label-color (color, none): Tip label color.
@@ -381,7 +381,7 @@
   tree-data,
   width,
   height,
-  branch-weight,
+  branch-width,
   branch-color,
   tip-label-size,
   tip-label-color,
@@ -395,7 +395,7 @@
   hide-internal-labels: false,
 ) = {
   let style = _build-render-tree-style(
-    branch-weight,
+    branch-width,
     branch-color,
     tip-label-size,
     tip-label-color,
@@ -437,7 +437,7 @@
 /// - width (length, auto, ratio, relative): Width of the tree visualization
 ///   including labels (default: 100%).
 /// - height (length, auto): Height of the tree area (default: auto).
-/// - branch-weight (length): Thickness of tree branches (default: 1pt).
+/// - branch-width (length): Thickness of tree branches (default: 1pt).
 /// - branch-color (color): Color of tree branches (default: black).
 /// - tip-label-size (length): Font size of tip labels (default: 1em).
 /// - tip-label-color (color, none): Color of tip labels (default: none, inherits from the document).
@@ -464,7 +464,7 @@
   tree-data,
   width: 100%,
   height: auto,
-  branch-weight: 1pt,
+  branch-width: 1pt,
   branch-color: black,
   tip-label-size: 1em,
   tip-label-color: none,
@@ -486,7 +486,7 @@
   _validate-render-rectangular-tree-args(
     width,
     height,
-    branch-weight,
+    branch-width,
     tip-label-size,
     internal-label-size,
     hide-internal-labels,
@@ -505,7 +505,7 @@
         tree-data,
         width,
         height,
-        branch-weight,
+        branch-width,
         branch-color,
         tip-label-size,
         tip-label-color,
@@ -539,7 +539,7 @@
 /// - tree-data (dictionary): Parsed or manually constructed tree data.
 /// - width (length, auto, ratio, relative): Width of the tree visualization including labels (default: 100%).
 /// - height (length, auto): Height of the tree area (default: auto).
-/// - branch-weight (length): Thickness of tree branches (default: 1pt).
+/// - branch-width (length): Thickness of tree branches (default: 1pt).
 /// - branch-color (color): Color of tree branches (default: black).
 /// - tip-label-size (length): Font size of tip labels (default: 1em).
 /// - tip-label-color (color, none): Color of tip labels (default: none, inherits from the document).
@@ -555,7 +555,7 @@
   tree-data,
   width: 100%,
   height: auto,
-  branch-weight: 1pt,
+  branch-width: 1pt,
   branch-color: black,
   tip-label-size: 1em,
   tip-label-color: none,
@@ -569,7 +569,7 @@
   _validate-render-unrooted-tree-args(
     width,
     height,
-    branch-weight,
+    branch-width,
     tip-label-size,
     internal-label-size,
     hide-internal-labels,
@@ -582,7 +582,7 @@
         tree-data,
         width,
         height,
-        branch-weight,
+        branch-width,
         branch-color,
         tip-label-size,
         tip-label-color,

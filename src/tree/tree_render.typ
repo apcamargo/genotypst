@@ -10,7 +10,7 @@
 ///
 /// - fitted-plan (dictionary): Output from `_fit-tree-plan`.
 /// - branch-color (color): Scale bar color.
-/// - branch-weight (length): Scale bar stroke thickness.
+/// - branch-width (length): Scale bar stroke thickness.
 /// - scale-length (auto, int, float): Requested scale length in branch-length units. Positive when not auto.
 /// - unit (str, none): Optional scale-bar unit.
 /// - min-auto-bar-width (length): Minimum rendered width used in auto mode.
@@ -20,7 +20,7 @@
 #let _build-scale-plan(
   fitted-plan,
   branch-color,
-  branch-weight,
+  branch-width,
   scale-length,
   unit,
   min-auto-bar-width,
@@ -60,7 +60,7 @@
     none,
     scale-label,
     branch-color,
-    branch-weight,
+    branch-width,
   )
 }
 

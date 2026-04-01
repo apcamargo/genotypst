@@ -191,7 +191,7 @@
     primitives.push((
       kind: "line",
       stroke: style.branch-stroke,
-      stroke-thickness: style.branch-weight,
+      stroke-thickness: style.branch-width,
       start-anchor: (
         tree: (x: root.x-unit, y: root.y-unit),
         page: (x: -style.root-length, y: 0pt),
@@ -212,7 +212,7 @@
       primitives.push((
         kind: "line",
         stroke: style.branch-stroke,
-        stroke-thickness: style.branch-weight,
+        stroke-thickness: style.branch-width,
         start-anchor: if rectangular {
           (
             tree: (x: parent.x-unit, y: node.y-unit),
@@ -277,7 +277,7 @@
       primitives.push((
         kind: "line",
         stroke: style.branch-stroke,
-        stroke-thickness: style.branch-weight,
+        stroke-thickness: style.branch-width,
         start-anchor: (
           tree: (x: node.x-unit, y: first-child.y-unit),
           page: _zero-point,
