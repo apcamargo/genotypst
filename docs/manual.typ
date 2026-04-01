@@ -400,7 +400,7 @@ Two types of trees can be produced: rectangular trees (`render-rectangular-tree`
       tip-label-italics: true,
       orientation: "horizontal",
     ),
-    caption: [Horizontal rectangular tree],
+    caption: [Horizontal rectangular tree.],
     supplement: none,
   ),
   figure(
@@ -410,7 +410,7 @@ Two types of trees can be produced: rectangular trees (`render-rectangular-tree`
       hide-internal-labels: true,
       layout: "daylight",
     ),
-    caption: [Unrooted tree using the daylight layout],
+    caption: [Unrooted tree using the daylight layout.],
     supplement: none,
   ),
 
@@ -458,7 +458,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
       set text(size: 0.8em)
       render-msa(dna_msa, breakable: false)
     },
-    caption: [Default document font],
+    caption: [Default document font.],
     supplement: none,
   ),
   figure(
@@ -466,7 +466,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
       set text(font: "Maple Mono", size: 0.76em)
       render-msa(dna_msa, breakable: false)
     },
-    caption: [Custom font (Maple Mono)],
+    caption: [Custom font (Maple Mono).],
     supplement: none,
   ),
 )
@@ -491,7 +491,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
       protein_pair_alignment.seq-2,
       protein_pair_alignment.traceback-paths.at(0),
     ),
-    caption: [Default document font],
+    caption: [Default document font.],
     supplement: none,
   ),
   figure(
@@ -503,7 +503,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
         protein_pair_alignment.traceback-paths.at(0),
       )
     },
-    caption: [Custom font (Libertinus Serif)],
+    caption: [Custom font (Libertinus Serif).],
     supplement: none,
   ),
 )
@@ -520,7 +520,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
   align: center + bottom,
   figure(
     render-sequence-logo(dna_msa),
-    caption: [Default document font],
+    caption: [Default document font.],
     supplement: none,
   ),
   figure(
@@ -528,7 +528,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
       show text: set text(font: "Libertinus Serif")
       render-sequence-logo(dna_msa)
     },
-    caption: [Custom font (Libertinus Serif)],
+    caption: [Custom font (Libertinus Serif).],
     supplement: none,
   ),
 )
@@ -546,7 +546,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
   gutter: 0.8cm,
   figure(
     render-genome-map(f_plasmid_locus),
-    caption: [Default document font],
+    caption: [Default document font.],
     supplement: none,
   ),
   figure(
@@ -554,7 +554,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
       show text: set text(font: "Libertinus Serif")
       render-genome-map(f_plasmid_locus)
     },
-    caption: [Custom font (Libertinus Serif)],
+    caption: [Custom font (Libertinus Serif).],
     supplement: none,
   ),
 )
@@ -579,7 +579,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
       tip-label-italics: true,
       orientation: "horizontal",
     ),
-    caption: [Default document font],
+    caption: [Default document font.],
     supplement: none,
   ),
   figure(
@@ -591,7 +591,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
         orientation: "horizontal",
       )
     },
-    caption: [Custom font (Libertinus Serif)],
+    caption: [Custom font (Libertinus Serif).],
     supplement: none,
   ),
 )

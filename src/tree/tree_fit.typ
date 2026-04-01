@@ -117,51 +117,24 @@
   }
 }
 
-/// Resolves the tree viewport and fitted primitives for rendering.
+/// Builds the prepared fit payload for tree fitting.
 ///
 /// - tree-plan (dictionary): Tree primitive plan.
-/// - style (dictionary): Tree style configuration.
-/// - orientation (str): Tree orientation.
-/// - width (length, auto, ratio, relative): Original rendered width argument.
-/// - height (length, auto): Target rendered tree height.
-/// - layout-size (dictionary): Available layout size.
-/// - fit-max-bands (int): Maximum number of exponentially growing bands.
-/// - fit-band-samples (int, none): Number of samples evaluated per fit band for independent-axis fitting.
-/// - optimize-uniform-rotation (bool): Whether uniform-fit layouts may search global rotations.
 /// -> dictionary
-#let _fit-tree-plan(
-  tree-plan,
-  style,
-  orientation,
-  width,
-  height,
-  layout-size,
-  fit-max-bands,
-  fit-band-samples: none,
-  optimize-uniform-rotation: false,
-) = {
+#let _prepare-fit-tree-plan(tree-plan) = {
   let measured-plan = _measure-tree-primitives(tree-plan)
   let fit-inputs = _prepare-fit-inputs(measured-plan)
-  let raw-width = layout-size.width
-  let provisional-width = _tree-width-is-unresolved(width, raw-width)
-  let width-mode = if width == auto {
-    "auto"
-  } else if provisional-width {
-    "provisional"
-  } else {
-    "resolved"
-  }
-  let height-mode = if height == auto { "auto" } else { "resolved" }
-  let fit-result = _tree-fit((
+  (
     fit-mode: measured-plan.fit-mode,
     layout-kind: measured-plan.layout-kind,
-    orientation: orientation,
-    prepared-lines: fit-inputs.prepared-lines.map(primitive => (
+    prepared-lines: fit-inputs.prepared-lines,
+    prepared-labels: fit-inputs.prepared-labels,
+    backend-prepared-lines: fit-inputs.prepared-lines.map(primitive => (
       start-anchor: primitive.start-anchor,
       end-anchor: primitive.end-anchor,
       half-stroke: primitive.half-stroke,
     )),
-    prepared-labels: fit-inputs.prepared-labels.map(primitive => (
+    backend-prepared-labels: fit-inputs.prepared-labels.map(primitive => (
       anchor-tree: primitive.anchor-tree,
       anchor-page: primitive.anchor-page,
       x-align: primitive.x-align,
@@ -178,6 +151,52 @@
     root-tree-point: fit-inputs.root-tree-point,
     tree-depth: fit-inputs.tree-depth,
     tree-height: fit-inputs.tree-height,
+  )
+}
+
+/// Fits the prepared fit payload into the available viewport.
+///
+/// - prepared-fit-plan (dictionary): Prepared fit payload used by the tree
+///   fitting step.
+/// - style (dictionary): Tree style record.
+/// - orientation (str): Tree orientation.
+/// - width (length, auto, ratio, relative): Original rendered width argument.
+/// - height (length, auto): Target rendered tree height.
+/// - layout-size (dictionary): Available layout size.
+/// - fit-max-bands (int): Maximum number of exponentially growing bands.
+/// - fit-band-samples (int, none): Number of samples evaluated per fit band for independent-axis fitting.
+/// - optimize-uniform-rotation (bool): Whether uniform-fit layouts may search global rotations.
+/// -> dictionary
+#let _fit-prepared-tree-plan(
+  prepared-fit-plan,
+  style,
+  orientation,
+  width,
+  height,
+  layout-size,
+  fit-max-bands,
+  fit-band-samples: none,
+  optimize-uniform-rotation: false,
+) = {
+  let raw-width = layout-size.width
+  let provisional-width = _tree-width-is-unresolved(width, raw-width)
+  let width-mode = if width == auto {
+    "auto"
+  } else if provisional-width {
+    "provisional"
+  } else {
+    "resolved"
+  }
+  let height-mode = if height == auto { "auto" } else { "resolved" }
+  let fit-result = _tree-fit((
+    fit-mode: prepared-fit-plan.fit-mode,
+    layout-kind: prepared-fit-plan.layout-kind,
+    orientation: orientation,
+    prepared-lines: prepared-fit-plan.backend-prepared-lines,
+    prepared-labels: prepared-fit-plan.backend-prepared-labels,
+    root-tree-point: prepared-fit-plan.root-tree-point,
+    tree-depth: prepared-fit-plan.tree-depth,
+    tree-height: prepared-fit-plan.tree-height,
     width-mode: width-mode,
     viewport-width: if width-mode == "resolved" {
       _resolve-length(raw-width)
@@ -191,7 +210,7 @@
       none
     },
     auto-height-floor: _resolve-length(
-      style.auto-height-scale * measured-plan.tree-height,
+      style.auto-height-scale * prepared-fit-plan.tree-height,
     ),
     fit-band-samples: fit-band-samples,
     fit-max-bands: fit-max-bands,
@@ -201,23 +220,23 @@
     tree-lines: fit-result.tree-lines.map(entry => (
       start: entry.start,
       end: entry.end,
-      stroke: fit-inputs.prepared-lines.at(entry.line-index).stroke,
+      stroke: prepared-fit-plan.prepared-lines.at(entry.line-index).stroke,
     )),
     tree-labels: fit-result.tree-labels.map(entry => (
       origin: entry.origin,
       rotation: entry.rotation,
-      content: fit-inputs.prepared-labels.at(entry.label-index).content,
+      content: prepared-fit-plan.prepared-labels.at(entry.label-index).content,
     )),
     tree-translation: fit-result.tree-translation,
     tree-occupied-bounds: fit-result.tree-occupied-bounds,
     width-unresolved: fit-result.width-unresolved,
     root-position: fit-result.root-position,
-    tree-depth: fit-inputs.tree-depth,
+    tree-depth: prepared-fit-plan.tree-depth,
     x-scale: fit-result.x-scale,
     y-scale: fit-result.y-scale,
     orientation: orientation,
     tree-viewport-width: fit-result.tree-viewport-width,
     tree-viewport-height: fit-result.tree-viewport-height,
-    tree-depth-span: fit-result.x-scale * fit-inputs.tree-depth,
+    tree-depth-span: fit-result.x-scale * prepared-fit-plan.tree-depth,
   )
 }

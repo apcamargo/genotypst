@@ -8,7 +8,8 @@
 
 /// Builds the optional scale-bar row.
 ///
-/// - fitted-plan (dictionary): Output from `_fit-tree-plan`.
+/// - fitted-plan (dictionary): Fitted tree data with viewport geometry and
+///   positioned primitives.
 /// - branch-color (color): Scale bar color.
 /// - branch-width (length): Scale bar stroke thickness.
 /// - scale-length (auto, int, float): Requested scale length in branch-length units. Positive when not auto.
@@ -66,7 +67,8 @@
 
 /// Renders a fitted tree plan and optional scale-bar row.
 ///
-/// - fitted-plan (dictionary): Output from `_fit-tree-plan`.
+/// - fitted-plan (dictionary): Fitted tree data with viewport geometry and
+///   positioned primitives.
 /// - scale-plan (content, none): Optional scale row.
 /// - scale-bar-gap (length): Gap between tree and scale bar.
 /// -> content

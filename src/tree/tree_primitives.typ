@@ -174,8 +174,8 @@
 
 /// Builds explicit tree primitives from a laid-out normalized tree.
 ///
-/// - layout-tree (dictionary): Output from the tree backend layout preparation.
-/// - style (dictionary): Tree styling configuration.
+/// - layout-tree (dictionary): Backend-prepared normalized tree layout.
+/// - style (dictionary): Tree style record.
 /// - orientation (str): Tree orientation.
 /// -> dictionary
 #let _build-tree-plan(layout-tree, style, orientation: "horizontal") = {

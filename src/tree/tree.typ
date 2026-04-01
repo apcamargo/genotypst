@@ -1,6 +1,6 @@
 #import "../common/colors.typ": _medium-gray
 #import "./tree_backend.typ": _tree-prepare-layout-backend
-#import "./tree_fit.typ": _fit-tree-plan
+#import "./tree_fit.typ": _fit-prepared-tree-plan, _prepare-fit-tree-plan
 #import "./tree_primitives.typ": _build-tree-plan
 #import "./tree_render.typ": _build-scale-plan, _render-tree-plan
 
@@ -250,11 +250,9 @@
   style
 }
 
-/// Prepares rectangular tree data for rendering.
+/// Prepares rectangular tree style record and prepared fit payload.
 ///
 /// - tree-data (dictionary): Parsed or manual tree data.
-/// - width (length, auto, ratio, relative): Original rendered width argument.
-/// - height (length, auto): Height of the rendered tree area.
 /// - branch-width (length): Branch stroke thickness.
 /// - branch-color (color): Branch color.
 /// - tip-label-size (length): Tip label size.
@@ -266,22 +264,13 @@
 /// - orientation (str): Tree orientation.
 /// - cladogram (bool): Whether cladogram mode is enabled.
 /// - scale-bar (bool): Whether scale bar rendering is enabled.
-/// - scale-length (auto, int, float): Requested scale-bar length in branch-length units. Positive when not auto.
-/// - unit (str, none): Optional scale-bar unit.
-/// - min-auto-bar-width (length): Minimum rendered width used in auto mode.
-/// - scale-bar-gap (length): Gap between tree and scale bar.
-/// - scale-tick-height (length): Scale-bar tick height.
-/// - scale-label-size (length): Scale-bar label size.
-/// - layout-size (dictionary): Available layout size.
 /// - hide-internal-labels (bool): Whether internal labels are omitted from
 ///   the prepared output.
 /// -> dictionary with keys:
-///   - fitted-plan (dictionary): Prepared tree layout data.
-///   - scale-plan (content, none): Optional scale-bar row.
-#let _prepare-rectangular-tree-render-at-size(
+///   - style (dictionary): Tree style record
+///   - prepared-fit-plan (dictionary): Prepared fit payload for tree fitting
+#let _prepare-rectangular-tree-render(
   tree-data,
-  width,
-  height,
   branch-width,
   branch-color,
   tip-label-size,
@@ -293,13 +282,6 @@
   orientation,
   cladogram,
   scale-bar,
-  scale-length,
-  unit,
-  min-auto-bar-width,
-  scale-bar-gap,
-  scale-tick-height,
-  scale-label-size,
-  layout-size,
   hide-internal-labels: false,
 ) = {
   let style = _build-rectangular-tree-style(
@@ -324,45 +306,15 @@
     message: "scale-bar cannot be used when the tree has no branch length information or when it is rendered as a cladogram.",
   )
   let tree-plan = _build-tree-plan(layout-tree, style, orientation: orientation)
-
-  let fitted-plan = _fit-tree-plan(
-    tree-plan,
-    style,
-    orientation,
-    width,
-    height,
-    layout-size,
-    _rectangular-fit-max-bands,
-    // Rectangular occupied span is monotone enough that one sample per band
-    // keeps the search cheap without changing the generic solver structure.
-    fit-band-samples: _rectangular-fit-band-samples,
-    optimize-uniform-rotation: false,
-  )
-  let scale-plan = if scale-bar and not fitted-plan.width-unresolved {
-    _build-scale-plan(
-      fitted-plan,
-      branch-color,
-      branch-width,
-      scale-length,
-      unit,
-      min-auto-bar-width,
-      scale-tick-height,
-      scale-label-size,
-    )
-  } else {
-    none
-  }
   (
-    fitted-plan: fitted-plan,
-    scale-plan: scale-plan,
+    style: style,
+    prepared-fit-plan: _prepare-fit-tree-plan(tree-plan),
   )
 }
 
-/// Prepares unrooted tree data for rendering.
+/// Prepares unrooted tree style record and prepared fit payload.
 ///
 /// - tree-data (dictionary): Parsed or manual tree data.
-/// - width (length, auto, ratio, relative): Original rendered width argument.
-/// - height (length, auto): Height of the rendered tree area.
 /// - branch-width (length): Branch stroke thickness.
 /// - branch-color (color): Branch color.
 /// - tip-label-size (length): Tip label size.
@@ -372,15 +324,13 @@
 /// - internal-label-color (color, none): Internal label color.
 /// - cladogram (bool): Whether cladogram mode is enabled.
 /// - layout (str): Unrooted layout name.
-/// - layout-size (dictionary): Available layout size.
-/// - optimize-rotation (bool): Whether automatic global rotation search is enabled.
 /// - hide-internal-labels (bool): Whether internal labels are omitted from
 ///   the prepared output.
-/// -> dictionary with key `fitted-plan`
-#let _prepare-unrooted-tree-render-at-size(
+/// -> dictionary with keys:
+///   - style (dictionary): Tree style record
+///   - prepared-fit-plan (dictionary): Prepared fit payload for tree fitting
+#let _prepare-unrooted-tree-render(
   tree-data,
-  width,
-  height,
   branch-width,
   branch-color,
   tip-label-size,
@@ -390,8 +340,6 @@
   internal-label-color,
   cladogram,
   layout,
-  layout-size,
-  optimize-rotation: true,
   hide-internal-labels: false,
 ) = {
   let style = _build-render-tree-style(
@@ -415,17 +363,10 @@
     style,
     orientation: "horizontal",
   )
-  let fitted-plan = _fit-tree-plan(
-    tree-plan,
-    style,
-    "horizontal",
-    width,
-    height,
-    layout-size,
-    _rectangular-fit-max-bands,
-    optimize-uniform-rotation: optimize-rotation,
+  (
+    style: style,
+    prepared-fit-plan: _prepare-fit-tree-plan(tree-plan),
   )
-  (fitted-plan: fitted-plan)
 }
 
 /// Draws a rectangular phylogenetic tree from parsed or manual tree data.
@@ -500,11 +441,9 @@
     scale-label-size,
   )
   block(width: width)[
-    #_tree-render-layout(size => context {
-      let prepared = _prepare-rectangular-tree-render-at-size(
+    #context {
+      let prepared = _prepare-rectangular-tree-render(
         tree-data,
-        width,
-        height,
         branch-width,
         branch-color,
         tip-label-size,
@@ -516,21 +455,43 @@
         orientation,
         cladogram,
         scale-bar,
-        scale-length,
-        unit,
-        min-auto-bar-width,
-        scale-bar-gap,
-        scale-tick-height,
-        scale-label-size,
-        size,
         hide-internal-labels: hide-internal-labels,
       )
-      _render-tree-plan(
-        prepared.fitted-plan,
-        prepared.scale-plan,
-        scale-bar-gap,
-      )
-    })
+      _tree-render-layout(size => context {
+        let fitted-plan = _fit-prepared-tree-plan(
+          prepared.prepared-fit-plan,
+          prepared.style,
+          orientation,
+          width,
+          height,
+          size,
+          _rectangular-fit-max-bands,
+          // Rectangular occupied span is monotone enough that one sample per band
+          // keeps the search cheap without changing the generic solver structure.
+          fit-band-samples: _rectangular-fit-band-samples,
+          optimize-uniform-rotation: false,
+        )
+        let scale-plan = if scale-bar and not fitted-plan.width-unresolved {
+          _build-scale-plan(
+            fitted-plan,
+            branch-color,
+            branch-width,
+            scale-length,
+            unit,
+            min-auto-bar-width,
+            scale-tick-height,
+            scale-label-size,
+          )
+        } else {
+          none
+        }
+        _render-tree-plan(
+          fitted-plan,
+          scale-plan,
+          scale-bar-gap,
+        )
+      })
+    }
   ]
 }
 
@@ -577,11 +538,9 @@
     layout,
   )
   block(width: width)[
-    #_tree-render-layout(size => context {
-      let prepared = _prepare-unrooted-tree-render-at-size(
+    #context {
+      let prepared = _prepare-unrooted-tree-render(
         tree-data,
-        width,
-        height,
         branch-width,
         branch-color,
         tip-label-size,
@@ -591,14 +550,25 @@
         internal-label-color,
         cladogram,
         layout,
-        size,
         hide-internal-labels: hide-internal-labels,
       )
-      _render-tree-plan(
-        prepared.fitted-plan,
-        none,
-        0pt,
-      )
-    })
+      _tree-render-layout(size => context {
+        let fitted-plan = _fit-prepared-tree-plan(
+          prepared.prepared-fit-plan,
+          prepared.style,
+          "horizontal",
+          width,
+          height,
+          size,
+          _rectangular-fit-max-bands,
+          optimize-uniform-rotation: true,
+        )
+        _render-tree-plan(
+          fitted-plan,
+          none,
+          0pt,
+        )
+      })
+    }
   ]
 }
