@@ -105,7 +105,7 @@
 /// - default-color (color): Default gene fill (default: light gray).
 /// - gene-outline-color (color): Gene outline and label leader/underline color (default: black).
 /// - label-color (color, none): Feature label color (default: none, inherits from the document).
-/// - stroke-width (length): Stroke width for gene outlines, label leaders/underlines, and scale/axis lines (default: 0.7pt).
+/// - stroke-width (length): Stroke width for gene outlines, label leaders/underlines, and scale/axis lines (default: 0.75pt).
 /// - label-size (length): Label font size (default: 0.8em).
 /// - label-horizontal-gap (length): Horizontal spacing between labels (default: 0.8pt).
 /// - label-vertical-gap (length): Vertical gap between label levels (default: 0.8em).
@@ -134,7 +134,7 @@
   default-color: _light-gray,
   gene-outline-color: black,
   label-color: none,
-  stroke-width: 0.7pt,
+  stroke-width: 0.75pt,
   label-size: 0.8em,
   label-horizontal-gap: 0.8pt,
   label-vertical-gap: 0.8em,

@@ -129,7 +129,7 @@
 /// - palette (dictionary, auto): Residue color palette (default: auto).
 /// - coordinate-axis (bool): Show coordinate axis under the logo (default: false).
 /// - axis-color (color): Axis line and label color (default: black).
-/// - axis-stroke-width (length): Axis line thickness (default: 0.7pt).
+/// - axis-stroke-width (length): Axis line thickness (default: 0.75pt).
 /// - axis-label-size (length): Axis label font size (default: 0.8em).
 /// - axis-tick-height (length): Axis tick height (default: 4.5pt).
 /// - axis-label-gap (length): Gap between ticks and labels (default: 2.5pt).
@@ -146,7 +146,7 @@
   palette: auto,
   coordinate-axis: false,
   axis-color: black,
-  axis-stroke-width: 0.7pt,
+  axis-stroke-width: 0.75pt,
   axis-label-size: 0.8em,
   axis-tick-height: 4.5pt,
   axis-label-gap: 2.5pt,
