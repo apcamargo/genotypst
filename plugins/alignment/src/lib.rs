@@ -1,22 +1,19 @@
-//! seq-align: Pairwise sequence alignment library
+//! seq-align: Pairwise sequence alignment WASM plugin
 
-pub mod aligners;
-pub mod alignment;
-pub mod matrices;
-pub mod output;
-pub mod scoring;
+mod aligners;
+mod alignment;
+mod matrices;
+mod output;
+mod scoring;
 
+use aligners::{GlobalAligner, LocalAligner};
+use matrices::BuiltinMatrix;
+use scoring::ScoringConfig;
 use serde::Deserialize;
+#[cfg(target_arch = "wasm32")]
 use wasm_minimal_protocol::*;
 
-// Re-export main types
-pub use aligners::{GlobalAligner, LocalAligner};
-pub use alignment::{AlignedPair, Aligner, AlignmentResult, Arrows, Cell, DPMatrix};
-pub use matrices::BuiltinMatrix;
-use matrices::matrix_data_by_name;
-pub use output::AlignmentResultOutput;
-pub use scoring::{AlignmentError, ScoringConfig, SubstitutionScorer};
-
+#[cfg(target_arch = "wasm32")]
 initiate_protocol!();
 
 /// Configuration for alignment, deserialized from JSON.
@@ -66,8 +63,8 @@ impl AlignConfig {
 /// * `config` - JSON-encoded configuration object
 ///
 /// # Returns
-/// JSON bytes of AlignmentResultOutput or an error string.
-#[wasm_func]
+/// JSON bytes of the alignment result payload or an error string.
+#[cfg_attr(target_arch = "wasm32", wasm_func)]
 pub fn align(seq1: &[u8], seq2: &[u8], config: &[u8]) -> Result<Vec<u8>, String> {
     let seq1_str =
         std::str::from_utf8(seq1).map_err(|e| format!("Invalid UTF-8 in seq1: {}", e))?;
@@ -94,28 +91,22 @@ pub fn align(seq1: &[u8], seq2: &[u8], config: &[u8]) -> Result<Vec<u8>, String>
         )
     };
 
-    let result = match config.mode.to_lowercase().as_str() {
-        "global" => {
-            let aligner = GlobalAligner::new(scoring);
-            aligner.align(seq1_str.as_bytes(), seq2_str.as_bytes())
-        }
-        "local" => {
-            let aligner = LocalAligner::new(scoring);
-            aligner.align(seq1_str.as_bytes(), seq2_str.as_bytes())
-        }
-        _ => {
-            return Err(format!(
-                "Unknown alignment mode '{}'. Use 'global' or 'local'.",
-                config.mode
-            ));
-        }
+    let result = if config.mode.eq_ignore_ascii_case("global") {
+        let aligner = GlobalAligner::new(scoring);
+        aligner.align(seq1_str.as_bytes(), seq2_str.as_bytes())
+    } else if config.mode.eq_ignore_ascii_case("local") {
+        let aligner = LocalAligner::new(scoring);
+        aligner.align(seq1_str.as_bytes(), seq2_str.as_bytes())
+    } else {
+        return Err(format!(
+            "Unknown alignment mode '{}'. Use 'global' or 'local'.",
+            config.mode
+        ));
     };
 
     match result {
-        Ok(alignment_result) => {
-            let output = AlignmentResultOutput::from(&alignment_result);
-            serde_json::to_vec(&output).map_err(|e| format!("Serialization failed: {}", e))
-        }
+        Ok(alignment_result) => output::serialize_alignment_result(&alignment_result)
+            .map_err(|e| format!("Serialization failed: {}", e)),
         Err(e) => Err(e.to_string()),
     }
 }
@@ -127,19 +118,19 @@ pub fn align(seq1: &[u8], seq2: &[u8], config: &[u8]) -> Result<Vec<u8>, String>
 ///
 /// # Returns
 /// JSON bytes with matrix data (name, alphabet, scores) or an error string.
-#[wasm_func]
+#[cfg_attr(target_arch = "wasm32", wasm_func)]
 pub fn matrix_info(name: &[u8]) -> Result<Vec<u8>, String> {
     let name_str =
         std::str::from_utf8(name).map_err(|e| format!("Invalid UTF-8 in matrix name: {}", e))?;
 
-    let data = matrix_data_by_name(name_str)
+    let matrix = BuiltinMatrix::from_str(name_str)
         .ok_or_else(|| format!("Unknown matrix name: '{}'", name_str))?;
 
     // Convert alphabet from Vec<u8> to Vec<String> for JSON output
     let output = serde_json::json!({
-        "name": data.name,
-        "alphabet": data.alphabet.iter().map(|&b| (b as char).to_string()).collect::<Vec<_>>(),
-        "scores": data.scores
+        "name": matrix.name(),
+        "alphabet": matrix.alphabet().iter().map(|&b| (b as char).to_string()).collect::<Vec<_>>(),
+        "scores": matrix.scores()
     });
 
     serde_json::to_vec(&output).map_err(|e| format!("Serialization failed: {}", e))
@@ -149,7 +140,7 @@ pub fn matrix_info(name: &[u8]) -> Result<Vec<u8>, String> {
 ///
 /// # Returns
 /// JSON bytes with array of matrix names.
-#[wasm_func]
+#[cfg_attr(target_arch = "wasm32", wasm_func)]
 pub fn list_matrices() -> Result<Vec<u8>, String> {
     let names = BuiltinMatrix::all_names();
     let result = serde_json::json!({ "matrices": names });

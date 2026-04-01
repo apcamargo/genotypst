@@ -1,13 +1,12 @@
 //! Scoring systems for sequence alignment.
 
-use serde::{Deserialize, Serialize};
 use std::fmt;
 
 use crate::matrices::BuiltinMatrix;
 
 /// Error type for alignment and scoring.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum AlignmentError {
+#[derive(Debug, Clone)]
+pub(crate) enum AlignmentError {
     /// Character not found in substitution matrix
     InvalidCharacter(u8),
     /// Other error
@@ -28,8 +27,8 @@ impl fmt::Display for AlignmentError {
 impl std::error::Error for AlignmentError {}
 
 /// Substitution scoring source: either simple match/mismatch or a matrix.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum SubstitutionScorer {
+#[derive(Debug, Clone)]
+pub(crate) enum SubstitutionScorer {
     /// Simple match/mismatch scoring
     Simple {
         match_score: i32,
@@ -40,28 +39,8 @@ pub enum SubstitutionScorer {
 }
 
 impl SubstitutionScorer {
-    /// Returns the score for aligning character `a` with character `b`.
-    ///
-    /// # Errors
-    /// Returns `AlignmentError::InvalidCharacter` if a character is not found in the matrix.
-    pub fn score(&self, a: u8, b: u8) -> Result<i32, AlignmentError> {
-        match self {
-            SubstitutionScorer::Simple {
-                match_score,
-                mismatch_score,
-            } => {
-                if a.to_ascii_uppercase() == b.to_ascii_uppercase() {
-                    Ok(*match_score)
-                } else {
-                    Ok(*mismatch_score)
-                }
-            }
-            SubstitutionScorer::Matrix(bm) => bm.score(a, b),
-        }
-    }
-
     /// Validates that all characters in a sequence are valid for this scorer.
-    pub fn validate(&self, seq: &[u8]) -> Result<(), AlignmentError> {
+    pub(crate) fn validate(&self, seq: &[u8]) -> Result<(), AlignmentError> {
         match self {
             SubstitutionScorer::Simple { .. } => Ok(()), // All bytes are theoretically valid for simple
             SubstitutionScorer::Matrix(bm) => {
@@ -78,11 +57,11 @@ impl SubstitutionScorer {
 }
 
 /// Combined scoring configuration for alignment algorithms.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ScoringConfig {
-    pub scorer: SubstitutionScorer,
-    pub gap_open: i32,
-    pub gap_extend: i32,
+#[derive(Debug, Clone)]
+pub(crate) struct ScoringConfig {
+    pub(crate) scorer: SubstitutionScorer,
+    pub(crate) gap_open: i32,
+    pub(crate) gap_extend: i32,
 }
 
 impl Default for ScoringConfig {
@@ -99,7 +78,12 @@ impl Default for ScoringConfig {
 }
 
 impl ScoringConfig {
-    pub fn linear(match_score: i32, mismatch_score: i32, gap_open: i32, gap_extend: i32) -> Self {
+    pub(crate) fn linear(
+        match_score: i32,
+        mismatch_score: i32,
+        gap_open: i32,
+        gap_extend: i32,
+    ) -> Self {
         Self {
             scorer: SubstitutionScorer::Simple {
                 match_score,
@@ -110,7 +94,7 @@ impl ScoringConfig {
         }
     }
 
-    pub fn with_matrix(matrix: BuiltinMatrix, gap_open: i32, gap_extend: i32) -> Self {
+    pub(crate) fn with_matrix(matrix: BuiltinMatrix, gap_open: i32, gap_extend: i32) -> Self {
         Self {
             scorer: SubstitutionScorer::Matrix(matrix),
             gap_open,
@@ -118,15 +102,11 @@ impl ScoringConfig {
         }
     }
 
-    pub fn is_affine(&self) -> bool {
+    pub(crate) fn is_affine(&self) -> bool {
         self.gap_open != self.gap_extend
     }
 
-    pub fn substitution_score(&self, a: u8, b: u8) -> Result<i32, AlignmentError> {
-        self.scorer.score(a, b)
-    }
-
-    pub fn gap_penalty(&self, length: usize) -> i32 {
+    pub(crate) fn gap_penalty(&self, length: usize) -> i32 {
         if length == 0 {
             0
         } else if self.is_affine() {
@@ -137,7 +117,7 @@ impl ScoringConfig {
         }
     }
 
-    pub fn ensure_linear(&self) -> Result<(), AlignmentError> {
+    pub(crate) fn ensure_linear(&self) -> Result<(), AlignmentError> {
         if self.is_affine() {
             Err(AlignmentError::Other(format!(
                 "Affine gap penalties are not supported yet (gap_open={}, gap_extend={})",
@@ -153,61 +133,96 @@ impl ScoringConfig {
 mod tests {
     use super::*;
 
+    fn matrix_score(matrix: BuiltinMatrix, a: u8, b: u8) -> Result<i32, AlignmentError> {
+        let map = matrix.lookup_map();
+        let i = map[a as usize].ok_or(AlignmentError::InvalidCharacter(a))?;
+        let j = map[b as usize].ok_or(AlignmentError::InvalidCharacter(b))?;
+        let n = matrix.score_dimension();
+        Ok(matrix.scores()[i as usize * n + j as usize])
+    }
+
     #[test]
     fn test_simple_scoring() {
         let scorer = SubstitutionScorer::Simple {
             match_score: 5,
             mismatch_score: -3,
         };
-        assert_eq!(scorer.score(b'A', b'A').unwrap(), 5);
-        assert_eq!(scorer.score(b'A', b'T').unwrap(), -3);
-        assert_eq!(scorer.score(b'a', b'A').unwrap(), 5);
+        match scorer {
+            SubstitutionScorer::Simple {
+                match_score,
+                mismatch_score,
+            } => {
+                assert_eq!(match_score, 5);
+                assert_eq!(mismatch_score, -3);
+            }
+            SubstitutionScorer::Matrix(_) => panic!("expected simple scorer"),
+        }
     }
 
     #[test]
     fn test_blosum62_scoring() {
         let scorer = SubstitutionScorer::Matrix(BuiltinMatrix::Blosum62);
-        // A-A: 4, A-R: -1
-        assert_eq!(scorer.score(b'A', b'A').unwrap(), 4);
-        assert_eq!(scorer.score(b'a', b'A').unwrap(), 4);
-        assert_eq!(scorer.score(b'A', b'R').unwrap(), -1);
-        assert_eq!(scorer.score(b'W', b'W').unwrap(), 11);
+        if let SubstitutionScorer::Matrix(matrix) = scorer {
+            // A-A: 4, A-R: -1
+            assert_eq!(matrix_score(matrix, b'A', b'A').unwrap(), 4);
+            assert_eq!(matrix_score(matrix, b'a', b'A').unwrap(), 4);
+            assert_eq!(matrix_score(matrix, b'A', b'R').unwrap(), -1);
+            assert_eq!(matrix_score(matrix, b'W', b'W').unwrap(), 11);
+        } else {
+            panic!("expected matrix scorer");
+        }
     }
 
     #[test]
     fn test_ednafull_scoring() {
         let scorer = SubstitutionScorer::Matrix(BuiltinMatrix::Ednafull);
-        // A-A: 5, A-T: -4
-        assert_eq!(scorer.score(b'A', b'A').unwrap(), 5);
-        assert_eq!(scorer.score(b'A', b'T').unwrap(), -4);
-        // N-N: -1
-        assert_eq!(scorer.score(b'N', b'N').unwrap(), -1);
+        if let SubstitutionScorer::Matrix(matrix) = scorer {
+            // A-A: 5, A-T: -4
+            assert_eq!(matrix_score(matrix, b'A', b'A').unwrap(), 5);
+            assert_eq!(matrix_score(matrix, b'A', b'T').unwrap(), -4);
+            // N-N: -1
+            assert_eq!(matrix_score(matrix, b'N', b'N').unwrap(), -1);
+        } else {
+            panic!("expected matrix scorer");
+        }
     }
 
     #[test]
     fn test_pam250_scoring() {
         let scorer = SubstitutionScorer::Matrix(BuiltinMatrix::from_str("PAM250").unwrap());
-        // A-A: 2, A-R: -2, W-W: 17
-        assert_eq!(scorer.score(b'A', b'A').unwrap(), 2);
-        assert_eq!(scorer.score(b'A', b'R').unwrap(), -2);
-        assert_eq!(scorer.score(b'W', b'W').unwrap(), 17);
+        if let SubstitutionScorer::Matrix(matrix) = scorer {
+            // A-A: 2, A-R: -2, W-W: 17
+            assert_eq!(matrix_score(matrix, b'A', b'A').unwrap(), 2);
+            assert_eq!(matrix_score(matrix, b'A', b'R').unwrap(), -2);
+            assert_eq!(matrix_score(matrix, b'W', b'W').unwrap(), 17);
+        } else {
+            panic!("expected matrix scorer");
+        }
     }
 
     #[test]
     fn test_pam1_scoring() {
         let scorer = SubstitutionScorer::Matrix(BuiltinMatrix::from_str("PAM1").unwrap());
-        // A-A: 7
-        assert_eq!(scorer.score(b'A', b'A').unwrap(), 7);
-        // A-W: -inf (i32::MIN)
-        assert_eq!(scorer.score(b'A', b'W').unwrap(), i32::MIN);
+        if let SubstitutionScorer::Matrix(matrix) = scorer {
+            // A-A: 7
+            assert_eq!(matrix_score(matrix, b'A', b'A').unwrap(), 7);
+            // A-W: -inf (i32::MIN)
+            assert_eq!(matrix_score(matrix, b'A', b'W').unwrap(), i32::MIN);
+        } else {
+            panic!("expected matrix scorer");
+        }
     }
 
     #[test]
     fn test_invalid_character_error() {
         let scorer = SubstitutionScorer::Matrix(BuiltinMatrix::Ednafull);
-        // 'X' is not in EDNAFULL
-        let res = scorer.score(b'X', b'A');
-        assert!(matches!(res, Err(AlignmentError::InvalidCharacter(b'X'))));
+        if let SubstitutionScorer::Matrix(matrix) = scorer {
+            // 'X' is not in EDNAFULL
+            let res = matrix_score(matrix, b'X', b'A');
+            assert!(matches!(res, Err(AlignmentError::InvalidCharacter(b'X'))));
+        } else {
+            panic!("expected matrix scorer");
+        }
 
         let res_v = scorer.validate(b"ATGCX");
         assert!(matches!(res_v, Err(AlignmentError::InvalidCharacter(b'X'))));

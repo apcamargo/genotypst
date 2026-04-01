@@ -125,7 +125,8 @@
 ///
 /// Renders a multiple sequence alignment with optional residue coloring and
 /// conservation bars. Sequences are displayed in blocks of `max-seq-width`
-/// characters to fit within the document.
+/// characters to fit within the document. Empty alignments render nothing and
+/// return `none`.
 ///
 /// - alignment (dictionary): A dictionary mapping sequence identifiers to aligned sequences.
 /// - max-acc-width (int): Maximum width for accession display (default: 20).
@@ -138,7 +139,7 @@
 /// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna" (default: auto).
 /// - breakable (bool): Allow blocks to break across pages (default: true).
 /// - palette (dictionary, auto): Residue color palette (default: auto).
-/// -> content
+/// -> content, none
 #let render-msa(
   alignment,
   max-acc-width: 20,

@@ -160,9 +160,7 @@ fn main() {
             )
             .unwrap();
 
-            let map_str = format!("{:?}", map)
-                .replace("None", "None")
-                .replace("Some", "Some");
+            let map_str = format!("{:?}", map);
             writeln!(
                 f,
                 "const {}_MAP: [Option<u8>; 256] = {};",
@@ -222,58 +220,50 @@ fn main() {
     writeln!(
         f,
         "
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-pub enum BuiltinMatrix {{
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BuiltinMatrix {{
     {}
 }}
 
 impl BuiltinMatrix {{
-    pub fn from_str(s: &str) -> Option<Self> {{
+    pub(crate) fn from_str(s: &str) -> Option<Self> {{
         match s.to_ascii_uppercase().as_str() {{
             {},
             _ => None,
         }}
     }}
 
-    pub fn name(&self) -> &'static str {{
+    pub(crate) fn name(&self) -> &'static str {{
         match self {{
             {}
         }}
     }}
 
-    pub fn score_dimension(&self) -> usize {{
+    pub(crate) fn score_dimension(&self) -> usize {{
         match self {{
             {}
         }}
     }}
 
-    pub fn scores(&self) -> &'static [i32] {{
+    pub(crate) fn scores(&self) -> &'static [i32] {{
         match self {{
             {}
         }}
     }}
 
-    pub fn lookup_map(&self) -> &'static [Option<u8>; 256] {{
+    pub(crate) fn lookup_map(&self) -> &'static [Option<u8>; 256] {{
         match self {{
             {}
         }}
     }}
 
-    pub fn alphabet(&self) -> &'static [u8] {{
+    pub(crate) fn alphabet(&self) -> &'static [u8] {{
         match self {{
             {}
         }}
     }}
 
-    pub fn score(&self, a: u8, b: u8) -> Result<i32, AlignmentError> {{
-        let map = self.lookup_map();
-        let i = map[a as usize].ok_or(AlignmentError::InvalidCharacter(a))?;
-        let j = map[b as usize].ok_or(AlignmentError::InvalidCharacter(b))?;
-        let n = self.score_dimension();
-        Ok(self.scores()[i as usize * n + j as usize])
-    }}
-
-    pub fn all_names() -> &'static [&'static str] {{
+    pub(crate) fn all_names() -> &'static [&'static str] {{
         &[{}]
     }}
 }}

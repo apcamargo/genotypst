@@ -721,15 +721,6 @@ struct HorizontalPlacement {
     placement_angle_half_turn: f64,
 }
 
-fn is_tree_rooted(tree: &NewickTree) -> bool {
-    let root_id = tree.root();
-    if let Ok(root_node) = tree.get(root_id) {
-        root_node.children().len() == 2
-    } else {
-        false
-    }
-}
-
 fn normalize_label(raw: &str) -> String {
     if let Some(inner) = raw.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')) {
         inner.replace("''", "'")
@@ -822,10 +813,6 @@ fn parse_raw_tree(value: &Value, is_root: bool) -> Result<RawTreeNode, String> {
         children,
         rooted,
     })
-}
-
-fn normalize_tree_label(name: Option<String>) -> Option<String> {
-    name.and_then(|value| if value.is_empty() { None } else { Some(value) })
 }
 
 fn merge_unrooted_root_branch_lengths(first: Option<f64>, second: Option<f64>) -> Option<f64> {
@@ -959,7 +946,7 @@ fn normalize_tree_node(
     let label_text = if hide_internal_labels && !node.children.is_empty() {
         None
     } else {
-        normalize_tree_label(node.name.clone())
+        node.name.clone().filter(|value| !value.is_empty())
     };
     nodes.push(InternalNode {
         id,
@@ -1789,13 +1776,6 @@ fn transform_point(x: f64, y: f64, orientation: Orientation) -> Point {
     }
 }
 
-fn translate_point(point: Point, translate_x: f64, translate_y: f64) -> Point {
-    Point {
-        x: point.x + translate_x,
-        y: point.y + translate_y,
-    }
-}
-
 fn rotate_page_vector(point: Point, rotation_deg: f64) -> Point {
     let theta = rotation_deg.to_radians();
     let cos_theta = theta.cos();
@@ -2012,11 +1992,10 @@ fn materialize_label_anchor(
         primitive.anchor_tree.y * y_scale_pt,
         orientation,
     );
-    translate_point(
-        transformed,
-        primitive.anchor_page.x,
-        primitive.anchor_page.y,
-    )
+    Point {
+        x: transformed.x + primitive.anchor_page.x,
+        y: transformed.y + primitive.anchor_page.y,
+    }
 }
 
 fn materialize_label_geometry(
@@ -3415,11 +3394,10 @@ fn finalize_fitted_tree_plan(
             width: occupied_bounds.width,
             height: occupied_bounds.height,
         },
-        root_position_pt: translate_point(
-            materialized_tree.root_position,
-            translate_x,
-            translate_y,
-        ),
+        root_position_pt: Point {
+            x: materialized_tree.root_position.x + translate_x,
+            y: materialized_tree.root_position.y + translate_y,
+        },
         tree_lines: materialized_tree
             .tree_lines
             .into_iter()
@@ -3479,8 +3457,11 @@ pub fn parse_newick(input: &[u8]) -> Result<Vec<u8>, String> {
     let tree = one_from_string(&input_str)
         .map_err(|_| format!("Failed to parse Newick string: {input_str}"))?;
 
-    let is_rooted = is_tree_rooted(&tree);
     let root_id = tree.root();
+    let is_rooted = tree
+        .get(root_id)
+        .map(|root_node| root_node.children().len() == 2)
+        .unwrap_or(false);
     let simple_tree = convert_node_to_simple(&tree, root_id)?;
 
     let result = ParseResult {

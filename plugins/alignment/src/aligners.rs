@@ -1,24 +1,55 @@
 //! Pairwise alignment algorithms.
 
 use crate::alignment::{
-    Aligner, AlignmentResult, Arrows, Cell, DPMatrix, fill_matrix_linear, traceback_all_paths,
+    AlignmentResult, Arrows, Cell, DPMatrix, fill_matrix_linear, traceback_all_paths,
 };
 use crate::scoring::{AlignmentError, ScoringConfig};
 
 /// Global alignment algorithm.
 #[derive(Debug, Clone)]
-pub struct GlobalAligner {
+pub(crate) struct GlobalAligner {
     scoring: ScoringConfig,
 }
 
 impl GlobalAligner {
-    pub fn new(scoring: ScoringConfig) -> Self {
+    pub(crate) fn new(scoring: ScoringConfig) -> Self {
         Self { scoring }
     }
 
-    #[cfg(test)]
-    pub fn with_defaults() -> Self {
-        Self::new(ScoringConfig::default())
+    pub(crate) fn align(
+        &self,
+        seq1: &[u8],
+        seq2: &[u8],
+    ) -> Result<AlignmentResult, AlignmentError> {
+        let n = seq1.len();
+        let m = seq2.len();
+
+        self.scoring.ensure_linear()?;
+
+        // Validate sequences first
+        self.scoring.scorer.validate(seq1)?;
+        self.scoring.scorer.validate(seq2)?;
+
+        let mut matrix = self.initialize_matrix(n, m);
+        fill_matrix_linear(&mut matrix, seq1, seq2, &self.scoring, false);
+
+        let final_score = matrix.get(n, m).score;
+        let start_positions = [(n, m)];
+        let (traceback_paths, alignments) = traceback_all_paths(
+            &matrix,
+            seq1,
+            seq2,
+            &start_positions,
+            |i, j, _| i == 0 && j == 0,
+            false,
+        );
+
+        Ok(AlignmentResult {
+            matrix,
+            traceback_paths,
+            alignments,
+            final_score,
+        })
     }
 
     fn initialize_matrix(&self, n: usize, m: usize) -> DPMatrix {
@@ -43,43 +74,6 @@ impl GlobalAligner {
     }
 }
 
-impl Aligner for GlobalAligner {
-    fn align(&self, seq1: &[u8], seq2: &[u8]) -> Result<AlignmentResult, AlignmentError> {
-        let n = seq1.len();
-        let m = seq2.len();
-
-        self.scoring.ensure_linear()?;
-
-        // Validate sequences first
-        self.scoring.scorer.validate(seq1)?;
-        self.scoring.scorer.validate(seq2)?;
-
-        let mut matrix = self.initialize_matrix(n, m);
-        fill_matrix_linear(&mut matrix, seq1, seq2, &self.scoring, false)?;
-
-        let final_score = matrix.get(n, m).score;
-        let start_positions = [(n, m)];
-        let (traceback_paths, alignments) = traceback_all_paths(
-            &matrix,
-            seq1,
-            seq2,
-            &start_positions,
-            |i, j, _| i == 0 && j == 0,
-            false,
-        );
-
-        Ok(AlignmentResult {
-            seq1: String::from_utf8_lossy(seq1).into_owned(),
-            seq2: String::from_utf8_lossy(seq2).into_owned(),
-            scoring: self.scoring.clone(),
-            matrix,
-            traceback_paths,
-            alignments,
-            final_score,
-        })
-    }
-}
-
 #[cfg(test)]
 mod global_tests {
     use super::*;
@@ -87,7 +81,7 @@ mod global_tests {
 
     #[test]
     fn test_identical_sequences() {
-        let aligner = GlobalAligner::with_defaults();
+        let aligner = GlobalAligner::new(ScoringConfig::default());
         let result = aligner.align(b"ACGT", b"ACGT").unwrap();
 
         // All matches: 4 * 3 = 12
@@ -107,8 +101,28 @@ mod global_tests {
     }
 
     #[test]
+    fn test_simple_alignment_is_case_insensitive() {
+        let aligner = GlobalAligner::new(ScoringConfig::default());
+        let result = aligner.align(b"aCgT", b"AcGt").unwrap();
+
+        assert_eq!(result.final_score, 12);
+        assert_eq!(result.alignments[0].seq1_aligned, "aCgT");
+        assert_eq!(result.alignments[0].seq2_aligned, "AcGt");
+    }
+
+    #[test]
+    fn test_traceback_preserves_utf8_sequences() {
+        let aligner = GlobalAligner::new(ScoringConfig::default());
+        let result = aligner.align("á".as_bytes(), "á".as_bytes()).unwrap();
+
+        assert_eq!(result.final_score, 6);
+        assert_eq!(result.alignments[0].seq1_aligned, "á");
+        assert_eq!(result.alignments[0].seq2_aligned, "á");
+    }
+
+    #[test]
     fn test_with_gaps() {
-        let aligner = GlobalAligner::with_defaults();
+        let aligner = GlobalAligner::new(ScoringConfig::default());
         let result = aligner.align(b"ACGT", b"AGT").unwrap();
 
         assert!(
@@ -120,8 +134,22 @@ mod global_tests {
     }
 
     #[test]
+    fn test_ambiguous_traceback_preserves_branch_order() {
+        let scoring = ScoringConfig::linear(1, -1, 0, 0);
+        let aligner = GlobalAligner::new(scoring);
+        let result = aligner.align(b"AAA", b"AA").unwrap();
+        let seq2_alignments: Vec<&str> = result
+            .alignments
+            .iter()
+            .map(|alignment| alignment.seq2_aligned.as_str())
+            .collect();
+
+        assert_eq!(seq2_alignments, vec!["-AA", "A-A", "AA-"]);
+    }
+
+    #[test]
     fn test_empty_sequence() {
-        let aligner = GlobalAligner::with_defaults();
+        let aligner = GlobalAligner::new(ScoringConfig::default());
         let result = aligner.align(b"ACGT", b"").unwrap();
 
         // All gaps: 4 * -2 = -8
@@ -171,38 +199,20 @@ mod global_tests {
 
 /// Local alignment algorithm.
 #[derive(Debug, Clone)]
-pub struct LocalAligner {
+pub(crate) struct LocalAligner {
     scoring: ScoringConfig,
 }
 
 impl LocalAligner {
-    pub fn new(scoring: ScoringConfig) -> Self {
+    pub(crate) fn new(scoring: ScoringConfig) -> Self {
         Self { scoring }
     }
 
-    #[cfg(test)]
-    pub fn with_defaults() -> Self {
-        Self::new(ScoringConfig::default())
-    }
-
-    fn initialize_matrix(&self, n: usize, m: usize) -> DPMatrix {
-        // In local alignment, first row and column are initialized to 0
-        // (no arrows needed - they represent the option to start fresh)
-        let mut matrix = DPMatrix::new(n + 1, m + 1);
-
-        for i in 0..=n {
-            matrix.set(i, 0, Cell::new(0));
-        }
-        for j in 0..=m {
-            matrix.set(0, j, Cell::new(0));
-        }
-
-        matrix
-    }
-}
-
-impl Aligner for LocalAligner {
-    fn align(&self, seq1: &[u8], seq2: &[u8]) -> Result<AlignmentResult, AlignmentError> {
+    pub(crate) fn align(
+        &self,
+        seq1: &[u8],
+        seq2: &[u8],
+    ) -> Result<AlignmentResult, AlignmentError> {
         let n = seq1.len();
         let m = seq2.len();
 
@@ -213,7 +223,7 @@ impl Aligner for LocalAligner {
         self.scoring.scorer.validate(seq2)?;
 
         let mut matrix = self.initialize_matrix(n, m);
-        let fill_result = fill_matrix_linear(&mut matrix, seq1, seq2, &self.scoring, true)?;
+        let fill_result = fill_matrix_linear(&mut matrix, seq1, seq2, &self.scoring, true);
         let final_score = fill_result.max_score;
         let max_positions = fill_result.max_positions;
 
@@ -232,14 +242,26 @@ impl Aligner for LocalAligner {
         };
 
         Ok(AlignmentResult {
-            seq1: String::from_utf8_lossy(seq1).into_owned(),
-            seq2: String::from_utf8_lossy(seq2).into_owned(),
-            scoring: self.scoring.clone(),
             matrix,
             traceback_paths,
             alignments,
             final_score,
         })
+    }
+
+    fn initialize_matrix(&self, n: usize, m: usize) -> DPMatrix {
+        // In local alignment, first row and column are initialized to 0
+        // (no arrows needed - they represent the option to start fresh)
+        let mut matrix = DPMatrix::new(n + 1, m + 1);
+
+        for i in 0..=n {
+            matrix.set(i, 0, Cell::new(0));
+        }
+        for j in 0..=m {
+            matrix.set(0, j, Cell::new(0));
+        }
+
+        matrix
     }
 }
 
@@ -249,7 +271,7 @@ mod local_tests {
 
     #[test]
     fn test_identical_sequences() {
-        let aligner = LocalAligner::with_defaults();
+        let aligner = LocalAligner::new(ScoringConfig::default());
         let result = aligner.align(b"ACGT", b"ACGT").unwrap();
 
         // All matches: 4 * 3 = 12
@@ -292,7 +314,7 @@ mod local_tests {
 
     #[test]
     fn test_first_row_col_are_zero() {
-        let aligner = LocalAligner::with_defaults();
+        let aligner = LocalAligner::new(ScoringConfig::default());
         let result = aligner.align(b"ACG", b"ACG").unwrap();
 
         // First row should all be 0
@@ -307,7 +329,7 @@ mod local_tests {
 
     #[test]
     fn test_no_negative_scores() {
-        let aligner = LocalAligner::with_defaults();
+        let aligner = LocalAligner::new(ScoringConfig::default());
         let result = aligner.align(b"ACGT", b"TGCA").unwrap();
 
         // All cells should have score >= 0

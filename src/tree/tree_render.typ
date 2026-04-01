@@ -6,16 +6,6 @@
 /// Numeric tolerance used when fitting trees into a viewport.
 #let _fit-tolerance = 0.1pt
 
-/// Translates a point by a viewport offset.
-///
-/// - point (dictionary): Point to translate.
-/// - translate-x (length): Horizontal translation.
-/// - translate-y (length): Vertical translation.
-/// -> dictionary
-#let _translate-point(point, translate-x, translate-y) = {
-  (x: point.x + translate-x, y: point.y + translate-y)
-}
-
 /// Builds the optional scale-bar row.
 ///
 /// - fitted-plan (dictionary): Output from `_fit-tree-plan`.
@@ -87,15 +77,13 @@
     height: fitted-plan.tree-viewport-height,
     {
       for primitive in fitted-plan.tree-lines {
-        let start = _translate-point(
-          primitive.start,
-          tree-translation.x,
-          tree-translation.y,
+        let start = (
+          x: primitive.start.x + tree-translation.x,
+          y: primitive.start.y + tree-translation.y,
         )
-        let end = _translate-point(
-          primitive.end,
-          tree-translation.x,
-          tree-translation.y,
+        let end = (
+          x: primitive.end.x + tree-translation.x,
+          y: primitive.end.y + tree-translation.y,
         )
         let dx = calc.abs(end.x - start.x)
         let dy = calc.abs(end.y - start.y)
@@ -122,10 +110,9 @@
         }
       }
       for primitive in fitted-plan.tree-labels {
-        let origin = _translate-point(
-          primitive.origin,
-          tree-translation.x,
-          tree-translation.y,
+        let origin = (
+          x: primitive.origin.x + tree-translation.x,
+          y: primitive.origin.y + tree-translation.y,
         )
         place(
           top + left,

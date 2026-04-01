@@ -37,106 +37,83 @@
   }
 }
 
-/// Private: Validate flat arrow list structure and coordinate bounds.
-#let _validate-arrows(arrows, max-row, max-col) = {
-  assert(type(arrows) == array, message: "arrows must be an array.")
-  if arrows.len() == 0 { return none }
+/// Private: Convert row/column coordinates to a row-major index.
+#let _matrix-index(row, col, cols) = row * cols + col
 
-  for (idx, arrow) in arrows.enumerate() {
-    assert(
-      type(arrow) == array and arrow.len() == 2,
-      message: "Arrow at index " + str(idx) + " must have (from, to).",
-    )
+/// Private: Convert a numeric row-major key into a dictionary key.
+#let _index-key(index) = str(index)
 
-    let from = _parse-and-validate-coord(
-      arrow.at(0),
-      max-row,
-      max-col,
-      "Arrow at index " + str(idx) + " from",
-    )
-    let to = _parse-and-validate-coord(
-      arrow.at(1),
-      max-row,
-      max-col,
-      "Arrow at index " + str(idx) + " to",
-    )
+/// Private: Validate dense row-major score values.
+#let _validate-dp-scores(scores, expected-len) = {
+  assert(type(scores) == array, message: "scores must be an array.")
+  assert(
+    scores.len() == expected-len,
+    message: "scores must contain exactly "
+      + str(expected-len)
+      + " row-major entries.",
+  )
 
-    let row-delta = calc.abs(from.row - to.row)
-    let col-delta = calc.abs(from.col - to.col)
-
-    assert(
-      row-delta + col-delta > 0,
-      message: "Arrow at index "
-        + str(idx)
-        + " cannot have identical from/to coordinates.",
-    )
-    assert(
-      calc.max(row-delta, col-delta) == 1,
-      message: "Arrow at index " + str(idx) + " must connect adjacent cells.",
-    )
-  }
-}
-
-/// Private: Validate sparse DP matrix entries and bounds.
-#let _validate-dp-cell-values(cell-values, expected-rows, expected-cols) = {
-  assert(type(cell-values) == array, message: "cell-values must be an array.")
-  let max-row = expected-rows - 1
-  let max-col = expected-cols - 1
-  let seen = (:)
-
-  for (idx, entry) in cell-values.enumerate() {
-    assert(
-      type(entry) == array and entry.len() == 2,
-      message: "Cell value at index " + str(idx) + " must have (coord, value).",
-    )
-
-    let coord = _parse-and-validate-coord(
-      entry.at(0),
-      max-row,
-      max-col,
-      "Cell value at index " + str(idx) + " coordinate",
-    )
-    let value = entry.at(1)
-
+  for (idx, value) in scores.enumerate() {
     assert(
       type(value) == int or type(value) == float,
-      message: "Cell value at index " + str(idx) + " must be numeric.",
+      message: "Score at index " + str(idx) + " must be numeric.",
     )
-
-    let key = str(coord.row) + "," + str(coord.col)
-    assert(
-      not (key in seen),
-      message: "Duplicate cell value entry for coordinate ("
-        + str(coord.row)
-        + ", "
-        + str(coord.col)
-        + ").",
-    )
-    seen.insert(key, true)
   }
 }
 
-/// Private: Convert coordinates to a stable lookup key.
-#let _coord-key(row, col) = str(row) + "," + str(col)
+/// Private: Validate dense row-major arrow bitmasks.
+#let _validate-arrows(arrows, rows, cols) = {
+  let expected-len = rows * cols
+  assert(type(arrows) == array, message: "arrows must be an array.")
+  assert(
+    arrows.len() == expected-len,
+    message: "arrows must contain exactly "
+      + str(expected-len)
+      + " row-major entries.",
+  )
 
-/// Private: Convert a directed edge to a stable lookup key.
-#let _edge-key(from-coord, to-coord) = (
-  _coord-key(from-coord.row, from-coord.col)
-    + "->"
-    + _coord-key(to-coord.row, to-coord.col)
+  for row in range(rows) {
+    for col in range(cols) {
+      let idx = _matrix-index(row, col, cols)
+      let bits = arrows.at(idx)
+
+      assert(
+        type(bits) == int,
+        message: "Arrow bitmask at index " + str(idx) + " must be an integer.",
+      )
+      assert(
+        bits >= 0 and bits <= 7,
+        message: "Arrow bitmask at index "
+          + str(idx)
+          + " must be between 0 and 7.",
+      )
+      assert(
+        not (row == 0 and bits.bit-and(2) != 0),
+        message: "Arrow bitmask at index "
+          + str(idx)
+          + " cannot point up from the top row.",
+      )
+      assert(
+        not (col == 0 and bits.bit-and(4) != 0),
+        message: "Arrow bitmask at index "
+          + str(idx)
+          + " cannot point left from the first column.",
+      )
+      assert(
+        not ((row == 0 or col == 0) and bits.bit-and(1) != 0),
+        message: "Arrow bitmask at index "
+          + str(idx)
+          + " cannot point diagonally outside the matrix boundary.",
+      )
+    }
+  }
+}
+
+/// Private: Convert a directed edge to a stable integer lookup key.
+#let _edge-index(from-coord, to-coord, cols, cell-count) = (
+  _matrix-index(from-coord.row, from-coord.col, cols) * cell-count
+    + _matrix-index(to-coord.row, to-coord.col, cols)
 )
-
-/// Private: Convert sparse cell value entries to a coordinate map.
-#let _cell-values-to-map(cell-values) = {
-  let cell-map = (:)
-
-  for entry in cell-values {
-    let coord = _parse-coord(entry.at(0))
-    cell-map.insert(_coord-key(coord.row, coord.col), entry.at(1))
-  }
-
-  cell-map
-}
 
 /// Private: Calculate cell center coordinates.
 #let _cell-center(row, col, label-col-width, label-row-height, cell-size) = {
@@ -174,7 +151,7 @@
 #let _build-grid-cells(
   top-clusters,
   left-clusters,
-  cell-value-map,
+  scores,
   highlight-map,
   path-cell-set,
   stroke-width,
@@ -183,6 +160,7 @@
   corner-radius,
 ) = {
   let cells = ()
+  let cols = top-clusters.len()
 
   // Header row: empty top-left corner, then top sequence characters
   cells.push((bg: _label-cell(none), text: _label-cell(none)))
@@ -199,44 +177,68 @@
   for (row-idx, row-label) in left-clusters.enumerate() {
     cells.push((bg: _label-cell(none), text: _label-cell(row-label)))
 
-    for col-idx in range(top-clusters.len()) {
-      let key = _coord-key(row-idx, col-idx)
-      let value = cell-value-map.at(key, default: none)
-      let cell-content = if value == none {
-        []
-      } else {
-        let content = if key in path-cell-set {
+    if scores == none {
+      for col-idx in range(cols) {
+        let index = _matrix-index(row-idx, col-idx, cols)
+        let fill-color = highlight-map.at(_index-key(index), default: none)
+        let cell-radius = _get-cell-radius(
+          row-idx,
+          col-idx,
+          last-row,
+          last-col,
+          corner-radius,
+        )
+
+        cells.push((
+          bg: box(
+            width: 100%,
+            height: 100%,
+            fill: fill-color,
+            stroke: stroke-width + stroke-color,
+            radius: cell-radius,
+            inset: cell-inset,
+          )[],
+          text: box(
+            width: 100%,
+            height: 100%,
+            inset: cell-inset,
+          )[],
+        ))
+      }
+    } else {
+      for col-idx in range(cols) {
+        let index = _matrix-index(row-idx, col-idx, cols)
+        let value = scores.at(index)
+        let content = if _index-key(index) in path-cell-set {
           strong[#value]
         } else {
           value
         }
-        align(center + horizon)[#content]
+        let fill-color = highlight-map.at(_index-key(index), default: none)
+        let cell-radius = _get-cell-radius(
+          row-idx,
+          col-idx,
+          last-row,
+          last-col,
+          corner-radius,
+        )
+
+        cells.push((
+          bg: box(
+            width: 100%,
+            height: 100%,
+            fill: fill-color,
+            stroke: stroke-width + stroke-color,
+            radius: cell-radius,
+            inset: cell-inset,
+          )[],
+          text: box(
+            width: 100%,
+            height: 100%,
+            inset: cell-inset,
+          )[#align(center + horizon)[#content]],
+        ))
       }
-
-      let fill-color = highlight-map.at(key, default: none)
-      let cell-radius = _get-cell-radius(
-        row-idx,
-        col-idx,
-        last-row,
-        last-col,
-        corner-radius,
-      )
-
-      cells.push((
-        bg: box(
-          width: 100%,
-          height: 100%,
-          fill: fill-color,
-          stroke: stroke-width + stroke-color,
-          radius: cell-radius,
-          inset: cell-inset,
-        )[],
-        text: box(
-          width: 100%,
-          height: 100%,
-          inset: cell-inset,
-        )[#cell-content],
-      ))
     }
   }
 
@@ -322,9 +324,74 @@
   }
 }
 
-/// Private: Render all arrows.
+/// Private: Render one arrow segment.
+#let _render-arrow(
+  from-coord,
+  to-coord,
+  arrow-color,
+  cell-size,
+  label-col-width,
+  label-row-height,
+  path-edge-set,
+  path-arrow-color,
+  arrow-width,
+  arrow-length-scale,
+  cols,
+  cell-count,
+) = {
+  let edge-key = _index-key(_edge-index(from-coord, to-coord, cols, cell-count))
+  let arr-color = if edge-key in path-edge-set {
+    path-arrow-color
+  } else {
+    arrow-color
+  }
+
+  let from-center = _cell-center(
+    from-coord.row,
+    from-coord.col,
+    label-col-width,
+    label-row-height,
+    cell-size,
+  )
+  let to-center = _cell-center(
+    to-coord.row,
+    to-coord.col,
+    label-col-width,
+    label-row-height,
+    cell-size,
+  )
+
+  let center-x = (from-center.x + to-center.x) / 2.0
+  let center-y = (from-center.y + to-center.y) / 2.0
+  let arrow-half-length = cell-size * 0.215 * arrow-length-scale
+
+  let (start-x, start-y, end-x, end-y) = _calculate-arrow-positions(
+    from-coord,
+    to-coord,
+    center-x,
+    center-y,
+    arrow-half-length,
+  )
+
+  place(top + left, dx: 0pt, dy: 0pt, {
+    _tiptoe-line(
+      start: (start-x, start-y),
+      end: (end-x, end-y),
+      stroke: (
+        paint: arr-color,
+        thickness: arrow-width,
+        cap: "round",
+      ),
+      tip: _tiptoe-straight.with(width: 550%, length: 375%),
+    )
+  })
+}
+
+/// Private: Render all arrows from row-major arrow bitmasks.
 #let _render-arrows(
-  parsed-arrows,
+  arrows,
+  rows,
+  cols,
   arrow-color,
   cell-size,
   label-col-width,
@@ -334,54 +401,65 @@
   arrow-width,
   arrow-length-scale,
 ) = {
-  for arrow in parsed-arrows {
-    let from-coord = arrow.from
-    let to-coord = arrow.to
-    let arr-color = if _edge-key(from-coord, to-coord) in path-edge-set {
-      path-arrow-color
-    } else {
-      arrow-color
+  if arrows == none { return }
+  let cell-count = rows * cols
+
+  for row in range(rows) {
+    for col in range(cols) {
+      let bits = arrows.at(_matrix-index(row, col, cols))
+      let from-coord = (row: row, col: col)
+
+      if row > 0 and col > 0 and bits.bit-and(1) != 0 {
+        _render-arrow(
+          from-coord,
+          (row: row - 1, col: col - 1),
+          arrow-color,
+          cell-size,
+          label-col-width,
+          label-row-height,
+          path-edge-set,
+          path-arrow-color,
+          arrow-width,
+          arrow-length-scale,
+          cols,
+          cell-count,
+        )
+      }
+
+      if row > 0 and bits.bit-and(2) != 0 {
+        _render-arrow(
+          from-coord,
+          (row: row - 1, col: col),
+          arrow-color,
+          cell-size,
+          label-col-width,
+          label-row-height,
+          path-edge-set,
+          path-arrow-color,
+          arrow-width,
+          arrow-length-scale,
+          cols,
+          cell-count,
+        )
+      }
+
+      if col > 0 and bits.bit-and(4) != 0 {
+        _render-arrow(
+          from-coord,
+          (row: row, col: col - 1),
+          arrow-color,
+          cell-size,
+          label-col-width,
+          label-row-height,
+          path-edge-set,
+          path-arrow-color,
+          arrow-width,
+          arrow-length-scale,
+          cols,
+          cell-count,
+        )
+      }
     }
-
-    let from-center = _cell-center(
-      from-coord.row,
-      from-coord.col,
-      label-col-width,
-      label-row-height,
-      cell-size,
-    )
-    let to-center = _cell-center(
-      to-coord.row,
-      to-coord.col,
-      label-col-width,
-      label-row-height,
-      cell-size,
-    )
-
-    let center-x = (from-center.x + to-center.x) / 2.0
-    let center-y = (from-center.y + to-center.y) / 2.0
-    let arrow-half-length = cell-size * 0.215 * arrow-length-scale
-
-    let (start-x, start-y, end-x, end-y) = _calculate-arrow-positions(
-      from-coord,
-      to-coord,
-      center-x,
-      center-y,
-      arrow-half-length,
-    )
-
-    place(top + left, dx: 0pt, dy: 0pt, {
-      _tiptoe-line(
-        start: (start-x, start-y),
-        end: (end-x, end-y),
-        stroke: (
-          paint: arr-color,
-          thickness: arrow-width,
-          cap: "round",
-        ),
-        tip: _tiptoe-straight.with(width: 550%, length: 375%),
-      )
-    })
   }
 }
 
@@ -393,15 +471,19 @@
 ///
 /// - seq-1 (str): Sequence displayed on the left as row labels.
 /// - seq-2 (str): Sequence displayed on top as column labels.
-/// - cell-values (array, none): Flat array of `((row, col), value)` entries.
-///   Omitted coordinates render as blank cells (default: none).
+/// - scores (array, none): Flat row-major score values.
+///   Must contain `(len(seq-1) + 1) * (len(seq-2) + 1)` entries when provided (default: none).
 /// - highlights (array): Cell highlights as `(row, col)` or `(row, col, color)` arrays (default: ()).
 /// - highlight-color (color): Default color for highlighted cells (default: light gray).
 /// - path (array, none): Traceback path as `(row, col)` arrays, in end-to-start order (default: none).
 /// - path-color (color): Color for the path line (default: semi-transparent yellow).
 /// - path-width (length): Width of the path line (default: 18pt).
 /// - path-cell-bold (bool): Whether scores in cells on the path are rendered in bold (default: true).
-/// - arrows (array): Flat array of (from, to) coordinate pairs, one per arrow (default: ()).
+/// - arrows (array, none): Flat row-major array with one integer per DP cell
+///   (default: none). Pass `none` or `()` to disable arrows. Each integer is
+///   a direction bitmask using `1 = diagonal`, `2 = up`, and `4 = left`.
+///   Combine bits when multiple optimal predecessors exist, so `3` means
+///   diagonal+up and `7` means all three directions.
 /// - arrow-color (color): Default color for arrows (default: medium gray).
 /// - highlight-path-arrows (bool): Whether arrows on the path use a different color (default: true).
 /// - path-arrow-color (color): Color for arrows on the traceback path (default: dark gray).
@@ -414,14 +496,14 @@
 #let render-dp-matrix(
   seq-1,
   seq-2,
-  cell-values: none,
+  scores: none,
   highlights: (),
   highlight-color: _medium-gray.lighten(75%),
   path: none,
   path-color: _yellow.transparentize(50%),
   path-width: 18pt,
   path-cell-bold: true,
-  arrows: (),
+  arrows: none,
   arrow-color: _medium-gray,
   highlight-path-arrows: true,
   path-arrow-color: _dark-gray,
@@ -447,11 +529,18 @@
   let seq2-raw-clusters = seq-2.clusters()
   let expected-rows = seq1-raw-clusters.len() + 1
   let expected-cols = seq2-raw-clusters.len() + 1
-  if cell-values != none {
-    _validate-dp-cell-values(cell-values, expected-rows, expected-cols)
+  let expected-len = expected-rows * expected-cols
+  let arrows = if arrows == none {
+    none
+  } else {
+    assert(type(arrows) == array, message: "arrows must be an array.")
+    if arrows.len() == 0 { none } else { arrows }
   }
-  let cell-value-map = if cell-values == none { (:) } else {
-    _cell-values-to-map(cell-values)
+  if scores != none {
+    _validate-dp-scores(scores, expected-len)
+  }
+  if arrows != none {
+    _validate-arrows(arrows, expected-rows, expected-cols)
   }
 
   let top-label-seq = "–" + seq-2
@@ -464,22 +553,18 @@
   let max-col = top-clusters.len() - 1
 
   _validate-highlights(highlights, max-row, max-col)
-  _validate-arrows(arrows, max-row, max-col)
 
   if path != none {
     _validate-path(path.rev(), max-row, max-col)
   }
 
   let parsed-path = if path == none { () } else { path.map(_parse-coord) }
-  let parsed-arrows = arrows.map(arrow => (
-    from: _parse-coord(arrow.at(0)),
-    to: _parse-coord(arrow.at(1)),
-  ))
 
   let highlight-map = (:)
   for h in highlights {
     let coord = _parse-coord(h)
-    let key = _coord-key(coord.row, coord.col)
+    let index = _matrix-index(coord.row, coord.col, expected-cols)
+    let key = _index-key(index)
 
     // Preserve existing behavior: first matching highlight wins.
     if not (key in highlight-map) {
@@ -489,18 +574,27 @@
   }
 
   let path-cell-set = (:)
-  if path-cell-bold {
+  if scores != none and path-cell-bold {
     for coord in parsed-path {
-      path-cell-set.insert(_coord-key(coord.row, coord.col), true)
+      path-cell-set.insert(
+        _index-key(_matrix-index(coord.row, coord.col, expected-cols)),
+        true,
+      )
     }
   }
 
   let path-edge-set = (:)
-  if highlight-path-arrows and parsed-path.len() > 1 {
+  if arrows != none and highlight-path-arrows and parsed-path.len() > 1 {
     for i in range(parsed-path.len() - 1) {
       let from-coord = parsed-path.at(i)
       let to-coord = parsed-path.at(i + 1)
-      path-edge-set.insert(_edge-key(from-coord, to-coord), true)
+      let edge-key = _index-key(
+        _edge-index(from-coord, to-coord, expected-cols, expected-len),
+      )
+      path-edge-set.insert(
+        edge-key,
+        true,
+      )
     }
   }
 
@@ -514,7 +608,7 @@
   let grid-cells = _build-grid-cells(
     top-clusters,
     left-clusters,
-    cell-value-map,
+    scores,
     highlight-map,
     path-cell-set,
     stroke-width,
@@ -542,7 +636,7 @@
     ..grid-cells.map(cell => cell.text)
   )
 
-  if path == none and arrows.len() == 0 {
+  if path == none and arrows == none {
     return block(breakable: false, {
       bg-grid
       place(top + left, dx: 0pt, dy: 0pt, text-grid)
@@ -564,7 +658,9 @@
     place(top + left, dx: 0pt, dy: 0pt, text-grid)
 
     _render-arrows(
-      parsed-arrows,
+      arrows,
+      expected-rows,
+      expected-cols,
       arrow-color,
       cell-size,
       label-col-width,

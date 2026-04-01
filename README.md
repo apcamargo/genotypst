@@ -48,7 +48,7 @@ You can perform a simple pairwise alignments and visualize both the alignment an
 #render-dp-matrix(
   dna_alignment.seq-1,
   dna_alignment.seq-2,
-  cell-values: dna_alignment.dp-matrix.cell-values,
+  scores: dna_alignment.dp-matrix.scores,
   path: dna_alignment.traceback-paths.at(0),
   arrows: dna_alignment.dp-matrix.arrows,
 )

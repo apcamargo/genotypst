@@ -12,6 +12,4 @@
 ///
 /// - value (length): Length value to resolve.
 /// -> length
-#let _resolve-length(value) = {
-  measure(box(width: value)[]).width
-}
+#let _resolve-length(value) = measure(box(width: value)[]).width

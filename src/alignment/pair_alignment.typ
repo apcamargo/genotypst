@@ -4,17 +4,21 @@
 
 /// Private: Validates and cleans a sequence string.
 ///
-/// Removes all whitespace characters (spaces, tabs, newlines) and converts to uppercase.
-/// This allows users to input sequences with whitespace for readability.
+/// Removes all whitespace characters (spaces, tabs, newlines), rejects non-ASCII
+/// input, and converts to uppercase. This allows users to input sequences with
+/// whitespace for readability while keeping alignment indexing ASCII-safe.
 ///
 /// - seq (str): The sequence to validate.
 /// - name (str): Name for error messages (e.g., "seq-1").
 /// -> str
 #let _validate-sequence(seq, name) = {
   assert(type(seq) == str, message: name + " must be a string.")
-  let cleaned = upper(seq.replace(regex("\\s"), ""))
-  assert(cleaned.len() > 0, message: name + " must not be empty.")
-  cleaned
+  let compact = seq.replace(regex("\\s"), "")
+  assert(compact.len() > 0, message: name + " must not be empty.")
+  for byte in bytes(compact) {
+    assert(byte < 128, message: name + " must contain only ASCII characters.")
+  }
+  upper(compact)
 }
 
 /// Private: Validates scoring parameters and returns canonical matrix name if applicable.
@@ -125,10 +129,10 @@
     alignments: wasm-result.alignments,
     traceback-paths: traceback-paths,
     dp-matrix: (
-      rows: rows,
-      cols: cols,
-      cell-values: dp.cell_values,
-      arrows: dp.arrows,
+      rows: dp.rows,
+      cols: dp.cols,
+      scores: dp.scores,
+      arrows: dp.arrow_bits,
     ),
     has-alignment: has-alignment,
   )
@@ -140,8 +144,9 @@
 /// custom match/mismatch scores. Returns alignment results including the
 /// DP matrix, traceback paths, and aligned sequences.
 ///
-/// Sequences are automatically cleaned: whitespace is removed and characters
-/// are converted to uppercase. This allows input like "ACG TGC\nAAA".
+/// Sequences are automatically cleaned: whitespace is removed, non-ASCII input
+/// is rejected, and characters are converted to uppercase. This allows input
+/// like "ACG TGC\nAAA".
 ///
 /// Available scoring matrices: BLOSUM30, BLOSUM40, BLOSUM45, BLOSUM50,
 /// BLOSUM62, BLOSUM70, BLOSUM80, BLOSUM90, BLOSUM100, PAM1, PAM10, PAM40,
@@ -160,9 +165,19 @@
 ///   - score (int): Alignment score.
 ///   - mode (str): Alignment mode.
 ///   - scoring (dictionary): Scoring settings used for the alignment.
-///   - alignments (array): Aligned sequence result(s).
-///   - traceback-paths (array): Traceback path coordinates.
-///   - dp-matrix (dictionary): DP matrix data with dimensions, scores, and arrows.
+///   - alignments (array): Alignment dictionaries with keys:
+///     - seq1 (str): First aligned sequence with gaps.
+///     - seq2 (str): Second aligned sequence with gaps.
+///   - traceback-paths (array): Traceback paths as arrays of `(row, col)`
+///     coordinates, in end-to-start order.
+///   - dp-matrix (dictionary): DP matrix data with keys:
+///     - rows (int): Number of DP rows.
+///     - cols (int): Number of DP columns.
+///     - scores (array): Flat row-major DP scores.
+///     - arrows (array): Flat row-major direction bitmasks. Each integer uses
+///       `1 = diagonal`, `2 = up`, and `4 = left`. Bits combine when a cell has
+///       multiple optimal predecessors, so `3` means diagonal+up and `7` means
+///       diagonal+up+left.
 ///   - has-alignment (bool): Whether at least one alignment was found.
 #let align-seq-pair(
   seq-1,

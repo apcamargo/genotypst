@@ -7,10 +7,9 @@
 ///
 /// - data (str): A string containing the Newick data.
 /// -> dictionary representing the root node with keys:
-///   - children (array): Child node dictionaries.
+///   - children (array, none): Child node dictionaries, or none for leaf nodes.
 ///   - name (str, none): Optional node label.
 ///   - length (int, float, none): Optional branch length.
-///   - rooted (bool, none): Optional root-only rootedness flag.
-#let parse-newick(data) = {
-  _tree-parse-newick(data)
-}
+///   - rooted (bool): Root-only rootedness flag.
+/// Child nodes use the same fields except `rooted`.
+#let parse-newick = _tree-parse-newick
