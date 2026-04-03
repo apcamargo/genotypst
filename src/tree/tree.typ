@@ -174,7 +174,7 @@
   )
 }
 
-/// Builds the shared style record for tree rendering.
+/// Builds the shared style record for tree rendering and tip-label metrics.
 ///
 /// - branch-width (length): Branch stroke thickness.
 /// - branch-color (color): Branch color.
@@ -192,24 +192,60 @@
   tip-label-italics,
   internal-label-size,
   internal-label-color,
-) = (
-  branch-stroke: stroke(
-    thickness: branch-width,
-    paint: branch-color,
-    cap: "square",
-  ),
-  branch-width: branch-width,
-  tip-label-size: tip-label-size,
-  tip-label-color: tip-label-color,
-  tip-label-italics: tip-label-italics,
-  internal-label-size: internal-label-size,
-  internal-label-color: internal-label-color,
-  label-x-offset: _label-x-offset,
-  internal-label-gap: _internal-label-gap,
-  auto-height-scale: _auto-height-scale,
-)
+) = {
+  let tip-label-style = if tip-label-italics { "italic" } else { "normal" }
+  let ascender-to-baseline = measure(text(
+    size: tip-label-size,
+    style: tip-label-style,
+    top-edge: "ascender",
+    bottom-edge: "baseline",
+    "x",
+  )).height
+  let x-height-span = measure(text(
+    size: tip-label-size,
+    style: tip-label-style,
+    top-edge: "x-height",
+    bottom-edge: "baseline",
+    "x",
+  )).height
+  let cap-height-span = measure(text(
+    size: tip-label-size,
+    style: tip-label-style,
+    top-edge: "cap-height",
+    bottom-edge: "baseline",
+    "H",
+  )).height
+  let full-height = measure(text(
+    size: tip-label-size,
+    style: tip-label-style,
+    top-edge: "ascender",
+    bottom-edge: "descender",
+    "x",
+  )).height
+  (
+    branch-stroke: stroke(
+      thickness: branch-width,
+      paint: branch-color,
+      cap: "square",
+    ),
+    branch-width: branch-width,
+    tip-label-size: tip-label-size,
+    tip-label-color: tip-label-color,
+    tip-label-italics: tip-label-italics,
+    internal-label-size: internal-label-size,
+    internal-label-color: internal-label-color,
+    label-x-offset: _label-x-offset,
+    internal-label-gap: _internal-label-gap,
+    auto-height-scale: _auto-height-scale,
+    tip-label-metrics: (
+      x-height-midpoint: ascender-to-baseline - x-height-span / 2,
+      cap-height-midpoint: ascender-to-baseline - cap-height-span / 2,
+      full-height: full-height,
+    ),
+  )
+}
 
-/// Builds the rectangular-tree style record and resolves label offsets.
+/// Builds the rectangular-tree style record.
 ///
 /// - branch-width (length): Branch stroke thickness.
 /// - branch-color (color): Branch color.
@@ -239,14 +275,7 @@
     internal-label-size,
     internal-label-color,
   )
-  let x-height-text = text(
-    size: tip-label-size,
-    top-edge: "x-height",
-    bottom-edge: "baseline",
-    "x",
-  )
   style.insert("root-length", root-length)
-  style.insert("label-y-offset", measure(x-height-text).height)
   style
 }
 

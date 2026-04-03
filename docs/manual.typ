@@ -116,6 +116,7 @@ Pairwise alignments can be rendered using the `render-pair-alignment` function. 
     unaligned-color: luma(75%),
   ),
   caption: [Local protein alignment with unaligned regions shown in light gray.],
+  supplement: none,
   kind: image,
 )
 
@@ -143,6 +144,7 @@ Dynamic programming is the core procedure used by the pairwise alignment algorit
     arrows: dna_pair_alignment.dp-matrix.arrows,
   ),
   caption: [Dynamic programming matrix for the DNA alignment, with the optimal path highlighted.],
+  supplement: none,
   kind: image,
 )
 
@@ -186,6 +188,7 @@ You can render the entire scoring matrix using `render-scoring-matrix` function.
     )
   },
   caption: [BLOSUM62 scoring matrix.],
+  supplement: none,
   kind: image,
 )
 
@@ -228,6 +231,7 @@ In the example below:
     )
   },
   caption: [MSA visualization for positions 100--145, with residue coloring and conservation bars enabled.],
+  supplement: none,
   kind: image,
 )
 
@@ -248,6 +252,8 @@ In the example below, we visualize the same region as the MSA of the previous se
 #figure(
   render-sequence-logo(protein_msa, start: 100, end: 145),
   caption: [Sequence logo for positions 100--145, showing conservation and residue frequency.],
+  supplement: none,
+  kind: image,
 )
 
 Like `render-msa`, `render-sequence-logo` automatically applies the appropriate color palette based on the sequence alphabet.
@@ -330,6 +336,8 @@ Genome maps enable visualization of the genes and other genomic elements within 
     unit: "bp",
   ),
   caption: [Genome map showing the genes within the 65,556--69,544 bp region of the F plasmid of _Escherichia coli_ K-12 (GenBank: AP001918.1).],
+  supplement: none,
+  kind: image,
 )
 
 = Working with phylogenetic trees
@@ -624,6 +632,7 @@ For example, to use the Dayhoff amino acid color palette in a sequence logo:
     palette: residue-palette.aa.dayhoff,
   ),
   caption: [Sequence logo for positions 100--145 using the Dayhoff amino acid color palette.],
+  supplement: none,
 )
 
 #bibliography("literature.yaml", style: "nature")

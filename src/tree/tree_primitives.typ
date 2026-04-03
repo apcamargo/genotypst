@@ -1,5 +1,32 @@
 #let _zero-point = (x: 0pt, y: 0pt)
 
+/// Returns the local-frame y-gap needed to align a tip label to its branch.
+///
+/// - label-text (str): Tip label text.
+/// - x-align (str): Horizontal alignment used to choose the branch-side glyph.
+/// - metrics (dictionary): Precomputed tip-label metrics.
+/// -> length
+#let _local-tip-label-y-gap(label-text, x-align, metrics) = {
+  let trimmed = label-text.trim()
+  let branch-side-grapheme = if x-align == "left" {
+    trimmed.first(default: "")
+  } else {
+    trimmed.last(default: "")
+  }
+  let target-midpoint = if (
+    branch-side-grapheme.match(regex("^[A-Z]$")) != none
+  ) {
+    metrics.cap-height-midpoint
+  } else if branch-side-grapheme.match(regex("^[a-z]$")) != none {
+    metrics.x-height-midpoint
+  } else {
+    none
+  }
+  if target-midpoint == none { 0pt } else {
+    metrics.full-height / 2 - target-midpoint
+  }
+}
+
 /// Builds a label content element from a tree label primitive.
 ///
 /// - label-primitive (dictionary): Label primitive metadata.
@@ -10,14 +37,19 @@
   } else {
     "descender"
   }
-  text(
+  let tip-label = label-primitive.placement-role == "tip-label"
+  let label-content = text(
     size: label-primitive.text-size,
     ..if label-primitive.text-fill != none {
       (fill: label-primitive.text-fill)
     },
     style: label-primitive.text-style,
+    ..if tip-label {
+      (top-edge: "ascender")
+    },
     bottom-edge: bottom-edge,
   )[#label-primitive.text]
+  label-content
 }
 
 /// Builds one label primitive with explicit geometry metadata.
@@ -231,20 +263,21 @@
     if node.is-leaf {
       if node.label-text != none {
         if rectangular {
+          let cross-offset = style.tip-label-metrics.x-height-midpoint
           primitives.push(_tree-label-primitive(
             "tip-label",
             node-point,
             "left",
             if orientation == "vertical" { "bottom" } else { "top" },
             if orientation == "vertical" {
-              -style.label-y-offset
+              -cross-offset
             } else {
               style.label-x-offset
             },
             if orientation == "vertical" {
               style.label-x-offset
             } else {
-              -style.label-y-offset
+              -cross-offset
             },
             if orientation == "vertical" { -90deg } else { 0deg },
             node.label-text,
@@ -254,13 +287,18 @@
           ))
         } else {
           let radial-placement = _radial-tip-label-placement(node.branch-angle)
+          let local-y-gap = _local-tip-label-y-gap(
+            node.label-text,
+            radial-placement.x-align,
+            style.tip-label-metrics,
+          )
           primitives.push(_tree-label-primitive(
             "tip-label",
             node-point,
             radial-placement.x-align,
             radial-placement.y-align,
             style.label-x-offset * radial-placement.gap-sign,
-            0pt,
+            local-y-gap,
             radial-placement.rotation,
             node.label-text,
             style.tip-label-size,
