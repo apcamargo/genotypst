@@ -6,7 +6,7 @@
   line as _tiptoe-line, straight as _tiptoe-straight,
 )
 
-/// Private: Validate highlight entry shape, coordinates, and optional color.
+/// Validate highlight entry shape, coordinates, and optional color.
 #let _validate-highlights(highlights, max-row, max-col) = {
   assert(type(highlights) == array, message: "highlights must be an array.")
 
@@ -37,13 +37,13 @@
   }
 }
 
-/// Private: Convert row/column coordinates to a row-major index.
+/// Convert row/column coordinates to a row-major index.
 #let _matrix-index(row, col, cols) = row * cols + col
 
-/// Private: Convert a numeric row-major key into a dictionary key.
+/// Convert a numeric row-major key into a dictionary key.
 #let _index-key(index) = str(index)
 
-/// Private: Validate dense row-major score values.
+/// Validate dense row-major score values.
 #let _validate-dp-scores(scores, expected-len) = {
   assert(type(scores) == array, message: "scores must be an array.")
   assert(
@@ -61,7 +61,7 @@
   }
 }
 
-/// Private: Validate dense row-major arrow bitmasks.
+/// Validate dense row-major arrow bitmasks.
 #let _validate-arrows(arrows, rows, cols) = {
   let expected-len = rows * cols
   assert(type(arrows) == array, message: "arrows must be an array.")
@@ -109,25 +109,25 @@
   }
 }
 
-/// Private: Convert a directed edge to a stable integer lookup key.
+/// Convert a directed edge to a stable integer lookup key.
 #let _edge-index(from-coord, to-coord, cols, cell-count) = (
   _matrix-index(from-coord.row, from-coord.col, cols) * cell-count
     + _matrix-index(to-coord.row, to-coord.col, cols)
 )
 
-/// Private: Calculate cell center coordinates.
+/// Calculate cell center coordinates.
 #let _cell-center(row, col, label-col-width, label-row-height, cell-size) = {
   let x = label-col-width + col * cell-size + cell-size * 0.5
   let y = label-row-height + row * cell-size + cell-size * 0.5
   (x: x, y: y)
 }
 
-/// Private: Create a label cell (for header row and left column).
+/// Create a label cell (for header row and left column).
 #let _label-cell(content) = grid.cell(stroke: none, inset: 0pt)[
   #if content != none { align(center + horizon)[#content] }
 ]
 
-/// Private: Determine radius for a cell based on its position.
+/// Determine radius for a cell based on its position.
 #let _get-cell-radius(row-idx, col-idx, last-row, last-col, corner-radius) = {
   let is-top = row-idx == 0
   let is-bottom = row-idx == last-row
@@ -147,7 +147,7 @@
   }
 }
 
-/// Private: Build logical grid cells for the background and text layers.
+/// Build logical grid cells for the background and text layers.
 #let _build-grid-cells(
   top-clusters,
   left-clusters,
@@ -222,7 +222,7 @@
   cells
 }
 
-/// Private: Render path overlay.
+/// Render path overlay.
 #let _render-path(
   parsed-path,
   path-color,
@@ -266,7 +266,7 @@
   })
 }
 
-/// Private: Calculate arrow start and end positions based on direction.
+/// Calculate arrow start and end positions based on direction.
 #let _calculate-arrow-positions(
   from-coord,
   to-coord,
@@ -301,7 +301,7 @@
   }
 }
 
-/// Private: Render one arrow segment.
+/// Render one arrow segment.
 #let _render-arrow(
   from-coord,
   to-coord,
@@ -364,7 +364,7 @@
   })
 }
 
-/// Private: Render all arrows from row-major arrow bitmasks.
+/// Render all arrows from row-major arrow bitmasks.
 #let _render-arrows(
   arrows,
   rows,

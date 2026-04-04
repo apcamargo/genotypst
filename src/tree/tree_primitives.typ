@@ -1,32 +1,5 @@
 #let _zero-point = (x: 0pt, y: 0pt)
 
-/// Returns the local-frame y-gap needed to align a tip label to its branch.
-///
-/// - label-text (str): Tip label text.
-/// - x-align (str): Horizontal alignment used to choose the branch-side glyph.
-/// - metrics (dictionary): Precomputed tip-label metrics.
-/// -> length
-#let _local-tip-label-y-gap(label-text, x-align, metrics) = {
-  let trimmed = label-text.trim()
-  let branch-side-grapheme = if x-align == "left" {
-    trimmed.first(default: "")
-  } else {
-    trimmed.last(default: "")
-  }
-  let target-midpoint = if (
-    branch-side-grapheme.match(regex("^[A-Z]$")) != none
-  ) {
-    metrics.cap-height-midpoint
-  } else if branch-side-grapheme.match(regex("^[a-z]$")) != none {
-    metrics.x-height-midpoint
-  } else {
-    none
-  }
-  if target-midpoint == none { 0pt } else {
-    metrics.full-height / 2 - target-midpoint
-  }
-}
-
 /// Builds a label content element from a tree label primitive.
 ///
 /// - label-primitive (dictionary): Label primitive metadata.
@@ -61,14 +34,14 @@
 /// - x-gap (length): Horizontal gap in the active placement frame.
 /// - y-gap (length): Vertical gap in the active placement frame.
 /// - rotation (angle): Final label rotation.
-/// - placement-frame (str): Either "screen" or "local".
-/// - branch-angle-half-turn (float, none): Raw tip direction for radial labels.
-/// - placement-angle-half-turn (float, none): Geometry direction used to place
-///   horizontal screen-frame labels that should track global layout rotation.
 /// - text (str): Label text.
 /// - text-size (length): Label size.
 /// - text-fill (color, none): Label fill.
 /// - text-style (str): Label style.
+/// - placement-frame (str): Either "screen" or "local".
+/// - branch-angle-half-turn (float, none): Raw tip direction for radial labels.
+/// - placement-angle-half-turn (float, none): Geometry direction used to place
+///   horizontal screen-frame labels that should track global layout rotation.
 /// -> dictionary
 #let _tree-label-primitive(
   placement-role,
@@ -263,7 +236,7 @@
     if node.is-leaf {
       if node.label-text != none {
         if rectangular {
-          let cross-offset = style.tip-label-metrics.x-height-midpoint
+          let cross-offset = style.tip-label-metrics.branch-midpoint
           primitives.push(_tree-label-primitive(
             "tip-label",
             node-point,
@@ -287,10 +260,9 @@
           ))
         } else {
           let radial-placement = _radial-tip-label-placement(node.branch-angle)
-          let local-y-gap = _local-tip-label-y-gap(
-            node.label-text,
-            radial-placement.x-align,
-            style.tip-label-metrics,
+          let tip-metrics = style.tip-label-metrics
+          let local-y-gap = (
+            tip-metrics.full-height / 2 - tip-metrics.branch-midpoint
           )
           primitives.push(_tree-label-primitive(
             "tip-label",

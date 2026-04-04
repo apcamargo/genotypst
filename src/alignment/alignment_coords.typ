@@ -1,6 +1,6 @@
 // Shared private coordinate and path validation helpers for alignment modules.
 
-/// Private: Parse coordinates from array format.
+/// Parse coordinates from array format.
 ///
 /// - coord (array): Coordinate as `(row, col)`.
 /// -> dictionary
@@ -8,7 +8,7 @@
   (row: coord.at(0), col: coord.at(1))
 }
 
-/// Private: Parse and validate coordinate format, type, and bounds.
+/// Parse and validate coordinate format, type, and bounds.
 ///
 /// - coord (array): Coordinate array.
 /// - max-row (int): Maximum allowed row index.
@@ -71,7 +71,7 @@
   parsed
 }
 
-/// Private: Validate that the path is valid for the given grid bounds.
+/// Validate that the path is valid for the given grid bounds.
 ///
 /// Checks that coordinates are within bounds and that the path is monotonic
 /// (only moves down, right, or diagonally down-right with unit steps).

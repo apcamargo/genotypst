@@ -91,7 +91,7 @@
   scoring-matrix.matrix.at(idx1).at(idx2)
 }
 
-/// Private: Calculates background color for a score using gradient mapping.
+/// Calculates background color for a score using gradient mapping.
 ///
 /// Maps a score to a color by sampling the provided color gradient with
 /// discrete steps.
@@ -122,7 +122,7 @@
   gradient.linear(..color-map).sharp(stop-count).sample(clamped-ratio * 100%)
 }
 
-/// Private: Formats a score for display, handling infinity values.
+/// Formats a score for display, handling infinity values.
 ///
 /// Returns content with proper typographic symbols for negative signs
 /// and infinity values.
@@ -137,7 +137,7 @@
   } else { [#score] }
 }
 
-/// Private: Calculates symmetric scale limits for color mapping.
+/// Calculates symmetric scale limits for color mapping.
 ///
 /// Computes the maximum absolute value across the rendered triangle,
 /// ignoring infinity values. Returns symmetric min/max limits centered
@@ -166,7 +166,7 @@
   (min: -limit, max: limit)
 }
 
-/// Private: Generates grid cells for the scoring matrix visualization.
+/// Generates grid cells for the scoring matrix visualization.
 ///
 /// Creates an array of grid cells with labels positioned according to
 /// the triangle mode. Handles "lower", "upper", and "full" triangle modes.

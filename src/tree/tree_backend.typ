@@ -1,7 +1,6 @@
-// Private Typst<->WASM seam for the tree backend.
 #let _tree-backend = plugin("tree.wasm")
 
-/// Private: Converts a Typst-native layout-kind value to the Rust wire format.
+/// Converts a Typst-native layout-kind value to the Rust wire format.
 ///
 /// - layout-kind (str): Typst-native layout kind.
 /// -> str
@@ -13,7 +12,7 @@
   }
 }
 
-/// Private: Serializes a Typst point dictionary to the Rust pt-based wire form.
+/// Serializes a Typst point dictionary to the Rust pt-based wire form.
 ///
 /// - point (dictionary): Point with length-valued `x` / `y`.
 /// -> dictionary
@@ -22,7 +21,7 @@
   y: point.y / 1pt,
 )
 
-/// Private: Decodes a Rust pt-based wire point to a Typst point dictionary.
+/// Decodes a Rust pt-based wire point to a Typst point dictionary.
 ///
 /// - point (dictionary): Point with numeric `x` / `y` in pt units.
 /// -> dictionary
@@ -31,20 +30,7 @@
   y: point.y * 1pt,
 )
 
-/// Private: Decodes a Rust pt-based bounds dictionary to Typst lengths.
-///
-/// - bounds (dictionary): Bounds with numeric pt-valued fields.
-/// -> dictionary
-#let _pt-json-to-bounds(bounds) = (
-  min-x: bounds.min_x * 1pt,
-  min-y: bounds.min_y * 1pt,
-  max-x: bounds.max_x * 1pt,
-  max-y: bounds.max_y * 1pt,
-  width: bounds.width * 1pt,
-  height: bounds.height * 1pt,
-)
-
-/// Private: Encodes one prepared line for the Rust fit request.
+/// Encodes one prepared line for the Rust fit request.
 ///
 /// - primitive (dictionary): Typst-native prepared line.
 /// -> dictionary
@@ -66,7 +52,7 @@
   half_stroke_pt: primitive.half-stroke / 1pt,
 )
 
-/// Private: Encodes one prepared label for the Rust fit request.
+/// Encodes one prepared label for the Rust fit request.
 ///
 /// - primitive (dictionary): Typst-native prepared label.
 /// -> dictionary
@@ -88,13 +74,13 @@
   measure_height_pt: primitive.measure-height / 1pt,
 )
 
-/// Private: Converts an optional length to pt-based JSON.
+/// Converts an optional length to pt-based JSON.
 ///
 /// - value (length, none): Length to convert.
 /// -> float, none
 #let _optional-to-pt(value) = if value == none { none } else { value / 1pt }
 
-/// Private: Encodes a Typst-native fit payload for the Rust wire schema.
+/// Encodes a Typst-native fit payload for the Rust wire schema.
 ///
 /// - payload (dictionary): Typst-native fit payload.
 /// -> dictionary
@@ -124,7 +110,7 @@
   optimize_uniform_rotation: payload.optimize-uniform-rotation,
 )
 
-/// Private: Decodes a Rust fit response to the Typst-native structure.
+/// Decodes a Rust fit response to the Typst-native structure.
 ///
 /// - response (dictionary): Raw fit response decoded from JSON.
 /// -> dictionary
@@ -133,9 +119,7 @@
   tree-viewport-width: response.tree_viewport_width_pt * 1pt,
   tree-viewport-height: response.tree_viewport_height_pt * 1pt,
   x-scale: response.x_scale_pt * 1pt,
-  y-scale: response.y_scale_pt * 1pt,
   tree-translation: _pt-json-to-point(response.tree_translation_pt),
-  tree-occupied-bounds: _pt-json-to-bounds(response.tree_occupied_bounds_pt),
   root-position: _pt-json-to-point(response.root_position_pt),
   tree-lines: response.tree_lines.map(entry => (
     line-index: entry.line_index,
@@ -149,7 +133,7 @@
   )),
 )
 
-/// Private: Parses a Newick string through the tree WASM plugin.
+/// Parses a Newick string through the tree WASM plugin.
 ///
 /// - data (str): Raw Newick source.
 /// -> dictionary
@@ -158,7 +142,7 @@
   json(result)
 }
 
-/// Private: Prepares a normalized tree layout through the tree WASM plugin.
+/// Prepares a normalized tree layout through the tree WASM plugin.
 ///
 /// - tree-data (dictionary): Parsed or manual tree data.
 /// - cladogram (bool): Whether cladogram mode is enabled.
@@ -194,7 +178,7 @@
   decoded
 }
 
-/// Private: Fits a Typst-native tree payload through the tree WASM plugin.
+/// Fits a Typst-native tree payload through the tree WASM plugin.
 ///
 /// - payload (dictionary): Typst-native fit payload with length-valued fields.
 /// -> dictionary

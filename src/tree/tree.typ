@@ -208,13 +208,6 @@
     bottom-edge: "baseline",
     "x",
   )).height
-  let cap-height-span = measure(text(
-    size: tip-label-size,
-    style: tip-label-style,
-    top-edge: "cap-height",
-    bottom-edge: "baseline",
-    "H",
-  )).height
   let full-height = measure(text(
     size: tip-label-size,
     style: tip-label-style,
@@ -238,8 +231,9 @@
     internal-label-gap: _internal-label-gap,
     auto-height-scale: _auto-height-scale,
     tip-label-metrics: (
-      x-height-midpoint: ascender-to-baseline - x-height-span / 2,
-      cap-height-midpoint: ascender-to-baseline - cap-height-span / 2,
+      // Rectangular and unrooted tip labels intentionally use the same
+      // branch/text intersection height.
+      branch-midpoint: ascender-to-baseline - x-height-span / 2,
       full-height: full-height,
     ),
   )

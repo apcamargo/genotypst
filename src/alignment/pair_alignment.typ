@@ -2,7 +2,7 @@
 #import "./alignment_backend.typ": _alignment-align, resolve-matrix-name
 #import "./alignment_coords.typ": _parse-coord, _validate-path
 
-/// Private: Validates and cleans a sequence string.
+/// Validates and cleans a sequence string.
 ///
 /// Removes all whitespace characters (spaces, tabs, newlines), rejects non-ASCII
 /// input, and converts to uppercase. This allows users to input sequences with
@@ -21,7 +21,7 @@
   upper(compact)
 }
 
-/// Private: Validates scoring parameters and returns canonical matrix name if applicable.
+/// Validates scoring parameters and returns canonical matrix name if applicable.
 ///
 /// - matrix (str, none): Scoring matrix name.
 /// - match-score (int, none): Match score.
@@ -51,7 +51,7 @@
   }
 }
 
-/// Private: Builds the JSON configuration dictionary for WASM.
+/// Builds the JSON configuration dictionary for WASM.
 ///
 /// - canonical-matrix (str, none): Canonical matrix name.
 /// - match-score (int, none): Match score.
@@ -82,7 +82,7 @@
   config
 }
 
-/// Private: Transforms the WASM response to the final output format.
+/// Transforms the WASM response to the final output format.
 ///
 /// - wasm-result (dictionary): Raw result from WASM plugin.
 /// - original-seq-1 (str): Original (cleaned) first sequence.
@@ -225,7 +225,7 @@
   )
 }
 
-/// Private: Build the three alignment rows directly from a traceback path.
+/// Build the three alignment rows directly from a traceback path.
 ///
 /// - seq-1-chars (array): First sequence as grapheme clusters.
 /// - seq-2-chars (array): Second sequence as grapheme clusters.

@@ -607,7 +607,6 @@ struct FittedWidth {
     viewport_width: f64,
     viewport_height: f64,
     x_scale: f64,
-    y_scale: f64,
     materialized_tree: MaterializedTree,
 }
 
@@ -673,22 +672,10 @@ struct FitResponse {
     tree_viewport_width_pt: f64,
     tree_viewport_height_pt: f64,
     x_scale_pt: f64,
-    y_scale_pt: f64,
     tree_translation_pt: Point,
-    tree_occupied_bounds_pt: SerializableBounds,
     root_position_pt: Point,
     tree_lines: Vec<SerializableLine>,
     tree_labels: Vec<SerializableLabel>,
-}
-
-#[derive(Serialize)]
-struct SerializableBounds {
-    min_x: f64,
-    min_y: f64,
-    max_x: f64,
-    max_y: f64,
-    width: f64,
-    height: f64,
 }
 
 #[derive(Serialize)]
@@ -3124,7 +3111,6 @@ fn materialize_uniform(
         viewport_width: viewport.viewport_width,
         viewport_height: viewport.viewport_height,
         x_scale: evaluated_fit.x_scale,
-        y_scale: evaluated_fit.y_scale,
         materialized_tree,
     }
 }
@@ -3275,7 +3261,6 @@ fn fit_tree_plan_independent_axes(
                 viewport_width: materialized_tree.tree_occupied_bounds.width,
                 viewport_height,
                 x_scale: intrinsic_scale,
-                y_scale: intrinsic_scale,
                 materialized_tree,
             }
         }
@@ -3323,7 +3308,6 @@ fn fit_tree_plan_independent_axes(
                 viewport_width,
                 viewport_height,
                 x_scale,
-                y_scale,
                 materialized_tree,
             }
         }
@@ -3384,16 +3368,7 @@ fn finalize_fitted_tree_plan(
         tree_viewport_width_pt: viewport_width,
         tree_viewport_height_pt: viewport_height,
         x_scale_pt: fitted_width.x_scale,
-        y_scale_pt: fitted_width.y_scale,
         tree_translation_pt: tree_translation,
-        tree_occupied_bounds_pt: SerializableBounds {
-            min_x: occupied_bounds.min_x,
-            min_y: occupied_bounds.min_y,
-            max_x: occupied_bounds.max_x,
-            max_y: occupied_bounds.max_y,
-            width: occupied_bounds.width,
-            height: occupied_bounds.height,
-        },
         root_position_pt: Point {
             x: materialized_tree.root_position.x + translate_x,
             y: materialized_tree.root_position.y + translate_y,

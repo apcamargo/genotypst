@@ -19,7 +19,7 @@
   }
 }
 
-/// Private: Converts WASM i32 infinity representations to Typst floats.
+/// Converts WASM i32 infinity representations to Typst floats.
 ///
 /// The WASM plugin uses i32::MIN (-2147483648) for negative infinity
 /// and i32::MAX (2147483647) for positive infinity. This function
@@ -33,7 +33,7 @@
   } else { value }
 }
 
-/// Private: Executes pairwise alignment through the WASM backend.
+/// Executes pairwise alignment through the WASM backend.
 ///
 /// - seq-1 (str): First cleaned sequence.
 /// - seq-2 (str): Second cleaned sequence.
@@ -49,7 +49,7 @@
   json(result)
 }
 
-/// Private: Retrieves scoring matrix information through the WASM backend.
+/// Retrieves scoring matrix information through the WASM backend.
 ///
 /// Converts backend infinity sentinels before returning the parsed payload.
 ///
