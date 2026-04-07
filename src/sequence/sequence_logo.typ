@@ -112,23 +112,22 @@
   }
 }
 
-/// Produces a sequence logo from biological sequence data.
+/// Renders a sequence logo from biological sequence data.
 ///
-/// Renders a sequence logo where each column represents a position in the
-/// alignment, stack height is scaled to the maximum observed information
-/// content (conservation), and character height within a stack indicates
-/// relative frequency.
+/// Each column represents a position in the alignment, stack height is scaled
+/// to the maximum observed information content (conservation), and character
+/// height within a stack indicates relative frequency.
 ///
-/// - alignment (dictionary): A dictionary mapping sequence identifiers to aligned sequences.
+/// - alignment (dictionary): Dictionary mapping sequence identifiers to aligned sequences.
 /// - start (int, none): Starting position (1-indexed, inclusive) (default: none).
 /// - end (int, none): Ending position (1-indexed, inclusive) (default: none).
 /// - width (length, auto, ratio, relative): Total width of the logo (default: 100%).
 /// - height (length): Total height of the logo (default: 60pt).
-/// - sampling-correction (bool): Apply small sample correction (default: true).
+/// - sampling-correction (bool): Whether to apply small sample correction (default: true).
 /// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna" (default: auto).
 /// - palette (dictionary, auto): Residue color palette (default: auto).
-/// - coordinate-axis (bool): Show coordinate axis under the logo (default: false).
-/// - axis-color (color): Axis line and label color (default: black).
+/// - coordinate-axis (bool): Whether to show the coordinate axis under the logo (default: false).
+/// - axis-color (color): Color of the axis line and labels (default: black).
 /// - axis-stroke-width (length): Axis line thickness (default: 0.75pt).
 /// - axis-label-size (length): Axis label font size (default: 0.8em).
 /// - axis-tick-height (length): Axis tick height (default: 4.5pt).

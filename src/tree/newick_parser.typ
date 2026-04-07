@@ -1,11 +1,9 @@
 #import "./tree_backend.typ": _tree-parse-newick
 
-/// Parses a Newick string into a tree structure.
+/// Parses Newick-formatted phylogenetic tree data into a dictionary structure
+/// suitable for rendering.
 ///
-/// Parses a string containing Newick-formatted phylogenetic tree data
-/// into a dictionary structure suitable for rendering.
-///
-/// - data (str): A string containing the Newick data.
+/// - data (str): Newick-formatted phylogenetic tree data.
 /// -> dictionary with keys:
 ///   - children (array, none): Child node dictionaries, or none for leaf nodes.
 ///   - name (str, none): Optional node label.

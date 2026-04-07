@@ -138,11 +138,11 @@
   )
 }
 
-/// Performs pairwise sequence alignment using dynamic programming.
+/// Aligns two sequences using dynamic programming.
 ///
-/// Aligns two sequences using either a scoring matrix (e.g., BLOSUM62) or
-/// custom match/mismatch scores. Returns alignment results including the
-/// DP matrix, traceback paths, and aligned sequences.
+/// Uses either a scoring matrix (e.g., BLOSUM62) or custom match/mismatch
+/// scores. Returns alignment results including the DP matrix, traceback
+/// paths, and aligned sequences.
 ///
 /// Sequences are automatically cleaned: whitespace is removed, non-ASCII input
 /// is rejected, and characters are converted to uppercase. This allows input
@@ -351,7 +351,7 @@
 /// - gap-char (str): Character to display for gaps (default: "–").
 /// - match-char (str): Character to display for matches (default: "│").
 /// - mismatch-char (str): Character to display for mismatches (default: " ").
-/// - hide-unaligned (bool): Hide unaligned characters entirely (default: false).
+/// - hide-unaligned (bool): Whether to hide unaligned characters entirely (default: false).
 /// - unaligned-color (color, none): Color for visible unaligned characters (default: none, which uses the default text color).
 /// -> content
 #let render-pair-alignment(

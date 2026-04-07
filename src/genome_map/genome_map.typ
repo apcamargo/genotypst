@@ -1,5 +1,4 @@
 #import "../common/colors.typ": _light-gray
-#import "../common/layout_math.typ": _clamp
 #import "../common/axis_scale.typ": (
   _draw-coordinate-axis, _draw-horizontal-segment, _draw-scale-bar-row,
   _draw-vertical-segment,
@@ -109,18 +108,18 @@
 /// - label-size (length): Label font size (default: 0.8em).
 /// - label-horizontal-gap (length): Horizontal spacing between labels (default: 0.8pt).
 /// - label-vertical-gap (length): Vertical gap between label levels (default: 0.8em).
-/// - label-line-distance (length): Horizontal clearance for line gaps (default: 0.7pt).
-/// - label-leader-offset (length): Gap between leader and gene block (default: 4.5pt).
-/// - label-track-gap (length): Gap between labels and track (default: 4.5pt).
-/// - scale-bar (bool): Show scale bar (default: false).
-/// - scale-length (auto, int, float): Scale length. Positive when specified (default: auto).
+/// - label-line-distance (length): Extra horizontal spacing kept between label leaders and nearby labels (default: 0.7pt).
+/// - label-leader-offset (length): Vertical gap between the gene track and the label leaders (default: 4.5pt).
+/// - label-track-gap (length): Gap between the labels and the gene track (default: 4.5pt).
+/// - scale-bar (bool): Whether to draw a scale bar (default: false).
+/// - scale-length (auto, int, float): Requested scale-bar length. Positive when specified (default: auto).
 /// - min-auto-bar-width (length): Minimum auto-selected scale-bar width when space allows (default: 2.5em).
-/// - unit (str, none): Unit suffix for scale bar and coordinate axis (default: none).
-/// - coordinate-axis (bool): Show coordinate axis (default: false).
-/// - coordinate-axis-track-gap (length): Gap between track and coordinate axis (default: 6pt).
+/// - unit (str, none): Optional unit suffix for the scale bar and coordinate axis (default: none).
+/// - coordinate-axis (bool): Whether to draw the coordinate axis (default: false).
+/// - coordinate-axis-track-gap (length): Gap between the gene track and the coordinate axis (default: 6pt).
 /// - coordinate-axis-label-size (length): Coordinate-axis tick-label size (default: 0.8em).
 /// - scale-bar-gap (length): Vertical gap above the scale bar (default: 6pt).
-/// - scale-tick-height (length): Tick height for scale bar and coordinate axis (default: 4.25pt).
+/// - scale-tick-height (length): Tick height for the scale bar and coordinate axis (default: 4.25pt).
 /// - scale-label-size (length): Scale-bar label size (default: 0.8em).
 /// -> content
 #let render-genome-map(
@@ -226,67 +225,26 @@
       )
 
       // Labels and leader lines
-      if prepared.positioned-labels.len() > 0 {
-        for label in prepared.positioned-labels {
-          let line-x = label.gene-center
-          let line-top = label.underline-y
-          let line-bottom = prepared.track-top - prepared.label-leader-offset
+      for label in prepared.positioned-labels {
+        let line-x = label.gene-center
 
-          _draw-horizontal-segment(
-            label.underline-left,
-            label.underline-y,
-            label.underline-width,
+        _draw-horizontal-segment(
+          label.underline-left,
+          label.underline-y,
+          label.underline-width,
+          label-stroke,
+        )
+
+        for segment in label.leader-segments {
+          _draw-vertical-segment(
+            line-x,
+            segment.top,
+            segment.length,
             label-stroke,
           )
-
-          if line-bottom > line-top {
-            let intervals = ()
-            for other in prepared.positioned-labels {
-              let hit = (
-                line-x >= other.left - prepared.label-line-distance
-                  and line-x <= other.right + prepared.label-line-distance
-              )
-              let overlap = (
-                other.bottom >= line-top and other.top <= line-bottom
-              )
-              if hit and overlap {
-                intervals.push((
-                  start: other.top - prepared.label-line-clearance,
-                  end: other.bottom + prepared.label-line-clearance,
-                ))
-              }
-            }
-
-            let sorted = intervals.sorted(key: it => it.start)
-            let cursor = line-top
-            for gap in sorted {
-              let gap-start = _clamp(gap.start, line-top, line-bottom)
-              let gap-end = _clamp(gap.end, line-top, line-bottom)
-              if gap-start > cursor {
-                _draw-vertical-segment(
-                  line-x,
-                  cursor,
-                  gap-start - cursor,
-                  label-stroke,
-                )
-              }
-              if gap-end > cursor {
-                cursor = gap-end
-              }
-            }
-
-            if cursor < line-bottom {
-              _draw-vertical-segment(
-                line-x,
-                cursor,
-                line-bottom - cursor,
-                label-stroke,
-              )
-            }
-          }
-
-          place(top + left, dx: label.left, dy: label.top, label.text)
         }
+
+        place(top + left, dx: label.left, dy: label.top, label.text)
       }
 
       _draw-coordinate-axis(

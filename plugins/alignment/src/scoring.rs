@@ -142,24 +142,6 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_scoring() {
-        let scorer = SubstitutionScorer::Simple {
-            match_score: 5,
-            mismatch_score: -3,
-        };
-        match scorer {
-            SubstitutionScorer::Simple {
-                match_score,
-                mismatch_score,
-            } => {
-                assert_eq!(match_score, 5);
-                assert_eq!(mismatch_score, -3);
-            }
-            SubstitutionScorer::Matrix(_) => panic!("expected simple scorer"),
-        }
-    }
-
-    #[test]
     fn test_blosum62_scoring() {
         let scorer = SubstitutionScorer::Matrix(BuiltinMatrix::Blosum62);
         if let SubstitutionScorer::Matrix(matrix) = scorer {

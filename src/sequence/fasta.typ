@@ -17,11 +17,10 @@
   sequence
 }
 
-/// Parses a FASTA string into a dictionary.
+/// Parses FASTA-formatted sequence data into a dictionary mapping unique
+/// sequence identifiers to sequence strings.
 ///
-/// Parses a string containing FASTA-formatted sequence data and returns
-/// a dictionary mapping unique sequence identifiers to their corresponding
-/// sequences as strings. Duplicate identifiers are rejected.
+/// Duplicate identifiers are rejected.
 ///
 /// - data (str): A string containing the FASTA data.
 /// -> dictionary with keys:
@@ -58,13 +57,13 @@
   sequences
 }
 
-/// Formats a dictionary of sequences in FASTA format for display.
+/// Renders a dictionary of sequences in FASTA format for display.
 /// Each character is rendered in a fixed-width box to prevent line wrapping.
 ///
-/// - sequences (dictionary): A dictionary mapping sequence identifiers to sequences.
+/// - sequences (dictionary): Dictionary mapping sequence identifiers to sequences.
 /// - max-width (int): Maximum characters per line (default: 60).
-/// - bold-header (bool): Render sequence headers in bold (default: false).
-/// - entry-spacing (length, none): Vertical spacing between entries; defaults to line spacing if none (default: none).
+/// - bold-header (bool): Whether to render sequence headers in bold (default: false).
+/// - entry-spacing (length, none): Vertical spacing between entries. Defaults to line spacing when `none` (default: none).
 /// -> content
 #let render-fasta(
   sequences,

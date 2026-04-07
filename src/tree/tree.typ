@@ -392,10 +392,9 @@
   )
 }
 
-/// Draws a rectangular phylogenetic tree from parsed or manual tree data.
+/// Renders a rectangular phylogenetic tree from parsed or manual tree data.
 ///
-/// Renders a rectangular phylogenetic tree visualization from parsed or manual
-/// tree data. Supports customization of dimensions, styling, and orientation.
+/// Supports customization of dimensions, styling, and orientation.
 ///
 /// - tree-data (dictionary): Parsed or manually constructed tree data.
 /// - width (length, auto, ratio, relative): Width of the tree visualization
@@ -405,7 +404,7 @@
 /// - branch-color (color): Color of tree branches (default: black).
 /// - tip-label-size (length): Font size of tip labels (default: 1em).
 /// - tip-label-color (color, none): Color of tip labels (default: none, inherits from the document).
-/// - tip-label-italics (bool): Use italics to draw tip labels (default: false).
+/// - tip-label-italics (bool): Whether to use italics for tip labels (default: false).
 /// - internal-label-size (length): Font size of internal node labels (default: 0.85em).
 /// - internal-label-color (color, none): Color of internal node labels (default: medium gray; `none` inherits from the document).
 /// - hide-internal-labels (bool): Whether to suppress all non-leaf labels in
@@ -518,7 +517,7 @@
   ]
 }
 
-/// Draws an unrooted phylogenetic tree using an equal-angle or daylight layout.
+/// Renders an unrooted phylogenetic tree using an equal-angle or daylight layout.
 ///
 /// - tree-data (dictionary): Parsed or manually constructed tree data.
 /// - width (length, auto, ratio, relative): Width of the tree visualization including labels (default: 100%).
@@ -527,7 +526,7 @@
 /// - branch-color (color): Color of tree branches (default: black).
 /// - tip-label-size (length): Font size of tip labels (default: 1em).
 /// - tip-label-color (color, none): Color of tip labels (default: none, inherits from the document).
-/// - tip-label-italics (bool): Use italics to draw tip labels (default: false).
+/// - tip-label-italics (bool): Whether to use italics for tip labels (default: false).
 /// - internal-label-size (length): Font size of internal node labels (default: 0.85em).
 /// - internal-label-color (color, none): Color of internal node labels (default: medium gray; `none` inherits from the document).
 /// - hide-internal-labels (bool): Whether to suppress all non-leaf labels in

@@ -442,9 +442,8 @@
 
 /// Renders a dynamic programming matrix for sequence alignment visualization.
 ///
-/// Creates a visual representation of a dynamic programming (DP) matrix with
-/// optional cell highlighting, traceback path overlay, and arrow indicators for
-/// alignment directions.
+/// Supports optional cell highlighting, traceback path overlay, and arrow
+/// indicators for alignment directions.
 ///
 /// - seq-1 (str): Sequence displayed on the left as row labels.
 /// - seq-2 (str): Sequence displayed on top as column labels.

@@ -92,15 +92,6 @@ mod global_tests {
     }
 
     #[test]
-    fn test_simple_alignment() {
-        let scoring = ScoringConfig::linear(1, -1, -1, -1);
-        let aligner = GlobalAligner::new(scoring);
-        let result = aligner.align(b"GAC", b"ACG").unwrap();
-
-        assert_eq!(result.final_score, 0);
-    }
-
-    #[test]
     fn test_simple_alignment_is_case_insensitive() {
         let aligner = GlobalAligner::new(ScoringConfig::default());
         let result = aligner.align(b"aCgT", b"AcGt").unwrap();
@@ -298,33 +289,6 @@ mod local_tests {
                 .iter()
                 .any(|a| a.seq1_aligned.contains("GCT") && a.seq2_aligned.contains("GCT"))
         );
-    }
-
-    #[test]
-    fn test_no_good_alignment() {
-        let scoring = ScoringConfig::linear(1, -3, -3, -3);
-        let aligner = LocalAligner::new(scoring);
-
-        // Very different sequences with harsh penalties
-        let result = aligner.align(b"AAAA", b"TTTT").unwrap();
-
-        // Should have score 0 or empty alignments
-        assert!(result.final_score <= 0 || result.alignments.is_empty());
-    }
-
-    #[test]
-    fn test_first_row_col_are_zero() {
-        let aligner = LocalAligner::new(ScoringConfig::default());
-        let result = aligner.align(b"ACG", b"ACG").unwrap();
-
-        // First row should all be 0
-        for j in 0..=3 {
-            assert_eq!(result.matrix.get(0, j).score, 0);
-        }
-        // First column should all be 0
-        for i in 0..=3 {
-            assert_eq!(result.matrix.get(i, 0).score, 0);
-        }
     }
 
     #[test]

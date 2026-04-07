@@ -121,23 +121,22 @@
   (display-acc, rendered-seq)
 }
 
-/// Formats a multiple sequence alignment into blocks.
+/// Renders a multiple sequence alignment in blocks.
 ///
-/// Renders a multiple sequence alignment with optional residue coloring and
-/// conservation bars. Sequences are displayed in blocks of `max-seq-width`
-/// characters to fit within the document. Empty alignments render nothing and
-/// return `none`.
+/// Supports optional residue coloring and conservation bars. Sequences are
+/// displayed in blocks of `max-seq-width` characters to fit within the
+/// document. Empty alignments render nothing and return `none`.
 ///
-/// - alignment (dictionary): A dictionary mapping sequence identifiers to aligned sequences.
+/// - alignment (dictionary): Dictionary mapping sequence identifiers to aligned sequences.
 /// - max-acc-width (int): Maximum width for accession display (default: 20).
 /// - max-seq-width (int): Maximum characters per line in a block (default: 50).
 /// - start (int, none): Starting position (1-indexed, inclusive) (default: none).
 /// - end (int, none): Ending position (1-indexed, inclusive) (default: none).
-/// - colors (bool): Color residues by chemical properties (default: false).
-/// - conservation (bool): Show conservation bars (default: false).
-/// - sampling-correction (bool): Apply small sample correction (default: true).
+/// - colors (bool): Whether to color residues by chemical properties (default: false).
+/// - conservation (bool): Whether to show conservation bars (default: false).
+/// - sampling-correction (bool): Whether to apply small sample correction (default: true).
 /// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna" (default: auto).
-/// - breakable (bool): Allow blocks to break across pages (default: true).
+/// - breakable (bool): Whether to allow blocks to break across pages (default: true).
 /// - palette (dictionary, auto): Residue color palette (default: auto).
 /// -> content, none
 #let render-msa(

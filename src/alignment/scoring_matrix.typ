@@ -3,9 +3,7 @@
 
 /// Retrieves a scoring matrix by name from the WASM plugin.
 ///
-/// Fetches the specified substitution matrix and returns it as a structured
-/// dictionary containing the alphabet and a 2D score matrix. Matrix names
-/// are case-insensitive.
+/// Matrix names are case-insensitive.
 ///
 /// Available scoring matrices: BLOSUM30, BLOSUM40, BLOSUM45, BLOSUM50,
 /// BLOSUM62, BLOSUM70, BLOSUM80, BLOSUM90, BLOSUM100, PAM1, PAM10, PAM40,
@@ -245,10 +243,10 @@
 
 /// Renders a scoring matrix as a visual grid.
 ///
-/// Creates a visual representation of a substitution matrix with optional
-/// color gradient mapping, triangle display modes, and customizable styling.
-/// The alphabet letters appear as row and column headers.
-/// Scores map symmetrically around zero, so a score of 0 maps to the midpoint color.
+/// Supports optional color gradient mapping, triangle display modes, and
+/// customizable styling. The alphabet letters appear as row and column
+/// headers. Scores map symmetrically around zero, so a score of 0 maps to the
+/// midpoint color.
 ///
 /// - scoring-matrix (dictionary): A scoring matrix from `get-scoring-matrix`.
 /// - symbols (array, none): Subset of symbols to include and their display order. If none, uses the full alphabet from the matrix (default: none).

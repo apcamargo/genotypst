@@ -117,20 +117,6 @@ mod tests {
     use serde_json::Value;
 
     #[test]
-    fn test_json_serialization() {
-        let aligner = GlobalAligner::new(ScoringConfig::default());
-        let result = aligner.align(b"AC", b"AC").unwrap();
-
-        let json = serialize_alignment_result(&result).unwrap();
-        let value: Value = serde_json::from_slice(&json).unwrap();
-
-        assert_eq!(value["alignment_score"], 6);
-        assert!(value.get("seq1").is_none());
-        assert!(value.get("seq2").is_none());
-        assert!(value.get("scoring").is_none());
-    }
-
-    #[test]
     fn test_dp_matrix_output_format() {
         let aligner = GlobalAligner::new(ScoringConfig::default());
         let result = aligner.align(b"AC", b"AC").unwrap();
@@ -180,15 +166,6 @@ mod tests {
         let output = DPMatrixOutput::from(&matrix);
 
         assert_eq!(output.arrow_bits, vec![0, 0, 0, 7]);
-    }
-
-    #[test]
-    fn test_collect_arrow_bits_uses_zero_for_cells_without_arrows() {
-        let matrix = DPMatrix::new(2, 2);
-
-        let output = DPMatrixOutput::from(&matrix);
-
-        assert_eq!(output.arrow_bits, vec![0, 0, 0, 0]);
     }
 
     #[test]

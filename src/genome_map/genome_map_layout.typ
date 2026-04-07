@@ -5,6 +5,7 @@
 #import "../common/axis_scale.typ": (
   _format-scale-label, _make-axis-scale-label, _resolve-scale-bar-length,
 )
+#import "./genome_map_backend.typ": _genome-map-route-leaders
 
 /// Returns the inclusive span between two 1-indexed coordinates.
 ///
@@ -82,15 +83,9 @@
   normalized
 }
 
-/// Assigns labels to levels to avoid overlap.
+/// Assigns labels to dodge levels to maintain horizontal spacing.
 ///
-/// Greedy first-fit dodging: labels are processed in order, placed into the
-/// first level that has enough horizontal room, and new levels are created
-/// as needed. Lower level indices are positioned closer to the gene track,
-/// so this strategy keeps labels as close to the genes as possible while
-/// still preventing overlaps.
-///
-/// - labels (array): Label dictionaries with computed positions.
+/// - labels (array): Label dictionaries with computed dodge spans.
 /// - spacing (length): Minimum horizontal spacing between labels.
 /// -> dictionary
 #let _assign-label-levels(labels, spacing) = {
@@ -103,7 +98,6 @@
     let level = none
 
     for (idx, intervals) in level-intervals.enumerate() {
-      // First level that fits keeps the label closest to the gene track.
       let overlaps = false
       for interval in intervals {
         if left < interval.right + spacing and right > interval.left - spacing {
@@ -129,7 +123,7 @@
   (labels: assigned, levels: level-intervals.len())
 }
 
-/// Computes label layout and level positions.
+/// Measures label geometry and returns positioned labels with leader segments.
 ///
 /// - genes (array): Normalized gene dictionaries.
 /// - region-start (int): Inclusive region start coordinate.
@@ -139,6 +133,9 @@
 /// - label-size (length): Label font size.
 /// - label-horizontal-gap (length): Horizontal spacing between labels.
 /// - label-vertical-gap (length): Vertical gap between label levels.
+/// - label-line-distance (length): Horizontal clearance for leader-line gaps.
+/// - label-track-gap (length): Gap between the label block and the gene track.
+/// - label-leader-offset (length): Gap between leaders and the gene track.
 /// -> dictionary
 #let _layout-labels(
   genes,
@@ -149,6 +146,9 @@
   label-size,
   label-horizontal-gap,
   label-vertical-gap,
+  label-line-distance,
+  label-track-gap,
+  label-leader-offset,
 ) = {
   let label-height = measure(text(
     "pjfI",
@@ -193,14 +193,19 @@
         underline-left: underline-left,
         underline-width: underline-width,
         gene-center: gene-center,
-        width: label-width,
-        gene-width: gene-width,
         text: label-text,
       ))
     }
   }
 
-  // Prefer longer dodge spans closer to the track while keeping render order by center.
+  if label-data.len() == 0 {
+    return (
+      labels: (),
+      level-count: 0,
+      level-block-height: 0pt,
+    )
+  }
+
   let sorted-for-dodging = label-data.sorted(
     key: label => (-(label.dodge-right - label.dodge-left), label.center),
   )
@@ -208,38 +213,64 @@
     sorted-for-dodging,
     label-horizontal-gap,
   )
-  let labels = label-layout.labels.sorted(key: label => label.center)
   let level-count = label-layout.levels
-  let level-block-height = if level-count == 0 {
-    0pt
-  } else {
+  let level-block-height = (
     level-count * label-height + (level-count - 1) * label-vertical-gap
-  }
+  )
   let level-step = label-height + label-vertical-gap
   let level-base-top = level-block-height - label-height
-  let positioned-labels = labels.map(label => {
-    let top = level-base-top - label.level * level-step
-    let bottom = top + label-height
-    let underline-y = bottom + label-height * 0.14
-    (
-      ..label,
-      top: top,
-      bottom: bottom,
-      underline-y: underline-y,
-      underline-left: label.underline-left,
-      underline-width: label.underline-width,
-    )
-  })
+  let label-line-clearance = label-height * 0.25
+  let line-bottom = level-block-height + label-track-gap - label-leader-offset
+  let routing-labels = label-layout
+    .labels
+    .sorted(key: label => label.center)
+    .map(label => {
+      let top = level-base-top - label.level * level-step
+      let bottom = top + label-height
+      let underline-y = bottom + label-height * 0.14
+      (
+        ..label,
+        top: top,
+        underline-y: underline-y,
+        raw-top: top,
+        raw-bottom: bottom,
+        block-top: top - label-line-clearance,
+        block-bottom: bottom + label-line-clearance,
+        hit-left: label.left - label-line-distance,
+        hit-right: label.right + label-line-distance,
+      )
+    })
+  let routed-labels = _genome-map-route-leaders((
+    line-bottom: line-bottom,
+    labels: routing-labels,
+  ))
+  let positioned-labels = routing-labels
+    .enumerate()
+    .map(((index, label)) => {
+      let routed-label = routed-labels.labels.at(index)
+      (
+        left: label.left,
+        top: label.top,
+        underline-left: label.underline-left,
+        underline-width: label.underline-width,
+        underline-y: label.underline-y,
+        gene-center: label.gene-center,
+        text: label.text,
+        leader-segments: routed-label.leader-segments,
+      )
+    })
 
   (
     labels: positioned-labels,
     level-count: level-count,
-    label-height: label-height,
     level-block-height: level-block-height,
   )
 }
 
-/// Resolves normalized data and derived geometry for `render-genome-map`.
+/// Resolves normalized data and render-ready geometry for `render-genome-map`.
+///
+/// Returns normalized genes, positioned labels, and track/axis geometry needed
+/// by the renderer.
 ///
 /// - genes (array): Gene dictionaries to render.
 /// - start (int, auto): 1-indexed inclusive region start coordinate.
@@ -350,9 +381,11 @@
     label-size,
     label-horizontal-gap,
     label-vertical-gap,
+    label-line-distance,
+    label-track-gap,
+    label-leader-offset,
   )
   let positioned-labels = label-layout.labels
-  let label-line-clearance = label-layout.label-height * 0.25
 
   let track-top = if label-layout.level-count == 0 {
     0pt
@@ -440,9 +473,6 @@
     track-width: track-width,
     x-scale: x-scale,
     positioned-labels: positioned-labels,
-    label-line-clearance: label-line-clearance,
-    label-line-distance: label-line-distance,
-    label-leader-offset: label-leader-offset,
     track-top: track-top,
     coordinate-axis-top: coordinate-axis-top,
     axis-width: axis-width,

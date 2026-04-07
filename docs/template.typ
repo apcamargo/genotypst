@@ -6,7 +6,7 @@
   author: "",
   body,
 ) = {
-  set document(author: author, title: title)
+  set document(author: author, title: title, date: none)
   set page(
     margin: (y: 2.6cm, x: 2.6cm),
     paper: "us-letter",
