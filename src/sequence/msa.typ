@@ -12,8 +12,8 @@
 /// - colors (bool): Whether to apply coloring.
 /// - palette (dictionary): Color palette for residues.
 /// -> dictionary with keys:
-///   - body: content
-///   - fill: color, none
+///   - body (content): Rendered character content.
+///   - fill (color, none): Optional background fill color.
 #let _render-msa-character(char, colors, palette) = {
   if colors and char in palette {
     let base-color = palette.at(char)

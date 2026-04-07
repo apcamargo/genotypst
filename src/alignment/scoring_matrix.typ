@@ -3,8 +3,6 @@
 
 /// Retrieves a scoring matrix by name from the WASM plugin.
 ///
-/// Matrix names are case-insensitive.
-///
 /// Available scoring matrices: BLOSUM30, BLOSUM40, BLOSUM45, BLOSUM50,
 /// BLOSUM62, BLOSUM70, BLOSUM80, BLOSUM90, BLOSUM100, PAM1, PAM10, PAM40,
 /// PAM80, PAM120, PAM160, PAM250, EDNAFULL. Matrix names are case-insensitive.
@@ -135,28 +133,129 @@
   } else { [#score] }
 }
 
+/// Prepares a resolved scoring-matrix view for one triangle mode.
+///
+/// Validates the requested symbols and triangle mode, resolves the visible
+/// cell mask, and computes the final grid geometry once for downstream
+/// rendering helpers.
+///
+/// - scoring-matrix (dictionary): Matrix record from `get-scoring-matrix`.
+/// - symbols (array, none): Requested symbol order or none for the full alphabet.
+/// - triangle (str): Which portion to display: "lower", "upper", or "full".
+/// - cell-size (length): Square data-cell size.
+/// -> dictionary with keys:
+///   - symbols (array): Display symbols in render order.
+///   - cell-values (array): 2D array of resolved score values.
+///   - visible-mask (array): 2D boolean mask for cells included in the view.
+///   - scale-values (array): Score values included in scale-limit calculation.
+///   - row-label-side (str): Row-label placement side, `"left"` or `"right"`.
+///   - col-label-side (str): Column-label placement side, `"top"` or `"bottom"`.
+///   - grid-columns (array): Final grid column sizes.
+///   - grid-rows (array): Final grid row sizes.
+#let _prepare-scoring-matrix-view(
+  scoring-matrix,
+  symbols,
+  triangle,
+  cell-size,
+) = {
+  assert(
+    triangle in ("lower", "upper", "full"),
+    message: "triangle must be 'lower', 'upper', or 'full'.",
+  )
+
+  let display-symbols = if symbols == none { scoring-matrix.alphabet } else {
+    symbols
+  }
+
+  for sym in display-symbols {
+    assert(
+      sym in scoring-matrix.alphabet,
+      message: "symbol '"
+        + sym
+        + "' not found in "
+        + scoring-matrix.name
+        + " alphabet.",
+    )
+  }
+
+  let visible-in-view = if triangle == "lower" {
+    (i, j) => i >= j
+  } else if triangle == "upper" {
+    (i, j) => i <= j
+  } else {
+    (i, j) => true
+  }
+  let row-label-side = if triangle == "upper" { "right" } else { "left" }
+  let col-label-side = if triangle == "lower" { "bottom" } else { "top" }
+
+  let sym-to-idx = (:)
+  for (i, sym) in scoring-matrix.alphabet.enumerate() {
+    sym-to-idx.insert(sym, i)
+  }
+
+  let cell-values = ()
+  let visible-mask = ()
+  let scale-values = ()
+  for (i, row-sym) in display-symbols.enumerate() {
+    let row-values = ()
+    let row-mask = ()
+    for (j, col-sym) in display-symbols.enumerate() {
+      let score = scoring-matrix
+        .matrix
+        .at(sym-to-idx.at(row-sym))
+        .at(sym-to-idx.at(col-sym))
+      let visible = visible-in-view(i, j)
+      row-values.push(score)
+      row-mask.push(visible)
+      if visible {
+        scale-values.push(score)
+      }
+    }
+    cell-values.push(row-values)
+    visible-mask.push(row-mask)
+  }
+
+  let n = display-symbols.len()
+  let label-size = cell-size * 0.9
+  let data-sizes = (cell-size,) * n
+
+  (
+    symbols: display-symbols,
+    cell-values: cell-values,
+    visible-mask: visible-mask,
+    scale-values: scale-values,
+    row-label-side: row-label-side,
+    col-label-side: col-label-side,
+    grid-columns: if row-label-side == "left" {
+      (label-size,) + data-sizes
+    } else {
+      data-sizes + (label-size,)
+    },
+    grid-rows: if col-label-side == "top" {
+      (label-size,) + data-sizes
+    } else {
+      data-sizes + (label-size,)
+    },
+  )
+}
+
 /// Calculates symmetric scale limits for color mapping.
 ///
-/// Computes the maximum absolute value across the rendered triangle,
-/// ignoring infinity values. Returns symmetric min/max limits centered
-/// around zero.
+/// Computes the maximum absolute value across the resolved scale values,
+/// ignoring infinity values. Returns symmetric min/max limits centered around
+/// zero.
 ///
-/// - cell-values (array): 2D array of score values.
-/// - triangle (str): Which triangle to consider: "lower", "upper", or "full".
+/// - scale-values (array): Score values included in the active view.
 /// - scale-limit (auto, int, float): User-specified limit or auto-detect.
-/// -> dictionary
-#let _get-scale-limits(cell-values, triangle, scale-limit) = {
+/// -> dictionary with keys:
+///   - min (int, float): Lower bound of the symmetric scale.
+///   - max (int, float): Upper bound of the symmetric scale.
+#let _get-scale-limits(scale-values, scale-limit) = {
   let current-max-abs = 0.0
 
-  for (i, row) in cell-values.enumerate() {
-    for (j, val) in row.enumerate() {
-      let in-triangle = if triangle == "lower" { i >= j } else if (
-        triangle == "upper"
-      ) { i <= j } else { true }
-
-      if in-triangle and not float.is-infinite(val) {
-        current-max-abs = calc.max(current-max-abs, calc.abs(val))
-      }
+  for val in scale-values {
+    if not float.is-infinite(val) {
+      current-max-abs = calc.max(current-max-abs, calc.abs(val))
     }
   }
 
@@ -166,75 +265,65 @@
 
 /// Generates grid cells for the scoring matrix visualization.
 ///
-/// Creates an array of grid cells with labels positioned according to
-/// the triangle mode. Handles "lower", "upper", and "full" triangle modes.
+/// Creates grid cells from a prepared scoring-matrix view record.
 ///
-/// - symbols (array): Array of symbol characters.
-/// - cell-values (array): 2D array of score values.
-/// - triangle (str): Triangle mode.
+/// - view (dictionary): Prepared scoring-matrix view record.
 /// - label-bold (bool): Whether labels should be bold.
 /// - stroke (stroke, none): Stroke for data cells.
 /// - limits (dictionary): Min/max limits for color scaling.
 /// - color-map (array, none): Color gradient.
-/// -> array
-#let _generate-cells(
-  symbols,
-  cell-values,
-  triangle,
-  label-bold,
-  stroke,
-  limits,
-  color-map,
-) = {
+/// -> array: Grid cells emitted in final row-major order for `grid(..cells)`.
+#let _generate-cells(view, label-bold, stroke, limits, color-map) = {
   let cells = ()
+  let blank-cell = () => grid.cell(stroke: none)[]
 
   let make-label = sym => grid.cell(fill: none, stroke: none)[#(
     if label-bold { strong(sym) } else { sym }
   )]
 
   let make-data-cell = (i, j) => {
-    let score = cell-values.at(i).at(j)
+    let score = view.cell-values.at(i).at(j)
     let bg = _get-score-color(score, limits.min, limits.max, color-map)
     grid.cell(fill: bg, stroke: stroke)[#_format-score(score)]
   }
 
-  if triangle == "upper" {
-    // Top labels row
-    for sym in symbols { cells.push(make-label(sym)) }
-    cells.push(grid.cell(stroke: none)[])
+  if view.col-label-side == "top" {
+    if view.row-label-side == "left" {
+      cells.push(blank-cell())
+    }
+    for sym in view.symbols {
+      cells.push(make-label(sym))
+    }
+    if view.row-label-side == "right" {
+      cells.push(blank-cell())
+    }
+  }
 
-    // Data rows + Right labels
-    for (i, row-sym) in symbols.enumerate() {
-      for (j, _) in symbols.enumerate() {
-        if i <= j { cells.push(make-data-cell(i, j)) } else {
-          cells.push(grid.cell(stroke: none)[])
-        }
-      }
+  for (i, row-sym) in view.symbols.enumerate() {
+    if view.row-label-side == "left" {
       cells.push(make-label(row-sym))
     }
-  } else if triangle == "lower" {
-    // Left labels + Data rows
-    for (i, row-sym) in symbols.enumerate() {
-      cells.push(make-label(row-sym))
-      for (j, _) in symbols.enumerate() {
-        if i >= j { cells.push(make-data-cell(i, j)) } else {
-          cells.push(grid.cell(stroke: none)[])
-        }
-      }
-    }
-    // Bottom labels row
-    cells.push(grid.cell(stroke: none)[])
-    for sym in symbols { cells.push(make-label(sym)) }
-  } else {
-    // Full matrix: labels on left and top
-    cells.push(grid.cell(stroke: none)[])
-    for sym in symbols { cells.push(make-label(sym)) }
-
-    for (i, row-sym) in symbols.enumerate() {
-      cells.push(make-label(row-sym))
-      for (j, _) in symbols.enumerate() {
+    for (j, _) in view.symbols.enumerate() {
+      if view.visible-mask.at(i).at(j) {
         cells.push(make-data-cell(i, j))
+      } else {
+        cells.push(blank-cell())
       }
+    }
+    if view.row-label-side == "right" {
+      cells.push(make-label(row-sym))
+    }
+  }
+
+  if view.col-label-side == "bottom" {
+    if view.row-label-side == "left" {
+      cells.push(blank-cell())
+    }
+    for sym in view.symbols {
+      cells.push(make-label(sym))
+    }
+    if view.row-label-side == "right" {
+      cells.push(blank-cell())
     }
   }
 
@@ -272,72 +361,18 @@
   stroke: none,
   color-map: _diverging-gradient,
 ) = {
-  assert(
-    triangle in ("lower", "upper", "full"),
-    message: "triangle must be 'lower', 'upper', or 'full'.",
-  )
-
-  // Determine display symbols
-  let display-symbols = if symbols == none { scoring-matrix.alphabet } else {
-    symbols
-  }
-
-  // Validate requested symbols exist in alphabet
-  for sym in display-symbols {
-    assert(
-      sym in scoring-matrix.alphabet,
-      message: "symbol '"
-        + sym
-        + "' not found in "
-        + scoring-matrix.name
-        + " alphabet.",
-    )
-  }
-
-  // Build symbol-to-index mapping
-  let sym-to-idx = (:)
-  for (i, sym) in scoring-matrix.alphabet.enumerate() {
-    sym-to-idx.insert(sym, i)
-  }
-
-  // Extract cell values for requested symbols
-  let cell-values = display-symbols.map(row-sym => display-symbols.map(
-    col-sym => scoring-matrix
-      .matrix
-      .at(sym-to-idx.at(row-sym))
-      .at(sym-to-idx.at(col-sym)),
-  ))
-
-  // Calculate scale limits
-  let limits = _get-scale-limits(cell-values, triangle, scale-limit)
-
-  // Generate grid cells
-  let cells = _generate-cells(
-    display-symbols,
-    cell-values,
+  let view = _prepare-scoring-matrix-view(
+    scoring-matrix,
+    symbols,
     triangle,
-    label-bold,
-    stroke,
-    limits,
-    color-map,
+    cell-size,
   )
-
-  // Calculate grid dimensions
-  let n = display-symbols.len()
-  let label-size = cell-size * 0.9
-  let data-sizes = (cell-size,) * n
-
-  let (grid-cols, grid-rows) = if triangle == "lower" {
-    ((label-size,) + data-sizes, data-sizes + (label-size,))
-  } else if triangle == "upper" {
-    (data-sizes + (label-size,), (label-size,) + data-sizes)
-  } else {
-    ((label-size,) + data-sizes, (label-size,) + data-sizes)
-  }
+  let limits = _get-scale-limits(view.scale-values, scale-limit)
+  let cells = _generate-cells(view, label-bold, stroke, limits, color-map)
 
   block(breakable: false, grid(
-    columns: grid-cols,
-    rows: grid-rows,
+    columns: view.grid-columns,
+    rows: view.grid-rows,
     gutter: gutter,
     align: center + horizon,
     ..cells

@@ -13,7 +13,7 @@
 #let _internal-label-gap = 0.38em
 #let _auto-height-scale = 1.9em
 #let _rectangular-fit-band-samples = 1
-#let _rectangular-fit-max-bands = 24
+#let _tree-fit-max-bands = 24
 
 /// Returns whether the public `width` argument is valid.
 ///
@@ -73,7 +73,7 @@
   )
 }
 
-/// Validates the `render-rectangular-tree` arguments that affect layout and sizing.
+/// Resolves the canonical rectangular-tree render configuration.
 ///
 /// - width (length, auto, ratio, relative): Requested rendered width.
 /// - height (length, auto): Requested rendered tree height.
@@ -89,8 +89,17 @@
 /// - scale-bar-gap (length): Gap between tree and scale bar.
 /// - scale-tick-height (length): Scale bar tick height.
 /// - scale-label-size (length): Scale bar label size.
-/// -> none
-#let _validate-render-rectangular-tree-args(
+/// -> dictionary with keys:
+///   - layout-kind (str): Backend layout identifier.
+///   - orientation (str): Final render orientation.
+///   - suppress-unrooted (bool): Whether the backend suppresses the artificial
+///     rooted handle used for unrooted trees.
+///   - cladogram (bool): Whether cladogram mode is enabled.
+///   - hide-internal-labels (bool): Whether internal labels are omitted.
+///   - scale-bar (bool): Whether scale-bar rendering is enabled.
+///   - optimize-uniform-rotation (bool): Whether fit may optimize global rotation.
+///   - fit-band-samples (int, none): Band samples used by the fit search.
+#let _resolve-rectangular-tree-render-config(
   width,
   height,
   branch-width,
@@ -136,9 +145,21 @@
       message: "scale-label-size must be positive.",
     )
   }
+  (
+    layout-kind: "rectangular",
+    orientation: orientation,
+    suppress-unrooted: false,
+    cladogram: cladogram,
+    hide-internal-labels: hide-internal-labels,
+    scale-bar: scale-bar,
+    optimize-uniform-rotation: false,
+    // Rectangular occupied span is monotone enough that one sample per band
+    // keeps the search cheap without changing the generic solver structure.
+    fit-band-samples: _rectangular-fit-band-samples,
+  )
 }
 
-/// Validates the `render-unrooted-tree` arguments.
+/// Resolves the canonical unrooted-tree render configuration.
 ///
 /// - width (length, auto, ratio, relative): Requested rendered width.
 /// - height (length, auto): Requested rendered tree height.
@@ -148,8 +169,17 @@
 /// - hide-internal-labels (bool): Whether internal labels are suppressed.
 /// - cladogram (bool): Whether cladogram mode is enabled.
 /// - layout (str): Unrooted layout name.
-/// -> none
-#let _validate-render-unrooted-tree-args(
+/// -> dictionary with keys:
+///   - layout-kind (str): Backend layout identifier.
+///   - orientation (str): Final render orientation.
+///   - suppress-unrooted (bool): Whether the backend suppresses the artificial
+///     rooted handle used for unrooted trees.
+///   - cladogram (bool): Whether cladogram mode is enabled.
+///   - hide-internal-labels (bool): Whether internal labels are omitted.
+///   - scale-bar (bool): Whether scale-bar rendering is enabled.
+///   - optimize-uniform-rotation (bool): Whether fit may optimize global rotation.
+///   - fit-band-samples (int, none): Band samples used by the fit search.
+#let _resolve-unrooted-tree-render-config(
   width,
   height,
   branch-width,
@@ -171,6 +201,16 @@
   assert(
     layout in ("equal-angle", "daylight"),
     message: "layout must be 'equal-angle' or 'daylight'.",
+  )
+  (
+    layout-kind: layout,
+    orientation: "horizontal",
+    suppress-unrooted: true,
+    cladogram: cladogram,
+    hide-internal-labels: hide-internal-labels,
+    scale-bar: false,
+    optimize-uniform-rotation: true,
+    fit-band-samples: none,
   )
 }
 
@@ -273,118 +313,34 @@
   style
 }
 
-/// Prepares rectangular tree style record and prepared fit payload.
+/// Prepares a tree render from the resolved mode config.
 ///
 /// - tree-data (dictionary): Parsed or manual tree data.
-/// - branch-width (length): Branch stroke thickness.
-/// - branch-color (color): Branch color.
-/// - tip-label-size (length): Tip label size.
-/// - tip-label-color (color, none): Tip label color.
-/// - tip-label-italics (bool): Whether tip labels are italicized.
-/// - internal-label-size (length): Internal label size.
-/// - internal-label-color (color, none): Internal label color.
-/// - root-length (length): Rendered root-edge length.
-/// - orientation (str): Tree orientation.
-/// - cladogram (bool): Whether cladogram mode is enabled.
-/// - scale-bar (bool): Whether scale bar rendering is enabled.
-/// - hide-internal-labels (bool): Whether internal labels are omitted from
-///   the prepared output.
+/// - style (dictionary): Tree style record.
+/// - config (dictionary): Canonical tree render config from one of the
+///   `_resolve-*-tree-render-config(...)` helpers.
 /// -> dictionary with keys:
-///   - style (dictionary): Tree style record
-///   - prepared-fit-plan (dictionary): Prepared fit payload for tree fitting
-#let _prepare-rectangular-tree-render(
-  tree-data,
-  branch-width,
-  branch-color,
-  tip-label-size,
-  tip-label-color,
-  tip-label-italics,
-  internal-label-size,
-  internal-label-color,
-  root-length,
-  orientation,
-  cladogram,
-  scale-bar,
-  hide-internal-labels: false,
-) = {
-  let style = _build-rectangular-tree-style(
-    branch-width,
-    branch-color,
-    tip-label-size,
-    tip-label-color,
-    tip-label-italics,
-    internal-label-size,
-    internal-label-color,
-    root-length,
-  )
+///   - style (dictionary): Tree style record passed into the helper.
+///   - prepared-fit-plan (dictionary): Prepared fit payload for the tree-fitting
+///     stage.
+#let _prepare-tree-render(tree-data, style, config) = {
   let layout-tree = _tree-prepare-layout-backend(
     tree-data,
-    cladogram: cladogram,
-    suppress-unrooted: false,
-    hide-internal-labels: hide-internal-labels,
-    layout-kind: "rectangular",
+    cladogram: config.cladogram,
+    suppress-unrooted: config.suppress-unrooted,
+    hide-internal-labels: config.hide-internal-labels,
+    layout-kind: config.layout-kind,
   )
-  assert(
-    not (layout-tree.effective-cladogram and scale-bar),
-    message: "scale-bar cannot be used when the tree has no branch length information or when it is rendered as a cladogram.",
-  )
-  let tree-plan = _build-tree-plan(layout-tree, style, orientation: orientation)
-  (
-    style: style,
-    prepared-fit-plan: _prepare-fit-tree-plan(tree-plan),
-  )
-}
-
-/// Prepares unrooted tree style record and prepared fit payload.
-///
-/// - tree-data (dictionary): Parsed or manual tree data.
-/// - branch-width (length): Branch stroke thickness.
-/// - branch-color (color): Branch color.
-/// - tip-label-size (length): Tip label size.
-/// - tip-label-color (color, none): Tip label color.
-/// - tip-label-italics (bool): Whether tip labels are italicized.
-/// - internal-label-size (length): Internal label size.
-/// - internal-label-color (color, none): Internal label color.
-/// - cladogram (bool): Whether cladogram mode is enabled.
-/// - layout (str): Unrooted layout name.
-/// - hide-internal-labels (bool): Whether internal labels are omitted from
-///   the prepared output.
-/// -> dictionary with keys:
-///   - style (dictionary): Tree style record
-///   - prepared-fit-plan (dictionary): Prepared fit payload for tree fitting
-#let _prepare-unrooted-tree-render(
-  tree-data,
-  branch-width,
-  branch-color,
-  tip-label-size,
-  tip-label-color,
-  tip-label-italics,
-  internal-label-size,
-  internal-label-color,
-  cladogram,
-  layout,
-  hide-internal-labels: false,
-) = {
-  let style = _build-render-tree-style(
-    branch-width,
-    branch-color,
-    tip-label-size,
-    tip-label-color,
-    tip-label-italics,
-    internal-label-size,
-    internal-label-color,
-  )
-  let layout-tree = _tree-prepare-layout-backend(
-    tree-data,
-    cladogram: cladogram,
-    suppress-unrooted: true,
-    hide-internal-labels: hide-internal-labels,
-    layout-kind: layout,
-  )
+  if config.scale-bar {
+    assert(
+      not layout-tree.effective-cladogram,
+      message: "scale-bar cannot be used when the tree has no branch length information or when it is rendered as a cladogram.",
+    )
+  }
   let tree-plan = _build-tree-plan(
     layout-tree,
     style,
-    orientation: "horizontal",
+    orientation: config.orientation,
   )
   (
     style: style,
@@ -446,7 +402,7 @@
   scale-tick-height: 4.25pt,
   scale-label-size: 0.8em,
 ) = {
-  _validate-render-rectangular-tree-args(
+  let config = _resolve-rectangular-tree-render-config(
     width,
     height,
     branch-width,
@@ -464,8 +420,7 @@
   )
   block(width: width)[
     #context {
-      let prepared = _prepare-rectangular-tree-render(
-        tree-data,
+      let style = _build-rectangular-tree-style(
         branch-width,
         branch-color,
         tip-label-size,
@@ -474,26 +429,27 @@
         internal-label-size,
         internal-label-color,
         root-length,
-        orientation,
-        cladogram,
-        scale-bar,
-        hide-internal-labels: hide-internal-labels,
+      )
+      let prepared = _prepare-tree-render(
+        tree-data,
+        style,
+        config,
       )
       _tree-render-layout(size => context {
         let fitted-plan = _fit-prepared-tree-plan(
           prepared.prepared-fit-plan,
           prepared.style,
-          orientation,
+          config.orientation,
           width,
           height,
           size,
-          _rectangular-fit-max-bands,
-          // Rectangular occupied span is monotone enough that one sample per band
-          // keeps the search cheap without changing the generic solver structure.
-          fit-band-samples: _rectangular-fit-band-samples,
-          optimize-uniform-rotation: false,
+          _tree-fit-max-bands,
+          fit-band-samples: config.fit-band-samples,
+          optimize-uniform-rotation: config.optimize-uniform-rotation,
         )
-        let scale-plan = if scale-bar and not fitted-plan.width-unresolved {
+        let scale-plan = if (
+          config.scale-bar and not fitted-plan.width-unresolved
+        ) {
           _build-scale-plan(
             fitted-plan,
             branch-color,
@@ -549,7 +505,7 @@
   cladogram: false,
   layout: "equal-angle",
 ) = {
-  _validate-render-unrooted-tree-args(
+  let config = _resolve-unrooted-tree-render-config(
     width,
     height,
     branch-width,
@@ -561,8 +517,7 @@
   )
   block(width: width)[
     #context {
-      let prepared = _prepare-unrooted-tree-render(
-        tree-data,
+      let style = _build-render-tree-style(
         branch-width,
         branch-color,
         tip-label-size,
@@ -570,20 +525,23 @@
         tip-label-italics,
         internal-label-size,
         internal-label-color,
-        cladogram,
-        layout,
-        hide-internal-labels: hide-internal-labels,
+      )
+      let prepared = _prepare-tree-render(
+        tree-data,
+        style,
+        config,
       )
       _tree-render-layout(size => context {
         let fitted-plan = _fit-prepared-tree-plan(
           prepared.prepared-fit-plan,
           prepared.style,
-          "horizontal",
+          config.orientation,
           width,
           height,
           size,
-          _rectangular-fit-max-bands,
-          optimize-uniform-rotation: true,
+          _tree-fit-max-bands,
+          fit-band-samples: config.fit-band-samples,
+          optimize-uniform-rotation: config.optimize-uniform-rotation,
         )
         _render-tree-plan(
           fitted-plan,

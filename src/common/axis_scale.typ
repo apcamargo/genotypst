@@ -2,7 +2,7 @@
 
 /// Formats a scale label with optional unit.
 ///
-/// - value (float): Scale value.
+/// - value (int, float): Scale value.
 /// - unit (str, none): Optional unit suffix.
 /// -> str
 #let _format-scale-label(value, unit) = {
@@ -157,7 +157,8 @@
 /// - y (length): Starting y-position.
 /// - length (length): Segment length.
 /// - stroke (stroke): Line stroke styling.
-/// -> content
+/// Non-positive lengths draw nothing and return `none`.
+/// -> content, none
 #let _draw-horizontal-segment(x, y, length, stroke) = {
   if length > 0pt {
     place(top + left, dx: x, dy: y, line(
@@ -174,7 +175,8 @@
 /// - y (length): Starting y-position.
 /// - length (length): Segment length.
 /// - stroke (stroke): Line stroke styling.
-/// -> content
+/// Non-positive lengths draw nothing and return `none`.
+/// -> content, none
 #let _draw-vertical-segment(x, y, length, stroke) = {
   if length > 0pt {
     place(top + left, dx: x, dy: y, line(

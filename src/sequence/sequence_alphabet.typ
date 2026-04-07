@@ -97,8 +97,8 @@
 /// - pos (int): The column position to analyze (0-indexed).
 /// - alphabet-characters (array): Array of valid alphabet characters.
 /// -> dictionary with keys:
-///   - counts: dictionary mapping characters to their counts
-///   - total-non-gap: int, total count of valid characters
+///   - counts (dictionary): Counts of valid characters at the column.
+///   - total-non-gap (int): Total count of valid non-gap characters.
 #let _get-column-stats(sequences, pos, alphabet-characters) = {
   let counts = (:)
   let total-non-gap = 0
@@ -123,9 +123,9 @@
 /// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna".
 /// - sequences (array): Array of sequence strings for auto-detection.
 /// -> dictionary with keys:
-///   - size: int, size of the alphabet (20 for amino acids, 4 for DNA/RNA)
-///   - chars: array, array of valid characters
-///   - palette: dictionary, color mapping for characters
+///   - size (int): Alphabet size (20 for amino acids, 4 for DNA/RNA).
+///   - chars (array): Array of valid alphabet characters.
+///   - palette (dictionary): Color mapping for characters.
 #let _resolve-alphabet-config(alphabet, sequences) = {
   assert(
     alphabet == auto or alphabet in ("aa", "dna", "rna"),
@@ -145,16 +145,18 @@
   }
 }
 
-/// Checks whether a palette covers all residues in a sequence list.
+/// Checks whether a palette covers the exact observed residues in a sequence list.
 ///
 /// Returns a dictionary with an `ok` flag and a `missing` array containing
-/// residues not found in the palette.
+/// observed non-gap residues whose exact keys are not present in the palette.
+/// This helper does not normalize residue case before comparing observed
+/// residues to palette keys.
 ///
 /// - palette (dictionary): Dictionary mapping residues to colors.
 /// - sequences (array): Array of sequence strings.
 /// -> dictionary with keys:
-///   - ok: bool
-///   - missing: array
+///   - ok (bool): Whether the palette covers all residues in the sequences.
+///   - missing (array): Residues not found in the palette.
 #let _check-palette-coverage(palette, sequences) = {
   assert(
     type(palette) == dictionary,

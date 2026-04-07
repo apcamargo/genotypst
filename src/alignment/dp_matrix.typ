@@ -6,7 +6,13 @@
   line as _tiptoe-line, straight as _tiptoe-straight,
 )
 
-/// Validate highlight entry shape, coordinates, and optional color.
+/// Validates highlight entry shape, coordinates, and optional color.
+///
+/// - highlights (array): Highlight entries as `(row, col)` or
+///   `(row, col, color)` arrays.
+/// - max-row (int): Maximum allowed row index.
+/// - max-col (int): Maximum allowed column index.
+/// -> none
 #let _validate-highlights(highlights, max-row, max-col) = {
   assert(type(highlights) == array, message: "highlights must be an array.")
 
@@ -37,13 +43,25 @@
   }
 }
 
-/// Convert row/column coordinates to a row-major index.
+/// Converts row/column coordinates to a row-major index.
+///
+/// - row (int): Zero-indexed row.
+/// - col (int): Zero-indexed column.
+/// - cols (int): Total number of columns.
+/// -> int
 #let _matrix-index(row, col, cols) = row * cols + col
 
-/// Convert a numeric row-major key into a dictionary key.
+/// Converts a numeric row-major key into a dictionary key.
+///
+/// - index (int): Row-major index.
+/// -> str
 #let _index-key(index) = str(index)
 
-/// Validate dense row-major score values.
+/// Validates dense row-major score values.
+///
+/// - scores (array): Flat row-major score values.
+/// - expected-len (int): Expected number of entries.
+/// -> none
 #let _validate-dp-scores(scores, expected-len) = {
   assert(type(scores) == array, message: "scores must be an array.")
   assert(
@@ -61,7 +79,12 @@
   }
 }
 
-/// Validate dense row-major arrow bitmasks.
+/// Validates dense row-major arrow bitmasks.
+///
+/// - arrows (array): Flat row-major direction bitmasks.
+/// - rows (int): Total number of rows.
+/// - cols (int): Total number of columns.
+/// -> none
 #let _validate-arrows(arrows, rows, cols) = {
   let expected-len = rows * cols
   assert(type(arrows) == array, message: "arrows must be an array.")
@@ -109,25 +132,50 @@
   }
 }
 
-/// Convert a directed edge to a stable integer lookup key.
+/// Converts a directed edge to a stable integer lookup key.
+///
+/// - from-coord (dictionary): Edge start coordinate with `row` and `col`.
+/// - to-coord (dictionary): Edge end coordinate with `row` and `col`.
+/// - cols (int): Total number of columns.
+/// - cell-count (int): Total number of cells in the matrix.
+/// -> int
 #let _edge-index(from-coord, to-coord, cols, cell-count) = (
   _matrix-index(from-coord.row, from-coord.col, cols) * cell-count
     + _matrix-index(to-coord.row, to-coord.col, cols)
 )
 
-/// Calculate cell center coordinates.
+/// Calculates cell center coordinates.
+///
+/// - row (int): Zero-indexed row.
+/// - col (int): Zero-indexed column.
+/// - label-col-width (length): Width of the left label column.
+/// - label-row-height (length): Height of the top label row.
+/// - cell-size (length): Size of each square cell.
+/// -> dictionary with keys:
+///   - x (length): Horizontal center coordinate.
+///   - y (length): Vertical center coordinate.
 #let _cell-center(row, col, label-col-width, label-row-height, cell-size) = {
   let x = label-col-width + col * cell-size + cell-size * 0.5
   let y = label-row-height + row * cell-size + cell-size * 0.5
   (x: x, y: y)
 }
 
-/// Create a label cell (for header row and left column).
+/// Creates a label cell for the header row and left column.
+///
+/// - content (content, none): Label content.
+/// -> content
 #let _label-cell(content) = grid.cell(stroke: none, inset: 0pt)[
   #if content != none { align(center + horizon)[#content] }
 ]
 
-/// Determine radius for a cell based on its position.
+/// Determines the corner radius for a cell based on its position.
+///
+/// - row-idx (int): Zero-indexed row.
+/// - col-idx (int): Zero-indexed column.
+/// - last-row (int): Last row index.
+/// - last-col (int): Last column index.
+/// - corner-radius (length): Radius used at the outer corners.
+/// -> dictionary, length
 #let _get-cell-radius(row-idx, col-idx, last-row, last-col, corner-radius) = {
   let is-top = row-idx == 0
   let is-bottom = row-idx == last-row
@@ -147,7 +195,19 @@
   }
 }
 
-/// Build logical grid cells for the background and text layers.
+/// Builds logical grid cells for the background and text layers.
+///
+/// - top-clusters (array): Top header labels including the gap marker.
+/// - left-clusters (array): Left header labels including the gap marker.
+/// - scores (array, none): Flat row-major score values.
+/// - highlight-map (dictionary): Highlight fill colors keyed by row-major index.
+/// - path-cell-set (dictionary): Membership map for path cells keyed by
+///   row-major index.
+/// - stroke-width (length): Cell border width.
+/// - stroke-color (color): Cell border color.
+/// - cell-inset (length): Cell inset for the background and text boxes.
+/// - corner-radius (length): Radius for outermost data-cell corners.
+/// -> array: Logical grid cells with paired `bg` and `text` content.
 #let _build-grid-cells(
   top-clusters,
   left-clusters,
@@ -222,7 +282,15 @@
   cells
 }
 
-/// Render path overlay.
+/// Renders the traceback path overlay.
+///
+/// - parsed-path (array): Parsed path coordinates in start-to-end order.
+/// - path-color (color): Path stroke color.
+/// - path-width (length): Path stroke width.
+/// - label-col-width (length): Width of the left label column.
+/// - label-row-height (length): Height of the top label row.
+/// - cell-size (length): Size of each square cell.
+/// -> content, none
 #let _render-path(
   parsed-path,
   path-color,
@@ -266,7 +334,14 @@
   })
 }
 
-/// Calculate arrow start and end positions based on direction.
+/// Calculates arrow start and end positions based on direction.
+///
+/// - from-coord (dictionary): Edge start coordinate with `row` and `col`.
+/// - to-coord (dictionary): Edge end coordinate with `row` and `col`.
+/// - center-x (length): Midpoint x-position between the connected cells.
+/// - center-y (length): Midpoint y-position between the connected cells.
+/// - arrow-half-length (length): Half-length of the arrow shaft.
+/// -> array: `(start-x, start-y, end-x, end-y)`.
 #let _calculate-arrow-positions(
   from-coord,
   to-coord,
@@ -301,7 +376,22 @@
   }
 }
 
-/// Render one arrow segment.
+/// Renders one arrow segment between two DP cells.
+///
+/// - from-coord (dictionary): Edge start coordinate with `row` and `col`.
+/// - to-coord (dictionary): Edge end coordinate with `row` and `col`.
+/// - arrow-color (color): Default arrow color.
+/// - cell-size (length): Size of each square cell.
+/// - label-col-width (length): Width of the left label column.
+/// - label-row-height (length): Height of the top label row.
+/// - path-edge-set (dictionary): Membership map for path edges keyed by
+///   `_edge-index(...)`.
+/// - path-arrow-color (color): Arrow color for edges on the highlighted path.
+/// - arrow-width (length): Arrow stroke width.
+/// - arrow-length-scale (int, float): Positive multiplier for arrow length.
+/// - cols (int): Total number of columns.
+/// - cell-count (int): Total number of cells in the matrix.
+/// -> content
 #let _render-arrow(
   from-coord,
   to-coord,
@@ -364,7 +454,21 @@
   })
 }
 
-/// Render all arrows from row-major arrow bitmasks.
+/// Renders all arrows from row-major arrow bitmasks.
+///
+/// - arrows (array, none): Flat row-major direction bitmasks.
+/// - rows (int): Total number of rows.
+/// - cols (int): Total number of columns.
+/// - arrow-color (color): Default arrow color.
+/// - cell-size (length): Size of each square cell.
+/// - label-col-width (length): Width of the left label column.
+/// - label-row-height (length): Height of the top label row.
+/// - path-edge-set (dictionary): Membership map for path edges keyed by
+///   `_edge-index(...)`.
+/// - path-arrow-color (color): Arrow color for edges on the highlighted path.
+/// - arrow-width (length): Arrow stroke width.
+/// - arrow-length-scale (int, float): Positive multiplier for arrow length.
+/// -> content, none
 #let _render-arrows(
   arrows,
   rows,

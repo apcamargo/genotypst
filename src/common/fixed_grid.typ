@@ -11,7 +11,8 @@
 /// - row-gutter (length): Row gap (default: 0pt).
 /// - cell-outset (dictionary, none): Outset applied to each cell (default: none).
 /// - cell-align (alignment): Cell content alignment (default: center + horizon).
-/// -> content
+/// Empty input renders nothing and returns `none`.
+/// -> content, none
 #let _fixed-width-grid(
   rows,
   cell-width: none,

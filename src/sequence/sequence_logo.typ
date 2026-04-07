@@ -9,7 +9,6 @@
 )
 
 /// Computes residue heights for a sequence logo.
-/// Returns an array of columns, each containing a list of {char, height}.
 ///
 /// Calculates the height for each character in each column of a sequence logo.
 /// Stack height represents information content, character height represents
@@ -22,9 +21,10 @@
 /// - sampling-correction (bool): Apply small sample correction.
 /// - alphabet-size (int): Size of the alphabet.
 /// - alphabet-characters (array): Array of valid alphabet characters.
-/// -> array, none: Array of columns, each column is an array of dictionaries with keys:
-///   - char: str, the character
-///   - height: length, the height of that character in the stack
+/// -> array, none: Array of columns, each column being an array of dictionaries
+///   with keys:
+///   - char (str): Character in the stack.
+///   - height (length): Height of that character in the stack.
 #let _get-logo-heights(
   sequences,
   actual-start,

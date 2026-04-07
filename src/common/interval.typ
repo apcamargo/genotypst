@@ -45,8 +45,8 @@
 /// - max-len (int): Maximum valid 1-indexed position.
 /// - window-name (str): Name used in error messages.
 /// -> dictionary with keys:
-///   - actual-start: int, 0-indexed inclusive start
-///   - actual-end: int, 0-indexed exclusive end
+///   - actual-start (int): 0-indexed inclusive start.
+///   - actual-end (int): 0-indexed exclusive end.
 #let _resolve-1indexed-window(start, end, max-len, window-name: "window") = {
   assert(type(max-len) == int, message: "max-len must be an integer.")
   assert(max-len >= 0, message: "max-len must be non-negative.")

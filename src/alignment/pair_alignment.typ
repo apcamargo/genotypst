@@ -51,7 +51,7 @@
   }
 }
 
-/// Builds the JSON configuration dictionary for WASM.
+/// Builds the Typst configuration dictionary for the alignment backend.
 ///
 /// - canonical-matrix (str, none): Canonical matrix name.
 /// - match-score (int, none): Match score.
@@ -92,7 +92,18 @@
 /// - match-score (int, none): Match score.
 /// - mismatch-score (int, none): Mismatch score.
 /// - gap-penalty (int): Gap penalty (required).
-/// -> dictionary
+/// -> dictionary with keys:
+///   - seq-1 (str): Cleaned first input sequence.
+///   - seq-2 (str): Cleaned second input sequence.
+///   - score (int): Alignment score.
+///   - mode (str): Alignment mode.
+///   - scoring (dictionary): Scoring settings used for the alignment.
+///   - alignments (array): Alignment dictionaries returned by the backend.
+///   - traceback-paths (array): Traceback paths as `(row, col)` arrays in
+///     end-to-start order.
+///   - dp-matrix (dictionary): Dense DP matrix payload with `rows`, `cols`,
+///     `scores`, and `arrows`.
+///   - has-alignment (bool): Whether at least one alignment was found.
 #let _transform-result(
   wasm-result,
   original-seq-1,
@@ -225,7 +236,7 @@
   )
 }
 
-/// Build the three alignment rows directly from a traceback path.
+/// Builds the three alignment rows directly from a traceback path.
 ///
 /// - seq-1-chars (array): First sequence as grapheme clusters.
 /// - seq-2-chars (array): Second sequence as grapheme clusters.
