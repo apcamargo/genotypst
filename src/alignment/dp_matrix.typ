@@ -57,26 +57,19 @@
 /// -> str
 #let _index-key(index) = str(index)
 
-/// Validates dense row-major score values.
+/// Validates dense row-major cell values.
 ///
-/// - scores (array): Flat row-major score values.
+/// - cell-values (array): Flat row-major cell values.
 /// - expected-len (int): Expected number of entries.
 /// -> none
-#let _validate-dp-scores(scores, expected-len) = {
-  assert(type(scores) == array, message: "scores must be an array.")
+#let _validate-dp-cell-values(cell-values, expected-len) = {
+  assert(type(cell-values) == array, message: "cell-values must be an array.")
   assert(
-    scores.len() == expected-len,
-    message: "scores must contain exactly "
+    cell-values.len() == expected-len,
+    message: "cell-values must contain exactly "
       + str(expected-len)
       + " row-major entries.",
   )
-
-  for (idx, value) in scores.enumerate() {
-    assert(
-      type(value) == int or type(value) == float,
-      message: "Score at index " + str(idx) + " must be numeric.",
-    )
-  }
 }
 
 /// Validates dense row-major arrow bitmasks.
@@ -199,7 +192,7 @@
 ///
 /// - top-clusters (array): Top header labels including the gap marker.
 /// - left-clusters (array): Left header labels including the gap marker.
-/// - scores (array, none): Flat row-major score values.
+/// - cell-values (array, none): Flat row-major cell values.
 /// - highlight-map (dictionary): Highlight fill colors keyed by row-major index.
 /// - path-cell-set (dictionary): Membership map for path cells keyed by
 ///   row-major index.
@@ -211,7 +204,7 @@
 #let _build-grid-cells(
   top-clusters,
   left-clusters,
-  scores,
+  cell-values,
   highlight-map,
   path-cell-set,
   stroke-width,
@@ -249,11 +242,13 @@
         corner-radius,
       )
 
-      let text-content = if scores == none {
+      let text-content = if cell-values == none {
         []
       } else {
-        let value = scores.at(index)
-        if key in path-cell-set {
+        let value = cell-values.at(index)
+        if value == none {
+          []
+        } else if key in path-cell-set {
           align(center + horizon, strong[#value])
         } else {
           align(center + horizon)[#value]
@@ -551,14 +546,16 @@
 ///
 /// - seq-1 (str): Sequence displayed on the left as row labels.
 /// - seq-2 (str): Sequence displayed on top as column labels.
-/// - scores (array, none): Flat row-major score values.
-///   Must contain `(len(seq-1) + 1) * (len(seq-2) + 1)` entries when provided (default: none).
+/// - cell-values (array, none): Flat row-major cell values.
+///   Must contain `(len(seq-1) + 1) * (len(seq-2) + 1)` entries when provided.
+///   Entries may be any Typst value; individual `none` entries render as empty
+///   cells (default: none).
 /// - highlights (array): Cell highlights as `(row, col)` or `(row, col, color)` arrays (default: ()).
 /// - highlight-color (color): Default color for highlighted cells (default: light gray).
 /// - path (array, none): Traceback path as `(row, col)` arrays, in end-to-start order (default: none).
 /// - path-color (color): Color for the path line (default: semi-transparent yellow).
 /// - path-width (length): Width of the path line (default: 18pt).
-/// - path-cell-bold (bool): Whether scores in cells on the path are rendered in bold (default: true).
+/// - path-cell-bold (bool): Whether cell values in path cells are rendered in bold (default: true).
 /// - arrows (array, none): Flat row-major array with one integer per DP cell
 ///   (default: none). Pass `none` or `()` to disable arrows. Each integer is
 ///   a direction bitmask using `1 = diagonal`, `2 = up`, and `4 = left`.
@@ -576,7 +573,7 @@
 #let render-dp-matrix(
   seq-1,
   seq-2,
-  scores: none,
+  cell-values: none,
   highlights: (),
   highlight-color: _medium-gray.lighten(75%),
   path: none,
@@ -616,8 +613,8 @@
     assert(type(arrows) == array, message: "arrows must be an array.")
     if arrows.len() == 0 { none } else { arrows }
   }
-  if scores != none {
-    _validate-dp-scores(scores, expected-len)
+  if cell-values != none {
+    _validate-dp-cell-values(cell-values, expected-len)
   }
   if arrows != none {
     _validate-arrows(arrows, expected-rows, expected-cols)
@@ -651,7 +648,7 @@
   }
 
   let path-cell-set = (:)
-  if scores != none and path-cell-bold {
+  if cell-values != none and path-cell-bold {
     for coord in parsed-path {
       path-cell-set.insert(
         _index-key(_matrix-index(coord.row, coord.col, expected-cols)),
@@ -685,7 +682,7 @@
   let grid-cells = _build-grid-cells(
     top-clusters,
     left-clusters,
-    scores,
+    cell-values,
     highlight-map,
     path-cell-set,
     stroke-width,
