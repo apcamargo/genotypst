@@ -21,31 +21,34 @@
   upper(compact)
 }
 
-/// Validates scoring parameters and returns canonical matrix name if applicable.
+/// Validates scoring parameters and returns canonical scoring-matrix name.
 ///
-/// - matrix (str, none): Scoring matrix name.
+/// - scoring-matrix (str, none): Scoring matrix name.
 /// - match-score (int, none): Match score.
 /// - mismatch-score (int, none): Mismatch score.
-/// -> str, none (canonical matrix name if using matrix)
-#let _validate-scoring-params(matrix, match-score, mismatch-score) = {
+/// -> str, none (canonical scoring-matrix name when using a matrix)
+#let _validate-scoring-params(scoring-matrix, match-score, mismatch-score) = {
   // Mutual exclusivity
   assert(
-    not (matrix != none and (match-score != none or mismatch-score != none)),
-    message: "Cannot use both 'matrix' and 'match-score'/'mismatch-score' - they are mutually exclusive.",
+    not (
+      scoring-matrix != none and (match-score != none or mismatch-score != none)
+    ),
+    message: "Cannot use both 'scoring-matrix' and 'match-score'/'mismatch-score' - they are mutually exclusive.",
   )
 
   // At least one scoring method
   assert(
-    matrix != none or (match-score != none and mismatch-score != none),
-    message: "Provide either 'matrix' or both 'match-score' and 'mismatch-score'.",
+    scoring-matrix != none
+      or (match-score != none and mismatch-score != none),
+    message: "Provide either 'scoring-matrix' or both 'match-score' and 'mismatch-score'.",
   )
 
   // Matrix name resolution (case-insensitive)
-  if matrix != none {
-    let canonical = resolve-matrix-name(matrix)
+  if scoring-matrix != none {
+    let canonical = resolve-matrix-name(scoring-matrix)
     assert(
       canonical != none,
-      message: "Unknown scoring matrix: '" + matrix + "'.",
+      message: "Unknown scoring matrix: '" + scoring-matrix + "'.",
     )
     canonical
   }
@@ -53,14 +56,14 @@
 
 /// Builds the Typst configuration dictionary for the alignment backend.
 ///
-/// - canonical-matrix (str, none): Canonical matrix name.
+/// - canonical-scoring-matrix (str, none): Canonical scoring matrix name.
 /// - match-score (int, none): Match score.
 /// - mismatch-score (int, none): Mismatch score.
 /// - gap-penalty (int): Gap penalty (required).
 /// - mode (str): Alignment mode.
 /// -> dictionary
 #let _build-config(
-  canonical-matrix,
+  canonical-scoring-matrix,
   match-score,
   mismatch-score,
   gap-penalty,
@@ -72,8 +75,8 @@
     mode: mode,
   )
 
-  if canonical-matrix != none {
-    config.insert("matrix", canonical-matrix)
+  if canonical-scoring-matrix != none {
+    config.insert("matrix", canonical-scoring-matrix)
   } else {
     config.insert("match_score", match-score)
     config.insert("mismatch_score", mismatch-score)
@@ -88,7 +91,7 @@
 /// - original-seq-1 (str): Original (cleaned) first sequence.
 /// - original-seq-2 (str): Original (cleaned) second sequence.
 /// - mode (str): Alignment mode.
-/// - canonical-matrix (str, none): Canonical matrix name.
+/// - canonical-scoring-matrix (str, none): Canonical scoring-matrix name.
 /// - match-score (int, none): Match score.
 /// - mismatch-score (int, none): Mismatch score.
 /// - gap-penalty (int): Gap penalty (required).
@@ -97,7 +100,8 @@
 ///   - seq-2 (str): Cleaned second input sequence.
 ///   - score (int): Alignment score.
 ///   - mode (str): Alignment mode.
-///   - scoring (dictionary): Scoring settings used for the alignment.
+///   - scoring (dictionary): Scoring settings used for the alignment, with
+///     `scoring-matrix`, `match-score`, `mismatch-score`, and `gap-penalty`.
 ///   - alignments (array): Alignment dictionaries returned by the backend.
 ///   - traceback-paths (array): Traceback paths as `(row, col)` arrays in
 ///     end-to-start order.
@@ -109,7 +113,7 @@
   original-seq-1,
   original-seq-2,
   mode,
-  canonical-matrix,
+  canonical-scoring-matrix,
   match-score,
   mismatch-score,
   gap-penalty,
@@ -132,7 +136,7 @@
     score: wasm-result.alignment_score,
     mode: mode,
     scoring: (
-      matrix: canonical-matrix,
+      scoring-matrix: canonical-scoring-matrix,
       match-score: match-score,
       mismatch-score: mismatch-score,
       gap-penalty: gap-penalty,
@@ -165,9 +169,9 @@
 ///
 /// - seq-1 (str): First sequence to align.
 /// - seq-2 (str): Second sequence to align.
-/// - matrix (str, none): Scoring matrix name (e.g., "BLOSUM62"). Mutually exclusive with match/mismatch scores (default: none).
-/// - match-score (int, none): Score for matching characters. Required if matrix is none (default: none).
-/// - mismatch-score (int, none): Score for mismatching characters. Required if matrix is none (default: none).
+/// - scoring-matrix (str, none): Scoring matrix name (e.g., "BLOSUM62"). Mutually exclusive with match/mismatch scores (default: none).
+/// - match-score (int, none): Score for matching characters. Required if scoring-matrix is none (default: none).
+/// - mismatch-score (int, none): Score for mismatching characters. Required if scoring-matrix is none (default: none).
 /// - gap-penalty (int): Gap penalty (required).
 /// - mode (str): Alignment mode: "global" or "local" (default: "global").
 /// -> dictionary with keys:
@@ -175,7 +179,11 @@
 ///   - seq-2 (str): Cleaned second input sequence.
 ///   - score (int): Alignment score.
 ///   - mode (str): Alignment mode.
-///   - scoring (dictionary): Scoring settings used for the alignment.
+///   - scoring (dictionary): Scoring settings used for the alignment, with:
+///     - scoring-matrix (str, none): Scoring matrix name, if used.
+///     - match-score (int, none): Match score, if used.
+///     - mismatch-score (int, none): Mismatch score, if used.
+///     - gap-penalty (int): Gap penalty.
 ///   - alignments (array): Alignment dictionaries with keys:
 ///     - seq1 (str): First aligned sequence with gaps.
 ///     - seq2 (str): Second aligned sequence with gaps.
@@ -193,7 +201,7 @@
 #let align-seq-pair(
   seq-1,
   seq-2,
-  matrix: none,
+  scoring-matrix: none,
   match-score: none,
   mismatch-score: none,
   gap-penalty: none,
@@ -201,8 +209,8 @@
 ) = {
   let cleaned-seq-1 = _validate-sequence(seq-1, "seq-1")
   let cleaned-seq-2 = _validate-sequence(seq-2, "seq-2")
-  let canonical-matrix = _validate-scoring-params(
-    matrix,
+  let canonical-scoring-matrix = _validate-scoring-params(
+    scoring-matrix,
     match-score,
     mismatch-score,
   )
@@ -215,7 +223,7 @@
 
   // Build config and call WASM
   let config = _build-config(
-    canonical-matrix,
+    canonical-scoring-matrix,
     match-score,
     mismatch-score,
     gap-penalty,
@@ -229,7 +237,7 @@
     cleaned-seq-1,
     cleaned-seq-2,
     mode,
-    canonical-matrix,
+    canonical-scoring-matrix,
     match-score,
     mismatch-score,
     gap-penalty,

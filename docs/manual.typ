@@ -68,7 +68,7 @@ The `align-seq-pair` function performs pairwise alignment using either match/mis
 #let protein_pair_alignment = align-seq-pair(
   "MAVHLTPEEKS",
   "HLTPEE",
-  matrix: "BLOSUM62",
+  scoring-matrix: "BLOSUM62",
   gap-penalty: -4,
   mode: "local",
 )
@@ -86,7 +86,7 @@ The `align-seq-pair` function performs pairwise alignment using either match/mis
 #let protein_pair_alignment = align-seq-pair(
   "MGRHMTYPEEKS",
   "HLTPEE",
-  matrix: "BLOSUM62",
+  scoring-matrix: "BLOSUM62",
   gap-penalty: -4,
   mode: "local",
 )
