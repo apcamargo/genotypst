@@ -38,8 +38,7 @@
 
   // At least one scoring method
   assert(
-    scoring-matrix != none
-      or (match-score != none and mismatch-score != none),
+    scoring-matrix != none or (match-score != none and mismatch-score != none),
     message: "Provide either 'scoring-matrix' or both 'match-score' and 'mismatch-score'.",
   )
 
@@ -100,13 +99,10 @@
 ///   - seq-2 (str): Cleaned second input sequence.
 ///   - score (int): Alignment score.
 ///   - mode (str): Alignment mode.
-///   - scoring (dictionary): Scoring settings used for the alignment, with
-///     `scoring-matrix`, `match-score`, `mismatch-score`, and `gap-penalty`.
+///   - scoring (dictionary): Scoring settings used for the alignment.
 ///   - alignments (array): Alignment dictionaries returned by the backend.
-///   - traceback-paths (array): Traceback paths as `(row, col)` arrays in
-///     end-to-start order.
-///   - dp-matrix (dictionary): Dense DP matrix payload with `rows`, `cols`,
-///     `scores`, and `arrows`.
+///   - traceback-paths (array): Traceback paths in end-to-start order.
+///   - dp-matrix (dictionary): Dense DP matrix payload.
 ///   - has-alignment (bool): Whether at least one alignment was found.
 #let _transform-result(
   wasm-result,
@@ -119,8 +115,6 @@
   gap-penalty,
 ) = {
   let dp = wasm-result.dp_matrix
-  let rows = dp.rows
-  let cols = dp.cols
 
   // Convert traceback paths
   let traceback-paths = wasm-result.traceback_paths.map(path => path.map(
