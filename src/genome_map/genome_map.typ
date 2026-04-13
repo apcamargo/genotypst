@@ -85,7 +85,8 @@
   }
 }
 
-/// Renders a genome map from an array of gene dictionaries.
+/// Renders a genome map with optional feature labels, a coordinate axis, and a
+/// scale bar.
 ///
 /// Each gene dictionary in the input array can have the following fields:
 /// - start (int): Gene start coordinate (required, 1-indexed inclusive).
@@ -94,10 +95,15 @@
 /// - label (content, none): Label text.
 /// - color (color, none): Fill color (none uses default-color).
 ///
+/// Genes may be given in either coordinate order and are normalized to an
+/// inclusive interval before rendering.
+///
 /// - genes (array): Gene dictionaries to render.
 /// - width (length, auto, ratio, relative): Total map width (default: 100%).
-/// - start (int, auto): 1-indexed inclusive region start coordinate (default: auto).
-/// - end (int, auto): 1-indexed inclusive region end coordinate (default: auto).
+/// - start (int, auto): 1-indexed inclusive region start coordinate. `auto`
+///   uses the minimum gene start (default: auto).
+/// - end (int, auto): 1-indexed inclusive region end coordinate. `auto` uses
+///   the maximum gene end (default: auto).
 /// - gene-height (length): Gene block height (default: 12pt).
 /// - head-length (length, auto): Arrowhead length (default: auto).
 /// - min-head-length (length): Minimum arrowhead length (default: 3.5pt).
@@ -225,26 +231,29 @@
       )
 
       // Labels and leader lines
-      for label in prepared.positioned-labels {
-        let line-x = label.gene-center
+      for label in prepared.layout-labels {
+        let source = prepared.label-data.at(label.source_index)
+        let line-x = source.gene-center
+        let label-top = label.top_pt * 1pt
+        let underline-y = label.underline_y_pt * 1pt
 
         _draw-horizontal-segment(
-          label.underline-left,
-          label.underline-y,
-          label.underline-width,
+          source.underline-left,
+          underline-y,
+          source.underline-width,
           label-stroke,
         )
 
-        for segment in label.leader-segments {
+        for segment in label.leader_segments {
           _draw-vertical-segment(
             line-x,
-            segment.top,
-            segment.length,
+            segment.top_pt * 1pt,
+            segment.length_pt * 1pt,
             label-stroke,
           )
         }
 
-        place(top + left, dx: label.left, dy: label.top, label.text)
+        place(top + left, dx: source.left, dy: label-top, source.text)
       }
 
       _draw-coordinate-axis(
