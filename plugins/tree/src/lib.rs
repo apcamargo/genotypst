@@ -32,6 +32,7 @@ struct SimpleTreeNode {
 #[derive(Debug, Clone)]
 struct RawTreeNode {
     name: Option<String>,
+    label_id: Option<String>,
     length: Option<f64>,
     children: Vec<RawTreeNode>,
     rooted: bool,
@@ -51,6 +52,8 @@ struct LayoutNodeWire {
     is_leaf: bool,
     #[serde(rename = "label-text")]
     label_text: Option<String>,
+    #[serde(rename = "label-id")]
+    label_id: Option<String>,
     #[serde(rename = "x-unit")]
     x_unit: f64,
     #[serde(rename = "y-unit")]
@@ -126,6 +129,7 @@ struct InternalNode {
     input_rooted: bool,
     is_leaf: bool,
     label_text: Option<String>,
+    label_id: Option<String>,
     length: Option<f64>,
     resolved_length: f64,
 }
@@ -757,6 +761,11 @@ fn parse_raw_tree(value: &Value, is_root: bool) -> Result<RawTreeNode, String> {
         Some(Value::String(value)) => Some(value.clone()),
         Some(_) => return Err("node name must be a string or none.".into()),
     };
+    let label_id = match object.get("label-id") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(value)) => Some(value.clone()),
+        Some(_) => return Err("node label-id must be a string or none.".into()),
+    };
 
     let length = match object.get("length") {
         None | Some(Value::Null) => None,
@@ -796,6 +805,7 @@ fn parse_raw_tree(value: &Value, is_root: bool) -> Result<RawTreeNode, String> {
 
     Ok(RawTreeNode {
         name,
+        label_id,
         length,
         children,
         rooted,
@@ -886,6 +896,7 @@ fn suppress_unrooted_artificial_root(mut node: RawTreeNode) -> RawTreeNode {
     if first_is_leaf && second_is_leaf {
         node.rooted = false;
         node.name = None;
+        node.label_id = None;
         node.length = None;
         return node;
     }
@@ -930,10 +941,16 @@ fn normalize_tree_node(
 ) -> (usize, bool) {
     let id = *next_id;
     *next_id += 1;
-    let label_text = if hide_internal_labels && !node.children.is_empty() {
+    let hide_label = hide_internal_labels && !node.children.is_empty();
+    let label_text = if hide_label {
         None
     } else {
         node.name.clone().filter(|value| !value.is_empty())
+    };
+    let label_id = if hide_label {
+        None
+    } else {
+        node.label_id.clone().filter(|value| !value.is_empty())
     };
     nodes.push(InternalNode {
         id,
@@ -944,6 +961,7 @@ fn normalize_tree_node(
         input_rooted: if is_root { node.rooted } else { false },
         is_leaf: node.children.is_empty(),
         label_text,
+        label_id,
         length: node.length,
         resolved_length: 0.0,
     });
@@ -1113,6 +1131,7 @@ fn layout_tree_to_wire(layout: &LayoutTreeData) -> LayoutTreeWire {
             input_rooted: node.input_rooted,
             is_leaf: node.is_leaf,
             label_text: node.label_text.clone(),
+            label_id: node.label_id.clone(),
             x_unit: layout.x_by_id[node.id],
             y_unit: layout.y_by_id[node.id],
             branch_angle: layout.branch_angles[node.id],
@@ -3490,6 +3509,7 @@ pub fn fit_tree(config: &[u8]) -> Result<Vec<u8>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use std::collections::BTreeMap;
 
     const HIDE_LABEL_REPRO_NEWICK: &str = "((A,B)ZetaInner,(C,D)AlphaInner)Root;";
@@ -3505,9 +3525,50 @@ mod tests {
         .expect("Parse result should deserialize into JSON")
     }
 
+    fn move_names_to_label_ids(node: &mut Value) {
+        let object = node
+            .as_object_mut()
+            .expect("tree nodes should be dictionaries");
+
+        let label_id = object
+            .get("name")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .map(std::string::ToString::to_string);
+        if let Some(label_id) = label_id {
+            object.insert("name".into(), Value::Null);
+            object.insert("label-id".into(), Value::String(label_id));
+        }
+
+        if let Some(Value::Array(children)) = object.get_mut("children") {
+            for child in children {
+                move_names_to_label_ids(child);
+            }
+        }
+    }
+
+    fn parsed_tree_data_with_label_ids(newick: &str) -> Value {
+        let mut value = parsed_tree_data(newick);
+        move_names_to_label_ids(&mut value);
+        value
+    }
+
     fn normalized_unrooted_tree(newick: &str, hide_internal_labels: bool) -> NormalizedTreeData {
         normalize_raw_tree(parsed_tree_data(newick), false, true, hide_internal_labels)
             .expect("Tree normalization should succeed")
+    }
+
+    fn normalized_unrooted_tree_with_label_ids(
+        newick: &str,
+        hide_internal_labels: bool,
+    ) -> NormalizedTreeData {
+        normalize_raw_tree(
+            parsed_tree_data_with_label_ids(newick),
+            false,
+            true,
+            hide_internal_labels,
+        )
+        .expect("Tree normalization should succeed")
     }
 
     fn unrooted_layout(
@@ -3522,6 +3583,25 @@ mod tests {
         .expect("Layout preparation should succeed")
     }
 
+    fn unrooted_layout_with_label_ids(
+        newick: &str,
+        layout_kind: LayoutKind,
+        hide_internal_labels: bool,
+    ) -> LayoutTreeData {
+        layout_normalized_tree(
+            normalized_unrooted_tree_with_label_ids(newick, hide_internal_labels),
+            layout_kind,
+        )
+        .expect("Layout preparation should succeed")
+    }
+
+    fn node_identity(node: &InternalNode) -> String {
+        node.label_text
+            .clone()
+            .or_else(|| node.label_id.clone())
+            .expect("nodes in these tests should keep an identity label")
+    }
+
     fn collect_descendant_tip_labels(
         normalized: &NormalizedTreeData,
         node_id: usize,
@@ -3529,11 +3609,7 @@ mod tests {
     ) {
         let node = &normalized.nodes[node_id];
         if node.is_leaf {
-            labels.push(
-                node.label_text
-                    .clone()
-                    .expect("leaf nodes in these tests should keep their labels"),
-            );
+            labels.push(node_identity(node));
             return;
         }
 
@@ -3560,11 +3636,7 @@ mod tests {
             .nodes
             .iter()
             .filter(|node| node.is_leaf)
-            .map(|node| {
-                node.label_text
-                    .clone()
-                    .expect("leaf nodes in these tests should keep their labels")
-            })
+            .map(node_identity)
             .collect::<Vec<_>>();
         labels.sort();
         labels
@@ -3579,9 +3651,7 @@ mod tests {
             .filter(|(_, node)| node.is_leaf)
             .map(|(id, node)| {
                 (
-                    node.label_text
-                        .clone()
-                        .expect("leaf nodes in these tests should keep their labels"),
+                    node_identity(node),
                     (layout.x_by_id[id], layout.y_by_id[id]),
                 )
             })
@@ -3682,5 +3752,106 @@ mod tests {
         );
 
         assert_same_leaf_positions(&original, &swapped);
+    }
+
+    #[test]
+    fn hide_internal_labels_clear_content_backed_internal_ids() {
+        let shown = normalized_unrooted_tree_with_label_ids(HIDE_LABEL_REPRO_NEWICK, false);
+        let hidden = normalized_unrooted_tree_with_label_ids(HIDE_LABEL_REPRO_NEWICK, true);
+
+        assert_eq!(root_child_tip_sets(&shown), root_child_tip_sets(&hidden));
+        assert_eq!(tip_labels(&shown), tip_labels(&hidden));
+        assert!(
+            shown
+                .nodes
+                .iter()
+                .filter(|node| !node.is_leaf)
+                .any(|node| node.label_id.as_deref() == Some("AlphaInner"))
+        );
+        assert!(
+            shown
+                .nodes
+                .iter()
+                .filter(|node| !node.is_leaf)
+                .any(|node| node.label_id.as_deref() == Some("ZetaInner"))
+        );
+        assert!(
+            hidden
+                .nodes
+                .iter()
+                .filter(|node| !node.is_leaf)
+                .all(|node| node.label_id.is_none()),
+            "hide-internal-labels should clear non-leaf label ids",
+        );
+    }
+
+    #[test]
+    fn content_backed_labels_preserve_equal_angle_leaf_positions_after_root_swap() {
+        let original = unrooted_layout_with_label_ids(
+            SWAPPED_ROOT_ORDER_NEWICK,
+            LayoutKind::EqualAngle,
+            false,
+        );
+        let swapped = unrooted_layout_with_label_ids(
+            SWAPPED_ROOT_ORDER_REVERSED_NEWICK,
+            LayoutKind::EqualAngle,
+            false,
+        );
+
+        assert_same_leaf_positions(&original, &swapped);
+    }
+
+    #[test]
+    fn content_backed_labels_preserve_daylight_leaf_positions_after_root_swap() {
+        let original =
+            unrooted_layout_with_label_ids(SWAPPED_ROOT_ORDER_NEWICK, LayoutKind::Daylight, false);
+        let swapped = unrooted_layout_with_label_ids(
+            SWAPPED_ROOT_ORDER_REVERSED_NEWICK,
+            LayoutKind::Daylight,
+            false,
+        );
+
+        assert_same_leaf_positions(&original, &swapped);
+    }
+
+    #[test]
+    fn prepare_layout_wire_preserves_content_backed_label_ids() {
+        let layout = normalize_raw_tree(
+            json!({
+                "rooted": true,
+                "name": Value::Null,
+                "label-id": "root-id",
+                "length": Value::Null,
+                "children": [
+                    {
+                        "name": Value::Null,
+                        "label-id": "tip-a",
+                        "length": 0.2,
+                        "children": Value::Null,
+                    },
+                    {
+                        "name": "TipB",
+                        "length": 0.3,
+                        "children": Value::Null,
+                    },
+                ],
+            }),
+            false,
+            false,
+            false,
+        )
+        .expect("Tree normalization should succeed");
+        let layout = layout_tree_rectangular(layout);
+        let wire = layout_tree_to_wire(&layout);
+
+        assert_eq!(
+            wire.nodes[wire.root_id].label_id.as_deref(),
+            Some("root-id")
+        );
+        assert_eq!(wire.nodes[wire.root_id].label_text, None);
+        assert_eq!(wire.nodes[1].label_id.as_deref(), Some("tip-a"));
+        assert_eq!(wire.nodes[1].label_text, None);
+        assert_eq!(wire.nodes[2].label_text.as_deref(), Some("TipB"));
+        assert_eq!(wire.nodes[2].label_id, None);
     }
 }

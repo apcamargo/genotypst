@@ -351,18 +351,18 @@ Genome maps enable visualization of the genes and other genomic elements within 
 
 #let manual_tree = (
   rooted: true,
-  name: "Root",
+  name: text(weight: "bold")[Root],
   length: none,
   children: (
     (
-      name: "Internal node",
+      name: text(fill: orange)[Internal node],
       length: 0.3,
       children: (
-        (name: "Leaf A", length: 0.2, children: none),
+        (name: text[_Leaf A_], length: 0.2, children: none),
         (name: "Leaf B", length: 0.1, children: none),
       ),
     ),
-    (name: "Leaf C", length: 0.6, children: none),
+    (name: text(fill:blue)[Leaf C], length: 0.6, children: none),
   ),
 )
 ```

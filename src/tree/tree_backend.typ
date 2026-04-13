@@ -144,7 +144,8 @@
 
 /// Prepares a normalized tree layout through the tree WASM plugin.
 ///
-/// - tree-data (dictionary): Parsed or manual tree data.
+/// - tree-data (dictionary): Backend-safe parsed or manually constructed tree
+///   data.
 /// - cladogram (bool): Whether cladogram mode is enabled.
 /// - suppress-unrooted (bool): Whether the backend should suppress an
 ///   artificial rooted binary handle.
@@ -167,6 +168,11 @@
     layout-kind: _tree-layout-kind-to-backend(layout-kind),
   ))))
   let decoded = json(result)
+  let nodes = decoded.nodes.map(node => (
+    ..node,
+    label-id: node.at("label-id", default: none),
+  ))
+  decoded.insert("nodes", nodes)
   decoded.insert(
     "layout-kind",
     if decoded.layout-kind == "equal_angle" {

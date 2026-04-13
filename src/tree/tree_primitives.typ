@@ -21,7 +21,7 @@
       (top-edge: "ascender")
     },
     bottom-edge: bottom-edge,
-  )[#label-primitive.text]
+  )[#label-primitive.label-body]
   label-content
 }
 
@@ -34,7 +34,7 @@
 /// - x-gap (length): Horizontal gap in the active placement frame.
 /// - y-gap (length): Vertical gap in the active placement frame.
 /// - rotation (angle): Final label rotation.
-/// - text (str): Label text.
+/// - label-body (str, content): Label content.
 /// - text-size (length): Label size.
 /// - text-fill (color, none): Label fill.
 /// - text-style (str): Label style.
@@ -51,7 +51,7 @@
   x-gap,
   y-gap,
   rotation,
-  text,
+  label-body,
   text-size,
   text-fill,
   text-style,
@@ -71,7 +71,7 @@
   placement-frame: placement-frame,
   branch-angle-half-turn: branch-angle-half-turn,
   placement-angle-half-turn: placement-angle-half-turn,
-  text: text,
+  label-body: label-body,
   text-size: text-size,
   text-fill: text-fill,
   text-style: text-style,
@@ -234,7 +234,7 @@
     }
 
     if node.is-leaf {
-      if node.label-text != none {
+      if node.label-body != none {
         if rectangular {
           let cross-offset = style.tip-label-metrics.branch-midpoint
           primitives.push(_tree-label-primitive(
@@ -253,7 +253,7 @@
               -cross-offset
             },
             if orientation == "vertical" { -90deg } else { 0deg },
-            node.label-text,
+            node.label-body,
             style.tip-label-size,
             style.tip-label-color,
             tip-label-style,
@@ -272,7 +272,7 @@
             style.label-x-offset * radial-placement.gap-sign,
             local-y-gap,
             radial-placement.rotation,
-            node.label-text,
+            node.label-body,
             style.tip-label-size,
             style.tip-label-color,
             tip-label-style,
@@ -298,7 +298,7 @@
         ),
       ))
 
-      if node.label-text != none {
+      if node.label-body != none {
         primitives.push(_tree-label-primitive(
           "internal-label",
           node-point,
@@ -307,13 +307,13 @@
           style.label-x-offset,
           style.internal-label-gap,
           0deg,
-          node.label-text,
+          node.label-body,
           style.internal-label-size,
           style.internal-label-color,
           "normal",
         ))
       }
-    } else if node.label-text != none {
+    } else if node.label-body != none {
       let internal-placement = _unrooted-internal-label-placement(nodes, node)
       primitives.push(_tree-label-primitive(
         "internal-label",
@@ -323,7 +323,7 @@
         style.label-x-offset,
         style.internal-label-gap,
         0deg,
-        node.label-text,
+        node.label-body,
         style.internal-label-size,
         style.internal-label-color,
         "normal",

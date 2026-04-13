@@ -14,6 +14,7 @@
 #let _auto-height-scale = 1.9em
 #let _rectangular-fit-band-samples = 1
 #let _tree-fit-max-bands = 24
+#let _tree-content-label-id-prefix = "genotypst-content-label-"
 
 /// Returns whether the public `width` argument is valid.
 ///
@@ -313,9 +314,117 @@
   style
 }
 
+/// Rewrites manual tree labels into a backend-safe representation.
+///
+/// String labels pass through unchanged. Empty content labels are normalized to
+/// `none`, and non-empty content labels are replaced with a private `label-id`
+/// so the Rust backend never has to serialize Typst `content` values.
+///
+/// - tree-data (dictionary): Parsed or manually constructed tree data.
+/// -> dictionary with keys:
+///   - backend-tree (dictionary): Backend-safe tree data.
+///   - content-labels (dictionary): `label-id` to original content.
+#let _prepare-tree-data-for-layout(tree-data) = {
+  assert(type(tree-data) == dictionary, message: "tree-data must be a dictionary.")
+
+  let visit(node, next-label-id) = {
+    assert(type(node) == dictionary, message: "tree nodes must be dictionaries.")
+    let prepared = (:)
+    let next-id = next-label-id
+    let content-labels = (:)
+
+    for (key, value) in node.pairs() {
+      if key == "label-id" {
+        // Private backend channel; user input should not override it.
+      } else if key == "name" {
+        if value == none or type(value) == str {
+          prepared.insert("name", value)
+        } else if type(value) == content {
+          if value == [] {
+            // Empty content renders nothing and should not affect layout.
+            prepared.insert("name", none)
+          } else {
+            let label-id = _tree-content-label-id-prefix + str(next-id)
+            next-id += 1
+            prepared.insert("name", none)
+            prepared.insert("label-id", label-id)
+            content-labels.insert(label-id, value)
+          }
+        } else {
+          assert(
+            false,
+            message: "manual tree node name must be a string, content, or none.",
+          )
+        }
+      } else if key == "children" {
+        assert(
+          value == none or type(value) == array,
+          message: "children must be an array or none.",
+        )
+        if value == none {
+          prepared.insert("children", none)
+        } else {
+          let children = ()
+          for child in value {
+            let prepared-child = visit(child, next-id)
+            next-id = prepared-child.next-label-id
+            content-labels += prepared-child.content-labels
+            children.push(prepared-child.node)
+          }
+          prepared.insert("children", children)
+        }
+      } else {
+        prepared.insert(key, value)
+      }
+    }
+
+    (
+      node: prepared,
+      content-labels: content-labels,
+      next-label-id: next-id,
+    )
+  }
+
+  let prepared-root = visit(tree-data, 0)
+
+  (
+    backend-tree: prepared-root.node,
+    content-labels: prepared-root.content-labels,
+  )
+}
+
+/// Restores content-backed labels onto the prepared layout tree.
+///
+/// - layout-tree (dictionary): Backend-prepared normalized tree layout.
+/// - content-labels (dictionary): `label-id` to original content.
+/// -> dictionary
+#let _hydrate-layout-tree-label-bodies(layout-tree, content-labels) = {
+  let nodes = ()
+  for node in layout-tree.nodes {
+    let label-id = node.at("label-id", default: none)
+    let label-body = if label-id != none {
+      assert(
+        label-id in content-labels,
+        message: "Internal tree label hydration failed.",
+      )
+      content-labels.at(label-id)
+    } else {
+      node.label-text
+    }
+    nodes.push((
+      ..node,
+      label-body: label-body,
+    ))
+  }
+  (
+    ..layout-tree,
+    nodes: nodes,
+  )
+}
+
 /// Prepares a tree render from the resolved mode config.
 ///
-/// - tree-data (dictionary): Parsed or manual tree data.
+/// - tree-data (dictionary): Parsed or manually constructed tree data.
 /// - style (dictionary): Tree style record.
 /// - config (dictionary): Canonical tree render config from one of the
 ///   `_resolve-*-tree-render-config(...)` helpers.
@@ -324,8 +433,9 @@
 ///   - prepared-fit-plan (dictionary): Prepared fit payload for the tree-fitting
 ///     stage.
 #let _prepare-tree-render(tree-data, style, config) = {
+  let prepared-tree-data = _prepare-tree-data-for-layout(tree-data)
   let layout-tree = _tree-prepare-layout-backend(
-    tree-data,
+    prepared-tree-data.backend-tree,
     cladogram: config.cladogram,
     suppress-unrooted: config.suppress-unrooted,
     hide-internal-labels: config.hide-internal-labels,
@@ -338,7 +448,10 @@
     )
   }
   let tree-plan = _build-tree-plan(
-    layout-tree,
+    _hydrate-layout-tree-label-bodies(
+      layout-tree,
+      prepared-tree-data.content-labels,
+    ),
     style,
     orientation: config.orientation,
   )
@@ -352,7 +465,9 @@
 ///
 /// Supports customization of dimensions, styling, and orientation.
 ///
-/// - tree-data (dictionary): Parsed or manually constructed tree data.
+/// - tree-data (dictionary): Parsed or manually constructed tree data. Manual
+///   node dictionaries accept `name: str`, `name: content`, or `name: none`.
+///   Trees returned by `parse-newick(...)` remain string-labeled.
 /// - width (length, auto, ratio, relative): Width of the tree visualization
 ///   including labels (default: 100%).
 /// - height (length, auto): Height of the tree area (default: auto).
@@ -363,8 +478,8 @@
 /// - tip-label-italics (bool): Whether to use italics for tip labels (default: false).
 /// - internal-label-size (length): Font size of internal node labels (default: 0.85em).
 /// - internal-label-color (color, none): Color of internal node labels (default: medium gray; `none` inherits from the document).
-/// - hide-internal-labels (bool): Whether to suppress all non-leaf labels in
-///   the prepared output (default: false).
+/// - hide-internal-labels (bool): Whether to hide all non-leaf labels
+///   (default: false).
 /// - root-length (length): Length of the rendered root edge (default: 1.2em).
 /// - orientation (str): "horizontal" (root left, tips right) or "vertical" (root bottom, tips up) (default: "horizontal").
 /// - cladogram (bool): Whether to draw the tree as a cladogram with equal branch lengths (default: false).
@@ -475,7 +590,9 @@
 
 /// Renders an unrooted phylogenetic tree using an equal-angle or daylight layout.
 ///
-/// - tree-data (dictionary): Parsed or manually constructed tree data.
+/// - tree-data (dictionary): Parsed or manually constructed tree data. Manual
+///   node dictionaries accept `name: str`, `name: content`, or `name: none`.
+///   Trees returned by `parse-newick(...)` remain string-labeled.
 /// - width (length, auto, ratio, relative): Width of the tree visualization including labels (default: 100%).
 /// - height (length, auto): Height of the tree area (default: auto).
 /// - branch-width (length): Thickness of tree branches (default: 1pt).
@@ -485,8 +602,8 @@
 /// - tip-label-italics (bool): Whether to use italics for tip labels (default: false).
 /// - internal-label-size (length): Font size of internal node labels (default: 0.85em).
 /// - internal-label-color (color, none): Color of internal node labels (default: medium gray; `none` inherits from the document).
-/// - hide-internal-labels (bool): Whether to suppress all non-leaf labels in
-///   the prepared output (default: false).
+/// - hide-internal-labels (bool): Whether to hide all non-leaf labels
+///   (default: false).
 /// - cladogram (bool): Whether to draw the tree as a cladogram with equal branch lengths (default: false).
 /// - layout (str): "equal-angle" or "daylight" (default: "equal-angle").
 /// -> content
