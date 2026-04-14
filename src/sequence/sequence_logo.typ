@@ -3,75 +3,46 @@
 #import "../common/axis_scale.typ": (
   _draw-coordinate-axis, _make-axis-scale-label,
 )
-#import "./sequence_alphabet.typ": (
-  _check-palette-coverage, _compute-sequence-conservation, _get-column-stats,
-  _resolve-alphabet-config, _validate-alignment,
+#import "./sequence_alphabet.typ": _resolve-alphabet-config
+#import "./sequence_processing.typ": (
+  _check-palette-coverage, _collect-window-column-stats, _lookup-palette-color,
+  _prepare-palette, _validate-alignment,
 )
 
 /// Computes residue heights for a sequence logo.
 ///
 /// Calculates the height for each character in each column of a sequence logo.
-/// Stack height represents information content, character height represents
+/// Column stack heights are normalized to the maximum observed conservation in
+/// the requested window, and character height within each stack represents
 /// relative frequency.
 ///
-/// - sequences (array): Array of sequence strings.
-/// - actual-start (int): Starting position (0-indexed, inclusive).
-/// - actual-end (int): Ending position (0-indexed, exclusive).
+/// - column-stats (array): Prepared per-column statistics for the requested window.
 /// - logo-height (length): Total height of the logo.
-/// - sampling-correction (bool): Apply small sample correction.
-/// - alphabet-size (int): Size of the alphabet.
-/// - alphabet-characters (array): Array of valid alphabet characters.
-/// -> array, none: Array of columns, each column being an array of dictionaries
+/// - alphabet-config (dictionary): Canonical alphabet configuration.
+/// -> array: Array of columns, each column being an array of dictionaries
 ///   with keys:
 ///   - char (str): Character in the stack.
 ///   - height (length): Height of that character in the stack.
-#let _get-logo-heights(
-  sequences,
-  actual-start,
-  actual-end,
-  logo-height,
-  sampling-correction,
-  alphabet-size,
-  alphabet-characters,
-) = {
-  if sequences.len() == 0 { return }
+#let _get-logo-heights(column-stats, logo-height, alphabet-config) = {
+  if column-stats.len() == 0 { return () }
 
-  let n-seqs = sequences.len()
-
-  let max-bits = calc.log(alphabet-size, base: 2.0)
-
-  let column-data = ()
+  let max-bits = alphabet-config.max-bits
   let max-observed-r = 0.0
 
-  for i in range(actual-start, actual-end) {
-    let stats = _get-column-stats(sequences, i, alphabet-characters)
-
-    if stats.total-non-gap == 0 {
-      column-data.push((r: 0.0, stats: stats))
-      continue
-    }
-
-    let r = _compute-sequence-conservation(
-      stats.counts,
-      stats.total-non-gap,
-      n-seqs,
-      sampling-correction,
-      alphabet-size,
-    )
-    max-observed-r = calc.max(max-observed-r, r)
-    column-data.push((r: r, stats: stats))
+  for col in column-stats {
+    max-observed-r = calc.max(max-observed-r, col.conservation)
   }
 
   let divisor = if max-observed-r > 0 { max-observed-r } else { max-bits }
 
   let logo-data = ()
-  for col in column-data {
+  for col in column-stats {
     let column-letters = ()
-    if col.r > 0 {
-      for char in alphabet-characters {
-        if char in col.stats.counts {
-          let f-rel = col.stats.counts.at(char) / col.stats.total-non-gap
-          let symbol-height = (f-rel * col.r / divisor) * logo-height
+    if col.conservation > 0 {
+      for char in alphabet-config.chars {
+        if char in col.counts {
+          let f-rel = col.counts.at(char) / col.total-non-gap
+          let symbol-height = (f-rel * col.conservation / divisor) * logo-height
           if symbol-height > 0pt {
             column-letters.push((char: char, height: symbol-height))
           }
@@ -92,9 +63,9 @@
 /// -> content
 #let _render-logo-letter(letter, col-width, palette) = {
   context {
-    let color = palette.at(letter.char, default: _light-gray)
+    let color = _lookup-palette-color(palette, letter.char)
     let glyph = text(
-      fill: color,
+      fill: if color == none { _light-gray } else { color },
       size: 10pt,
       weight: "bold",
       top-edge: "bounds",
@@ -114,9 +85,9 @@
 
 /// Renders a sequence logo from biological sequence data.
 ///
-/// Each column represents a position in the alignment, stack height is scaled
-/// to the maximum observed information content (conservation), and character
-/// height within a stack indicates relative frequency.
+/// Each column represents a position in the alignment. Stack height reflects
+/// conservation, and character height within a stack reflects relative
+/// frequency.
 ///
 /// - alignment (dictionary): Dictionary mapping sequence identifiers to aligned sequences.
 /// - start (int, none): Starting position (1-indexed, inclusive) (default: none).
@@ -125,7 +96,7 @@
 /// - height (length): Total height of the logo (default: 60pt).
 /// - sampling-correction (bool): Whether to apply small sample correction (default: true).
 /// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna" (default: auto).
-/// - palette (dictionary, auto): Residue color palette (default: auto).
+/// - palette (dictionary, auto): Residue color palette to use (default: auto).
 /// - coordinate-axis (bool): Whether to show the coordinate axis under the logo (default: false).
 /// - axis-color (color): Color of the axis line and labels (default: black).
 /// - axis-stroke-width (length): Axis line thickness (default: 0.75pt).
@@ -154,7 +125,11 @@
   _validate-alignment(alignment)
   let sequences = alignment.values()
   let config = _resolve-alphabet-config(alphabet, sequences)
-  let palette-to-use = if palette == auto { config.palette } else { palette }
+  let palette-to-use = if palette == auto {
+    config.palette
+  } else {
+    _prepare-palette(palette)
+  }
   let max-len = sequences.map(s => s.len()).fold(0, calc.max)
   let window = _resolve-1indexed-window(
     start,
@@ -189,15 +164,14 @@
     )
   }
 
-  let logo-data = _get-logo-heights(
+  let column-stats = _collect-window-column-stats(
     sequences,
     window.actual-start,
     window.actual-end,
-    height,
+    config,
     sampling-correction,
-    config.size,
-    config.chars,
   )
+  let logo-data = _get-logo-heights(column-stats, height, config)
 
   block(width: width)[
     #layout(size => context {

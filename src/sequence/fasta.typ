@@ -58,7 +58,7 @@
 }
 
 /// Renders a dictionary of sequences in FASTA format for display.
-/// Each character is rendered in a fixed-width box to prevent line wrapping.
+/// Sequences are wrapped at `max-width` characters per line.
 ///
 /// - sequences (dictionary): Dictionary mapping sequence identifiers to sequences.
 /// - max-width (int): Maximum characters per line (default: 60).

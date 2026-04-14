@@ -1,9 +1,10 @@
 #import "../common/colors.typ": _light-gray
 #import "../common/fixed_grid.typ": _fixed-width-grid
 #import "../common/interval.typ": _resolve-1indexed-window
-#import "./sequence_alphabet.typ": (
-  _check-palette-coverage, _compute-sequence-conservation, _get-column-stats,
-  _resolve-alphabet-config, _validate-alignment,
+#import "./sequence_alphabet.typ": _resolve-alphabet-config
+#import "./sequence_processing.typ": (
+  _check-palette-coverage, _collect-window-column-stats, _lookup-palette-color,
+  _prepare-palette, _validate-alignment,
 )
 
 /// Renders a single character in an MSA with optional coloring.
@@ -15,8 +16,10 @@
 ///   - body (content): Rendered character content.
 ///   - fill (color, none): Optional background fill color.
 #let _render-msa-character(char, colors, palette) = {
-  if colors and char in palette {
-    let base-color = palette.at(char)
+  let base-color = if colors { _lookup-palette-color(palette, char) } else {
+    none
+  }
+  if base-color != none {
     let bg-color = base-color.lighten(73.5%)
     let fg-color = base-color.darken(22.5%)
     (body: text(fill: fg-color, char), fill: bg-color)
@@ -31,40 +34,16 @@
 /// Creates a horizontal row of bars where each bar represents information
 /// content (conservation) of a single column in alignment.
 ///
-/// - sequences (array): Array of sequence strings.
-/// - block-start (int): Starting position of the block (0-indexed).
-/// - block-end (int): Ending position of the block (0-indexed, exclusive).
-/// - n-seqs (int): Total number of sequences.
-/// - sampling-correction (bool): Whether to apply small sample correction.
-/// - alphabet-size (int): Size of the alphabet.
-/// - alphabet-characters (array): Array of valid alphabet characters.
+/// - column-stats (array): Prepared per-column statistics for the current block.
 /// - max-bits (float): Maximum possible information content (log2 of alphabet size).
 /// - cell-width (length): Width of each character cell.
 /// -> content
-#let _render-msa-conservation-row(
-  sequences,
-  block-start,
-  block-end,
-  n-seqs,
-  sampling-correction,
-  alphabet-size,
-  alphabet-characters,
-  max-bits,
-  cell-width,
-) = {
+#let _render-msa-conservation-row(column-stats, max-bits, cell-width) = {
   let bar-height = 1.5em
   let bars = ()
 
-  for i in range(block-start, block-end) {
-    let stats = _get-column-stats(sequences, i, alphabet-characters)
-    let r = _compute-sequence-conservation(
-      stats.counts,
-      stats.total-non-gap,
-      n-seqs,
-      sampling-correction,
-      alphabet-size,
-    )
-    let h = (r / max-bits) * bar-height
+  for stats in column-stats {
+    let h = (stats.conservation / max-bits) * bar-height
     bars.push((
       body: box(
         height: bar-height,
@@ -137,7 +116,7 @@
 /// - sampling-correction (bool): Whether to apply small sample correction (default: true).
 /// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna" (default: auto).
 /// - breakable (bool): Whether to allow blocks to break across pages (default: true).
-/// - palette (dictionary, auto): Residue color palette (default: auto).
+/// - palette (dictionary, auto): Residue color palette to use (default: auto).
 /// -> content, none
 #let render-msa(
   alignment,
@@ -160,7 +139,11 @@
   let total-max-len = sequences.first().len()
 
   let config = _resolve-alphabet-config(alphabet, sequences)
-  let palette-to-use = if palette == auto { config.palette } else { palette }
+  let palette-to-use = if colors {
+    if palette == auto { config.palette } else { _prepare-palette(palette) }
+  } else {
+    (:)
+  }
 
   if colors and palette != auto {
     let coverage = _check-palette-coverage(palette-to-use, sequences)
@@ -179,8 +162,18 @@
   let actual-start = window.actual-start
   let actual-end = window.actual-end
 
-  let n-seqs = pairs.len()
-  let max-bits = calc.log(config.size, base: 2.0)
+  let max-bits = config.max-bits
+  let column-stats = if conservation {
+    _collect-window-column-stats(
+      sequences,
+      actual-start,
+      actual-end,
+      config,
+      sampling-correction,
+    )
+  } else {
+    ()
+  }
 
   context {
     let leading = par.leading
@@ -196,14 +189,12 @@
         let block-end = calc.min(block-start + max-seq-width, actual-end)
 
         let conservation-row = if conservation {
+          let block-stats = column-stats.slice(
+            block-start - actual-start,
+            block-end - actual-start,
+          )
           let bars = _render-msa-conservation-row(
-            sequences,
-            block-start,
-            block-end,
-            n-seqs,
-            sampling-correction,
-            config.size,
-            config.chars,
+            block-stats,
             max-bits,
             box-width,
           )

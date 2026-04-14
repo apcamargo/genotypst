@@ -1,5 +1,62 @@
-#import "./residue_palette.typ": (
-  _aa-characters, _dna-characters, _rna-characters, residue-palette,
+#import "./residue_palette.typ": _canonical-residue-palette
+
+#let _aa-residues = (
+  "A",
+  "C",
+  "D",
+  "E",
+  "F",
+  "G",
+  "H",
+  "I",
+  "K",
+  "L",
+  "M",
+  "N",
+  "P",
+  "Q",
+  "R",
+  "S",
+  "T",
+  "V",
+  "W",
+  "Y",
+)
+#let _dna-residues = ("A", "T", "G", "C")
+#let _rna-residues = ("A", "U", "G", "C")
+
+#let _make-membership-set(values) = {
+  let membership = (:)
+  for value in values {
+    membership.insert(value, true)
+  }
+  membership
+}
+
+#let _aa-config = (
+  size: 20,
+  max-bits: calc.log(20, base: 2.0),
+  chars: _aa-residues,
+  char-set: _make-membership-set(_aa-residues),
+  palette: _canonical-residue-palette.aa.default,
+)
+#let _dna-config = (
+  size: 4,
+  max-bits: calc.log(4, base: 2.0),
+  chars: _dna-residues,
+  char-set: _make-membership-set(_dna-residues),
+  palette: _canonical-residue-palette.dna.default,
+)
+#let _rna-config = (
+  size: 4,
+  max-bits: calc.log(4, base: 2.0),
+  chars: _rna-residues,
+  char-set: _make-membership-set(_rna-residues),
+  palette: _canonical-residue-palette.rna.default,
+)
+#let _dna-rna-set = _make-membership-set(_dna-residues + _rna-residues)
+#let _all-known-set = _make-membership-set(
+  _aa-residues + _dna-residues + _rna-residues,
 )
 
 /// Guesses the sequence alphabet based on the characters present in the sequences.
@@ -7,7 +64,8 @@
 /// Analyzes the sequences to determine whether they are amino acids ("aa"),
 /// DNA ("dna"), or RNA ("rna"). Returns "dna" if U is not present,
 /// "rna" if U is present, and "aa" if amino acid specific characters
-/// are found.
+/// are found. Detection is case-insensitive and ignores unknown symbols unless
+/// no known residues are present.
 ///
 /// - sequences (dictionary, array): A dictionary mapping identifiers to sequences, or an array of sequences.
 /// -> str
@@ -23,16 +81,14 @@
   }
 
   let observed-keys = observed.keys()
-  let dna-rna-chars = _dna-characters + _rna-characters
-  let all-known = _aa-characters + dna-rna-chars
 
   assert(
-    observed-keys.any(char => char in all-known),
+    observed-keys.any(char => char in _all-known-set),
     message: "Could not guess sequence alphabet. Please set alphabet to 'aa', 'dna', or 'rna'.",
   )
 
   if observed-keys.any(char => (
-    char in _aa-characters and char not in dna-rna-chars
+    char in _aa-config.char-set and char not in _dna-rna-set
   )) {
     "aa"
   } else if "U" in observed-keys {
@@ -40,78 +96,6 @@
   } else {
     "dna"
   }
-}
-
-/// Computes the sequence conservation of MSA column using the method described
-/// in Schneider, T.D., and Stephens, R.M. "Sequence logos: a new way to display
-/// consensus sequences" (1990).
-///
-/// Calculates the information content (measured in bits) for a single column
-/// of a multiple sequence alignment, using Shannon entropy with optional small
-/// sample correction and occupancy scaling.
-///
-/// - counts (dictionary): Dictionary mapping characters to their counts in the column.
-/// - total-non-gap (int): Total number of non-gap characters in the column.
-/// - num-sequences (int): Total number of sequences in the alignment.
-/// - sampling-correction (bool): Apply small sample correction.
-/// - alphabet-size (int): Size of the alphabet.
-/// -> float
-#let _compute-sequence-conservation(
-  counts,
-  total-non-gap,
-  num-sequences,
-  sampling-correction,
-  alphabet-size,
-) = {
-  if total-non-gap == 0 { return 0.0 }
-
-  let max-bits = calc.log(alphabet-size, base: 2.0)
-
-  let entropy = 0.0
-  for count in counts.values() {
-    let p = count / total-non-gap
-    if p > 0 {
-      entropy -= p * calc.log(p, base: 2.0)
-    }
-  }
-
-  // Small sample correction
-  let en = 0.0
-  if sampling-correction {
-    en = (alphabet-size - 1.0) / (2.0 * total-non-gap * calc.ln(2.0))
-  }
-
-  let r = calc.max(0.0, max-bits - (entropy + en))
-
-  // Occupancy scaling
-  let occupancy = total-non-gap / num-sequences
-  occupancy * r
-}
-
-/// Computes column statistics for a set of sequences.
-///
-/// Counts occurrences of each valid character at a specific position across
-/// all sequences in the alignment. Matching is case-insensitive.
-///
-/// - sequences (array): Array of sequence strings.
-/// - pos (int): The column position to analyze (0-indexed).
-/// - alphabet-characters (array): Array of valid alphabet characters.
-/// -> dictionary with keys:
-///   - counts (dictionary): Counts of valid characters at the column.
-///   - total-non-gap (int): Total count of valid non-gap characters.
-#let _get-column-stats(sequences, pos, alphabet-characters) = {
-  let counts = (:)
-  let total-non-gap = 0
-  for seq in sequences {
-    if pos < seq.len() {
-      let char = upper(seq.at(pos))
-      if char in alphabet-characters {
-        counts.insert(char, counts.at(char, default: 0) + 1)
-        total-non-gap += 1
-      }
-    }
-  }
-  (counts: counts, total-non-gap: total-non-gap)
 }
 
 /// Resolves alphabet configuration based on the specified alphabet or auto-detection.
@@ -124,7 +108,9 @@
 /// - sequences (array): Array of sequence strings for auto-detection.
 /// -> dictionary with keys:
 ///   - size (int): Alphabet size (20 for amino acids, 4 for DNA/RNA).
-///   - chars (array): Array of valid alphabet characters.
+///   - max-bits (float): Maximum possible information content (log2 of alphabet size).
+///   - chars (array): Array of canonical uppercase alphabet characters.
+///   - char-set (dictionary): Membership map for canonical uppercase alphabet characters.
 ///   - palette (dictionary): Color mapping for characters.
 #let _resolve-alphabet-config(alphabet, sequences) = {
   assert(
@@ -137,69 +123,10 @@
   }
 
   if type == "aa" {
-    (size: 20, chars: _aa-characters, palette: residue-palette.aa.default)
+    _aa-config
   } else if type == "dna" {
-    (size: 4, chars: _dna-characters, palette: residue-palette.dna.default)
+    _dna-config
   } else if type == "rna" {
-    (size: 4, chars: _rna-characters, palette: residue-palette.rna.default)
-  }
-}
-
-/// Checks whether a palette covers the exact observed residues in a sequence list.
-///
-/// Returns a dictionary with an `ok` flag and a `missing` array containing
-/// observed non-gap residues whose exact keys are not present in the palette.
-/// This helper does not normalize residue case before comparing observed
-/// residues to palette keys.
-///
-/// - palette (dictionary): Dictionary mapping residues to colors.
-/// - sequences (array): Array of sequence strings.
-/// -> dictionary with keys:
-///   - ok (bool): Whether the palette covers all residues in the sequences.
-///   - missing (array): Residues not found in the palette.
-#let _check-palette-coverage(palette, sequences) = {
-  assert(
-    type(palette) == dictionary,
-    message: "palette must be a dictionary mapping residues to colors.",
-  )
-  assert(type(sequences) == array, message: "sequences must be an array.")
-
-  let gap-chars = ("-", ".")
-  let observed = (:)
-  for seq in sequences {
-    for char in seq.clusters() {
-      if char in gap-chars { continue }
-      observed.insert(char, true)
-    }
-  }
-
-  let palette-keys = (:)
-  for key in palette.keys() {
-    palette-keys.insert(key, true)
-  }
-
-  let missing = ()
-  for key in observed.keys() {
-    if not (key in palette-keys) { missing.push(key) }
-  }
-
-  (ok: missing.len() == 0, missing: missing.sorted())
-}
-
-/// Validates that all sequences in the MSA have the same length.
-///
-/// Ensures that all sequences in a multiple sequence alignment have identical
-/// lengths. Throws an error if sequences have different lengths.
-///
-/// - alignment (dictionary): Dictionary mapping sequence identifiers to aligned sequences.
-/// -> none
-#let _validate-alignment(alignment) = {
-  let sequences = alignment.values()
-  if sequences.len() > 0 {
-    let expected-len = sequences.first().len()
-    assert(
-      sequences.all(s => s.len() == expected-len),
-      message: "All sequences must be of equal length.",
-    )
+    _rna-config
   }
 }
