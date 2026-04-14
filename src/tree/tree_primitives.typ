@@ -5,22 +5,16 @@
 /// - label-primitive (dictionary): Label primitive metadata.
 /// -> content
 #let _build-tree-label-content(label-primitive) = {
-  let bottom-edge = if label-primitive.placement-role == "internal-label" {
-    "baseline"
-  } else {
-    "descender"
-  }
-  let tip-label = label-primitive.placement-role == "tip-label"
   let label-content = text(
     size: label-primitive.text-size,
     ..if label-primitive.text-fill != none {
       (fill: label-primitive.text-fill)
     },
     style: label-primitive.text-style,
-    ..if tip-label {
-      (top-edge: "ascender")
-    },
-    bottom-edge: bottom-edge,
+    // Tree labels must include their full vertical text extents so fit and
+    // collision checks see the same inked box that gets rendered.
+    top-edge: "ascender",
+    bottom-edge: "descender",
   )[#label-primitive.label-body]
   label-content
 }

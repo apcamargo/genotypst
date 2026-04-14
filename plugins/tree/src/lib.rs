@@ -581,6 +581,14 @@ struct MaterializedLine {
     end: Point,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct BranchObstacle {
+    start: Point,
+    end: Point,
+    half_stroke_pt: f64,
+    bounds: Bounds,
+}
+
 #[derive(Debug, Clone)]
 struct MaterializedLabel {
     label_index: usize,
@@ -1900,11 +1908,7 @@ fn screen_label_relative_top_left(primitive: &PreparedLabel) -> Point {
         let dx = theta.cos();
         let dy = theta.sin();
         let axis = dx.abs().max(dy.abs()).max(DEGENERATE_TOLERANCE);
-        let edge_weight = dy.abs() * dy.abs();
-        let edge_support_y = if dy >= 0.0 { 0.0 } else { box_size.y };
-        // Near-horizontal unrooted labels look better when they drift toward
-        // vertical centering instead of snapping fully to the top or bottom edge.
-        let support_y = edge_support_y * edge_weight + (box_size.y / 2.0) * (1.0 - edge_weight);
+        let support_y = if dy >= 0.0 { 0.0 } else { box_size.y };
         Point {
             x: primitive.x_gap_pt * dx / axis - support_x,
             y: primitive.y_gap_pt * dy / axis - support_y,
@@ -1981,10 +1985,116 @@ fn line_bounds(start: Point, end: Point, half_stroke_pt: f64) -> Bounds {
     }
 }
 
+fn bounds_overlap_area(first: Bounds, second: Bounds) -> f64 {
+    let overlap_width = (first.max_x.min(second.max_x) - first.min_x.max(second.min_x)).max(0.0);
+    let overlap_height = (first.max_y.min(second.max_y) - first.min_y.max(second.min_y)).max(0.0);
+    overlap_width * overlap_height
+}
+
 fn line_is_degenerate(start: Point, end: Point) -> bool {
     let dx = (end.x - start.x).abs();
     let dy = (end.y - start.y).abs();
     dx <= FIT_TOLERANCE_PT && dy <= FIT_TOLERANCE_PT
+}
+
+fn interpolate_point(start: Point, end: Point, t: f64) -> Point {
+    Point {
+        x: start.x + (end.x - start.x) * t,
+        y: start.y + (end.y - start.y) * t,
+    }
+}
+
+fn inflate_bounds(bounds: Bounds, padding: f64) -> Bounds {
+    Bounds {
+        min_x: bounds.min_x - padding,
+        min_y: bounds.min_y - padding,
+        max_x: bounds.max_x + padding,
+        max_y: bounds.max_y + padding,
+        width: bounds.width + 2.0 * padding,
+        height: bounds.height + 2.0 * padding,
+    }
+}
+
+fn point_distance(first: Point, second: Point) -> f64 {
+    let dx = second.x - first.x;
+    let dy = second.y - first.y;
+    (dx * dx + dy * dy).sqrt()
+}
+
+fn point_inside_bounds_interior(point: Point, bounds: Bounds) -> bool {
+    point.x > bounds.min_x + DEGENERATE_TOLERANCE
+        && point.x < bounds.max_x - DEGENERATE_TOLERANCE
+        && point.y > bounds.min_y + DEGENERATE_TOLERANCE
+        && point.y < bounds.max_y - DEGENERATE_TOLERANCE
+}
+
+fn clip_segment_to_bounds(start: Point, end: Point, bounds: Bounds) -> Option<(f64, f64)> {
+    let dx = end.x - start.x;
+    let dy = end.y - start.y;
+    let mut t_min: f64 = 0.0;
+    let mut t_max: f64 = 1.0;
+
+    let mut clip = |p: f64, q: f64| {
+        if approx_eq(p, 0.0, DEGENERATE_TOLERANCE) {
+            q >= 0.0
+        } else {
+            let r = q / p;
+            if p < 0.0 {
+                if r > t_max {
+                    false
+                } else {
+                    t_min = t_min.max(r);
+                    true
+                }
+            } else if r < t_min {
+                false
+            } else {
+                t_max = t_max.min(r);
+                true
+            }
+        }
+    };
+
+    if clip(-dx, start.x - bounds.min_x)
+        && clip(dx, bounds.max_x - start.x)
+        && clip(-dy, start.y - bounds.min_y)
+        && clip(dy, bounds.max_y - start.y)
+        && t_min <= t_max
+    {
+        Some((t_min, t_max))
+    } else {
+        None
+    }
+}
+
+fn branch_obstacle_collides_with_bounds(obstacle: BranchObstacle, label_bounds: Bounds) -> bool {
+    if bounds_overlap_area(obstacle.bounds, label_bounds) <= 0.0 {
+        return false;
+    }
+
+    let inflated_bounds = inflate_bounds(label_bounds, obstacle.half_stroke_pt);
+    let Some((t_min, t_max)) =
+        clip_segment_to_bounds(obstacle.start, obstacle.end, inflated_bounds)
+    else {
+        return false;
+    };
+
+    let clipped_start = interpolate_point(obstacle.start, obstacle.end, t_min);
+    let clipped_end = interpolate_point(obstacle.start, obstacle.end, t_max);
+    if point_distance(clipped_start, clipped_end) <= FIT_TOLERANCE_PT {
+        return false;
+    }
+
+    let midpoint = interpolate_point(obstacle.start, obstacle.end, (t_min + t_max) / 2.0);
+    point_inside_bounds_interior(midpoint, inflated_bounds)
+}
+
+fn branch_collision_count(branch_obstacles: &[BranchObstacle], label_bounds: Bounds) -> usize {
+    branch_obstacles
+        .iter()
+        .copied()
+        .filter(|obstacle| branch_obstacle_collides_with_bounds(*obstacle, label_bounds))
+        .count()
 }
 
 fn materialize_label_anchor(
@@ -2051,18 +2161,24 @@ fn materialize_fitted_line(
     x_scale_pt: f64,
     y_scale_pt: f64,
     orientation: Orientation,
-) -> Option<(MaterializedLine, Bounds)> {
+) -> Option<(MaterializedLine, BranchObstacle)> {
     let (start, end) = materialize_line(primitive, x_scale_pt, y_scale_pt, orientation);
     if line_is_degenerate(start, end) {
         None
     } else {
+        let bounds = line_bounds(start, end, primitive.half_stroke_pt);
         Some((
             MaterializedLine {
                 line_index,
                 start,
                 end,
             },
-            line_bounds(start, end, primitive.half_stroke_pt),
+            BranchObstacle {
+                start,
+                end,
+                half_stroke_pt: primitive.half_stroke_pt,
+                bounds,
+            },
         ))
     }
 }
@@ -2121,28 +2237,32 @@ fn materialize_fitted_internal_label(
     x_scale_pt: f64,
     y_scale_pt: f64,
     orientation: Orientation,
+    branch_obstacles: &[BranchObstacle],
     occupied_internal_bounds: &[Bounds],
 ) -> (MaterializedLabel, Bounds) {
-    let mut best_score: Option<(usize, f64, usize, usize)> = None;
+    let mut best_score: Option<(usize, usize, f64, usize, usize)> = None;
     let mut best_result: Option<(MaterializedLabel, Bounds)> = None;
 
     for_each_internal_label_candidate(primitive, |candidate, direction_rank, gap_rank| {
         let (label, bounds) =
             materialize_fitted_label(&candidate, label_index, x_scale_pt, y_scale_pt, orientation);
+        let branch_collisions = branch_collision_count(branch_obstacles, bounds);
         let mut overlap_count = 0usize;
         let mut overlap_area = 0.0;
         for occupied in occupied_internal_bounds.iter().copied() {
-            let overlap_width =
-                (bounds.max_x.min(occupied.max_x) - bounds.min_x.max(occupied.min_x)).max(0.0);
-            let overlap_height =
-                (bounds.max_y.min(occupied.max_y) - bounds.min_y.max(occupied.min_y)).max(0.0);
-            let area = overlap_width * overlap_height;
+            let area = bounds_overlap_area(bounds, occupied);
             if area > 0.0 {
                 overlap_count += 1;
                 overlap_area += area;
             }
         }
-        let candidate_score = (overlap_count, overlap_area, direction_rank, gap_rank);
+        let candidate_score = (
+            branch_collisions,
+            overlap_count,
+            overlap_area,
+            direction_rank,
+            gap_rank,
+        );
         if best_score
             .map(|score| candidate_score < score)
             .unwrap_or(true)
@@ -2167,14 +2287,14 @@ fn evaluate_tree_bounds_only(
     let mut bounds = BoundsAccumulator::default();
 
     for (index, primitive) in prepared_lines.iter().enumerate() {
-        if let Some((_, line_bounds)) =
+        if let Some((_, obstacle)) =
             materialize_fitted_line(primitive, index, x_scale_pt, y_scale_pt, orientation)
         {
             bounds.expand(
-                line_bounds.min_x,
-                line_bounds.min_y,
-                line_bounds.max_x,
-                line_bounds.max_y,
+                obstacle.bounds.min_x,
+                obstacle.bounds.min_y,
+                obstacle.bounds.max_x,
+                obstacle.bounds.max_y,
             );
         }
     }
@@ -2202,6 +2322,7 @@ fn materialize_fitted_tree(
     orientation: Orientation,
 ) -> MaterializedTree {
     let mut tree_lines = Vec::new();
+    let mut branch_obstacles = Vec::new();
     let mut tree_labels = Vec::new();
     let mut occupied_internal_label_bounds = Vec::new();
     let mut bounds = BoundsAccumulator::default();
@@ -2212,15 +2333,16 @@ fn materialize_fitted_tree(
     );
 
     for (index, primitive) in prepared_lines.iter().enumerate() {
-        if let Some((line, line_bounds)) =
+        if let Some((line, obstacle)) =
             materialize_fitted_line(primitive, index, x_scale_pt, y_scale_pt, orientation)
         {
             bounds.expand(
-                line_bounds.min_x,
-                line_bounds.min_y,
-                line_bounds.max_x,
-                line_bounds.max_y,
+                obstacle.bounds.min_x,
+                obstacle.bounds.min_y,
+                obstacle.bounds.max_x,
+                obstacle.bounds.max_y,
             );
+            branch_obstacles.push(obstacle);
             tree_lines.push(line);
         }
     }
@@ -2233,6 +2355,7 @@ fn materialize_fitted_tree(
                 x_scale_pt,
                 y_scale_pt,
                 orientation,
+                &branch_obstacles,
                 &occupied_internal_label_bounds,
             )
         } else {
@@ -3681,6 +3804,119 @@ mod tests {
                 "y coordinate mismatch for {label}: {first_y} vs {second_y}",
             );
         }
+    }
+
+    fn test_internal_label(
+        preferred_angle_half_turn: f64,
+        x_gap_pt: f64,
+        y_gap_pt: f64,
+        measure_width_pt: f64,
+        measure_height_pt: f64,
+    ) -> PreparedLabel {
+        let placement = horizontal_label_placement(preferred_angle_half_turn);
+        PreparedLabel {
+            anchor_tree: Point { x: 0.0, y: 0.0 },
+            anchor_page: Point { x: 0.0, y: 0.0 },
+            x_align: placement.x_align,
+            y_align: placement.y_align,
+            x_gap_pt,
+            y_gap_pt,
+            rotation_deg: 0.0,
+            placement_frame: PlacementFrame::Screen,
+            branch_angle_half_turn: None,
+            placement_angle_half_turn: Some(placement.placement_angle_half_turn),
+            measure_width_pt,
+            measure_height_pt,
+        }
+    }
+
+    fn test_branch_obstacle(start: Point, end: Point, half_stroke_pt: f64) -> BranchObstacle {
+        BranchObstacle {
+            start,
+            end,
+            half_stroke_pt,
+            bounds: line_bounds(start, end, half_stroke_pt),
+        }
+    }
+
+    #[test]
+    fn internal_label_prefers_branch_clear_candidate_when_one_exists() {
+        let primitive = test_internal_label(0.0, 2.0, 2.0, 6.0, 3.0);
+        let branch_obstacles = [test_branch_obstacle(
+            Point { x: 3.0, y: -3.0 },
+            Point { x: 7.0, y: 3.0 },
+            0.75,
+        )];
+        let (_, preferred_bounds) =
+            materialize_fitted_label(&primitive, 0, 0.0, 0.0, Orientation::Horizontal);
+        assert_eq!(
+            branch_collision_count(&branch_obstacles, preferred_bounds),
+            1,
+            "the preferred candidate should reproduce the branch-overlap condition",
+        );
+
+        let (_, chosen_bounds) = materialize_fitted_internal_label(
+            &primitive,
+            0,
+            0.0,
+            0.0,
+            Orientation::Horizontal,
+            &branch_obstacles,
+            &[],
+        );
+        assert_eq!(
+            branch_collision_count(&branch_obstacles, chosen_bounds),
+            0,
+            "internal-label scoring should prefer a branch-clear candidate when available",
+        );
+    }
+
+    #[test]
+    fn internal_label_screen_position_snaps_horizontal_angles_to_box_edge() {
+        let primitive = test_internal_label(0.0, 2.0, 2.0, 6.0, 3.0);
+        let top_left = screen_label_relative_top_left(&primitive);
+        assert!(
+            approx_eq(top_left.x, 2.0, 1e-9),
+            "horizontal internal labels should preserve the configured x gap",
+        );
+        assert!(
+            approx_eq(top_left.y, 0.0, 1e-9),
+            "horizontal internal labels should snap to the box edge instead of centering vertically",
+        );
+    }
+
+    #[test]
+    fn internal_label_branch_score_preserves_internal_overlap_tiebreak() {
+        let primitive = test_internal_label(0.0, 4.0, 2.0, 6.0, 3.0);
+        let occupied_internal_bounds = [Bounds {
+            min_x: 4.5,
+            min_y: -1.0,
+            max_x: 5.5,
+            max_y: 1.0,
+            width: 1.0,
+            height: 2.0,
+        }];
+        let (label, bounds) = materialize_fitted_internal_label(
+            &primitive,
+            0,
+            0.0,
+            0.0,
+            Orientation::Horizontal,
+            &[],
+            &occupied_internal_bounds,
+        );
+        assert!(
+            approx_eq(
+                bounds_overlap_area(bounds, occupied_internal_bounds[0]),
+                0.0,
+                1e-9
+            ),
+            "when branch scores tie, overlap scoring should still choose a non-overlapping candidate",
+        );
+        assert!(
+            label.origin.x > 0.0,
+            "the scorer should keep the preferred rightward direction when increasing the gap is enough",
+        );
     }
 
     #[test]
