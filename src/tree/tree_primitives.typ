@@ -1,4 +1,7 @@
 #let _zero-point = (x: 0pt, y: 0pt)
+#let _space-content-func = content.func(text[ ])
+#let _styled-content-func = content.func(text(fill: black)[x])
+#let _sequence-content-func = content.func([x#linebreak()y])
 
 /// Builds a label content element from a tree label primitive.
 ///
@@ -19,6 +22,86 @@
   label-content
 }
 
+/// Returns whether a raw tree label body should keep text-metric placement.
+///
+/// Labels are classified before `_build-tree-label-content(...)` wraps them in
+/// `text(...)`, so the decision reflects the original user-provided content.
+///
+/// - label-body (str, content, none): Raw hydrated label body.
+/// -> bool
+#let _tree-label-body-is-text-like(label-body) = {
+  if label-body == none {
+    return false
+  }
+  if type(label-body) == str {
+    return true
+  }
+  if type(label-body) != content {
+    return false
+  }
+
+  let func = content.func(label-body)
+  if (
+    func == text
+      or func == raw
+      or func == _space-content-func
+      or func == linebreak
+  ) {
+    return true
+  }
+  if (
+    func == emph
+      or func == strong
+      or func == highlight
+      or func == underline
+      or func == overline
+      or func == strike
+      or func == link
+      or func == smallcaps
+      or func == sub
+      or func == super
+  ) {
+    return _tree-label-body-is-text-like(label-body.at("body", default: none))
+  }
+  if func == _styled-content-func {
+    return _tree-label-body-is-text-like(label-body.at("child", default: none))
+  }
+  if func == _sequence-content-func {
+    let children = label-body.at("children", default: ())
+    return children.all(child => _tree-label-body-is-text-like(child))
+  }
+
+  false
+}
+
+/// Returns the horizontal and vertical gaps for one rectangular internal label.
+///
+/// Text-like internal labels keep a tighter vertical text gap. Content
+/// internal labels use the larger gap on both axes so shapes do not look
+/// vertically cramped.
+///
+/// - label-body-is-text-like (bool): Whether the raw hydrated label body should
+///   keep text-metric placement.
+/// - style (dictionary): Tree style record.
+/// -> dictionary with `x-gap` and `y-gap`
+#let _tree-rectangular-internal-label-gaps(label-body-is-text-like, style) = {
+  if label-body-is-text-like {
+    (
+      x-gap: style.label-gap,
+      y-gap: style.internal-text-y-gap,
+    )
+  } else {
+    let uniform-gap = calc.max(
+      style.label-gap,
+      style.internal-text-y-gap,
+    )
+    (
+      x-gap: uniform-gap,
+      y-gap: uniform-gap,
+    )
+  }
+}
+
 /// Builds one label primitive with explicit geometry metadata.
 ///
 /// - placement-role (str): Semantic label role.
@@ -32,6 +115,8 @@
 /// - text-size (length): Label size.
 /// - text-fill (color, none): Label fill.
 /// - text-style (str): Label style.
+/// - label-body-is-text-like (bool, auto): Cached text-like classification for
+///   the raw hydrated label body.
 /// - placement-frame (str): Either "screen" or "local".
 /// - branch-angle-half-turn (float, none): Raw tip direction for radial labels.
 /// - placement-angle-half-turn (float, none): Geometry direction used to place
@@ -49,27 +134,36 @@
   text-size,
   text-fill,
   text-style,
+  label-body-is-text-like: auto,
   placement-frame: "screen",
   branch-angle-half-turn: none,
   placement-angle-half-turn: none,
-) = (
-  kind: "label",
-  placement-role: placement-role,
-  anchor-tree: anchor-tree,
-  anchor-page: _zero-point,
-  x-align: x-align,
-  y-align: y-align,
-  x-gap: x-gap,
-  y-gap: y-gap,
-  rotation: rotation,
-  placement-frame: placement-frame,
-  branch-angle-half-turn: branch-angle-half-turn,
-  placement-angle-half-turn: placement-angle-half-turn,
-  label-body: label-body,
-  text-size: text-size,
-  text-fill: text-fill,
-  text-style: text-style,
-)
+) = {
+  let resolved-label-body-is-text-like = if label-body-is-text-like == auto {
+    _tree-label-body-is-text-like(label-body)
+  } else {
+    label-body-is-text-like
+  }
+  (
+    kind: "label",
+    placement-role: placement-role,
+    anchor-tree: anchor-tree,
+    anchor-page: _zero-point,
+    x-align: x-align,
+    y-align: y-align,
+    x-gap: x-gap,
+    y-gap: y-gap,
+    rotation: rotation,
+    placement-frame: placement-frame,
+    branch-angle-half-turn: branch-angle-half-turn,
+    placement-angle-half-turn: placement-angle-half-turn,
+    label-body: label-body,
+    label-body-is-text-like: resolved-label-body-is-text-like,
+    text-size: text-size,
+    text-fill: text-fill,
+    text-style: text-style,
+  )
+}
 
 /// Returns the upright radial tip-label placement for a branch direction.
 ///
@@ -239,10 +333,10 @@
             if orientation == "vertical" {
               -cross-offset
             } else {
-              style.label-x-offset
+              style.label-gap
             },
             if orientation == "vertical" {
-              style.label-x-offset
+              style.label-gap
             } else {
               -cross-offset
             },
@@ -263,7 +357,7 @@
             node-point,
             radial-placement.x-align,
             radial-placement.y-align,
-            style.label-x-offset * radial-placement.gap-sign,
+            style.label-gap * radial-placement.gap-sign,
             local-y-gap,
             radial-placement.rotation,
             node.label-body,
@@ -293,18 +387,26 @@
       ))
 
       if node.label-body != none {
+        let label-body-is-text-like = _tree-label-body-is-text-like(
+          node.label-body,
+        )
+        let internal-label-gaps = _tree-rectangular-internal-label-gaps(
+          label-body-is-text-like,
+          style,
+        )
         primitives.push(_tree-label-primitive(
           "internal-label",
           node-point,
           if orientation == "vertical" { "left" } else { "right" },
           if orientation == "vertical" { "top" } else { "bottom" },
-          style.label-x-offset,
-          style.internal-label-gap,
+          internal-label-gaps.x-gap,
+          internal-label-gaps.y-gap,
           0deg,
           node.label-body,
           style.internal-label-size,
           style.internal-label-color,
           "normal",
+          label-body-is-text-like: label-body-is-text-like,
         ))
       }
     } else if node.label-body != none {
@@ -314,8 +416,8 @@
         node-point,
         internal-placement.x-align,
         internal-placement.y-align,
-        style.label-x-offset,
-        style.internal-label-gap,
+        style.label-gap,
+        style.label-gap,
         0deg,
         node.label-body,
         style.internal-label-size,

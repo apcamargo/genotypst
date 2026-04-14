@@ -2,7 +2,34 @@
 #import "./tree_backend.typ": _tree-fit
 #import "./tree_primitives.typ": _build-tree-label-content
 
-/// Measures all label primitives using the final label-construction helper.
+/// Adjusts measured gaps for non-text tip labels.
+///
+/// Supported placements today are local-frame radial tips, horizontal
+/// screen-frame rectangular tips, and vertical rectangular tips rotated by
+/// `-90deg`. If new tip placement modes are added, revisit whether these
+/// adjustments still belong here.
+///
+/// - primitive (dictionary): Measured label primitive.
+/// - label-size (dictionary): Measured label size.
+/// -> dictionary
+#let _adjust-measured-content-tip-gaps(primitive, label-size) = {
+  if (
+    primitive.placement-role != "tip-label" or primitive.label-body-is-text-like
+  ) {
+    return primitive
+  }
+
+  if primitive.placement-frame == "local" {
+    primitive.insert("y-gap", 0pt)
+  } else if primitive.rotation == -90deg {
+    primitive.insert("x-gap", -label-size.height / 2)
+  } else {
+    primitive.insert("y-gap", -label-size.height / 2)
+  }
+  primitive
+}
+
+/// Measures label primitives and finalizes measured tip-gap adjustments.
 ///
 /// - tree-plan (dictionary): Tree primitive plan.
 /// -> dictionary
@@ -15,7 +42,11 @@
       primitive.insert("content", label-content)
       primitive.insert("measure-width", label-size.width)
       primitive.insert("measure-height", label-size.height)
-      measured-primitives.push(primitive)
+      let adjusted-primitive = _adjust-measured-content-tip-gaps(
+        primitive,
+        label-size,
+      )
+      measured-primitives.push(adjusted-primitive)
     } else {
       measured-primitives.push(primitive)
     }

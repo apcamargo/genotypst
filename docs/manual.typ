@@ -164,10 +164,7 @@ Use `get-scoring-matrix` to retrieve a matrix data and `get-score-from-matrix` t
 #let ar_score = get-score-from-matrix(blosum62, "L", "D")
 #text[The substitution score for L vs D in BLOSUM62 is: #ar_score.]
 
-You can render the entire scoring matrix using `render-scoring-matrix` function. In the example below:
-
-- `context { set text(size: 0.9em) ... }` reduces the size of the text.
-- `scale-limit: 7` set the color scale limits to -7 to 7.
+You can render the entire scoring matrix using `render-scoring-matrix` function. In the example below `scale-limit: 7` set the color scale limits to -7 to 7.
 
 ```typ
 #context {
@@ -385,39 +382,47 @@ Two types of trees can be produced: rectangular trees (`render-rectangular-tree`
 - `layout: "daylight"` applies the daylight layout algorithm to the unrooted tree. The default layout is `"equal-angle"`.
 
 ```typst
-#render-rectangular-tree(
-  hominoidea_tree,
-  tip-label-italics: true,
-  orientation: "horizontal",
-)
-
-#render-unrooted-tree(
-  hominoidea_tree,
-  tip-label-italics: true,
-  hide-internal-labels: true,
-  layout: "daylight",
-)
+#context {
+  set text(size: 0.9em)
+  render-rectangular-tree(
+    hominoidea_tree,
+    tip-label-italics: true,
+    orientation: "horizontal",
+  )
+  render-unrooted-tree(
+    hominoidea_tree,
+    tip-label-italics: true,
+    hide-internal-labels: true,
+    layout: "daylight",
+  )
+}
 ```
 
 #grid(
   columns: (1fr, 1fr),
-  gutter: 0.6cm,
+  gutter: 0.45cm,
   figure(
-    render-rectangular-tree(
-      hominoidea_tree,
-      tip-label-italics: true,
-      orientation: "horizontal",
-    ),
+    context {
+      set text(size: 0.9em)
+      render-rectangular-tree(
+        hominoidea_tree,
+        tip-label-italics: true,
+        orientation: "horizontal",
+      )
+    },
     caption: [Horizontal rectangular tree.],
     supplement: none,
   ),
   figure(
-    render-unrooted-tree(
-      hominoidea_tree,
-      tip-label-italics: true,
-      hide-internal-labels: true,
-      layout: "daylight",
-    ),
+    context {
+      set text(size: 0.9em)
+      render-unrooted-tree(
+        hominoidea_tree,
+        tip-label-italics: true,
+        hide-internal-labels: true,
+        layout: "daylight",
+      )
+    },
     caption: [Unrooted tree using the daylight layout.],
     supplement: none,
   ),

@@ -8,9 +8,11 @@
 // distinct handle to Typst's `layout(...)` function for both renderers.
 #let _tree-render-layout = layout
 
-/// Tree layout constants.
-#let _label-x-offset = 0.31em
-#let _internal-label-gap = 0.17em
+/// Default outward spacing for tree labels.
+#let _label-gap = 0.31em
+
+/// Vertical gap used for rectangular text internal labels.
+#let _internal-text-y-gap = 0.17em
 #let _auto-height-scale = 1.9em
 #let _rectangular-fit-band-samples = 1
 #let _tree-fit-max-bands = 24
@@ -268,8 +270,8 @@
     tip-label-italics: tip-label-italics,
     internal-label-size: internal-label-size,
     internal-label-color: internal-label-color,
-    label-x-offset: _label-x-offset,
-    internal-label-gap: _internal-label-gap,
+    label-gap: _label-gap,
+    internal-text-y-gap: _internal-text-y-gap,
     auto-height-scale: _auto-height-scale,
     tip-label-metrics: (
       // Rectangular and unrooted tip labels intentionally use the same
@@ -325,10 +327,16 @@
 ///   - backend-tree (dictionary): Backend-safe tree data.
 ///   - content-labels (dictionary): `label-id` to original content.
 #let _prepare-tree-data-for-layout(tree-data) = {
-  assert(type(tree-data) == dictionary, message: "tree-data must be a dictionary.")
+  assert(
+    type(tree-data) == dictionary,
+    message: "tree-data must be a dictionary.",
+  )
 
   let visit(node, next-label-id) = {
-    assert(type(node) == dictionary, message: "tree nodes must be dictionaries.")
+    assert(
+      type(node) == dictionary,
+      message: "tree nodes must be dictionaries.",
+    )
     let prepared = (:)
     let next-id = next-label-id
     let content-labels = (:)
