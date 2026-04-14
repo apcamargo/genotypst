@@ -9,20 +9,24 @@
   _prepare-palette, _validate-alignment,
 )
 
-/// Computes residue heights for a sequence logo.
+#let _logo-letter-size = 10pt
+#let _logo-letter-weight = "bold"
+#let _logo-letter-gap = 0.2pt
+
+/// Computes per-residue glyph heights for a sequence logo.
 ///
-/// Calculates the height for each character in each column of a sequence logo.
-/// Column stack heights are normalized to the maximum observed conservation in
-/// the requested window, and character height within each stack represents
-/// relative frequency.
+/// Column stacks are scaled relative to the maximum observed conservation in
+/// the requested window. Within each stack, individual glyph heights represent
+/// relative residue frequency. The returned heights exclude the inter-letter gap
+/// added later during stack layout.
 ///
 /// - column-stats (array): Prepared per-column statistics for the requested window.
-/// - logo-height (length): Total height of the logo.
+/// - logo-height (length): Reference height used to scale the tallest observed stack.
 /// - alphabet-config (dictionary): Canonical alphabet configuration.
 /// -> array: Array of columns, each column being an array of dictionaries
 ///   with keys:
 ///   - char (str): Character in the stack.
-///   - height (length): Height of that character in the stack.
+///   - height (length): Glyph height for that character.
 #let _get-logo-heights(column-stats, logo-height, alphabet-config) = {
   if column-stats.len() == 0 { return () }
 
@@ -55,24 +59,70 @@
   logo-data
 }
 
+/// Builds the unscaled glyph used for sequence-logo letters.
+///
+/// - char (str): Residue character to render.
+/// - fill (color): Glyph color (default: black).
+/// -> content
+#let _make-logo-glyph(char, fill: black) = text(
+  fill: fill,
+  size: _logo-letter-size,
+  weight: _logo-letter-weight,
+  top-edge: "bounds",
+  bottom-edge: "bounds",
+  char,
+)
+
+/// Measures the base glyph geometry for each residue character.
+///
+/// - chars (array): Residue characters to measure.
+/// -> dictionary: Measured glyph geometry keyed by residue character.
+#let _measure-logo-glyphs(chars) = {
+  let glyph-metrics = (:)
+  for char in chars {
+    glyph-metrics.insert(char, measure(_make-logo-glyph(char)))
+  }
+  glyph-metrics
+}
+
+/// Computes the rendered height of a single logo column.
+///
+/// Includes the configured inter-letter gaps between stacked glyphs.
+///
+/// - column (array): Sequence-logo letter dictionaries with `height` values.
+/// -> length
+#let _resolve-logo-stack-height(column) = {
+  if column.len() == 0 { return 0pt }
+
+  let letters-height = column.fold(0pt, (sum, letter) => sum + letter.height)
+  letters-height + _logo-letter-gap * (column.len() - 1)
+}
+
+/// Computes the tallest rendered stack height in prepared logo data.
+///
+/// - logo-data (array): Prepared sequence-logo columns.
+/// -> length
+#let _resolve-logo-height(logo-data) = {
+  logo-data.fold(0pt, (max-height, column) => {
+    calc.max(max-height, _resolve-logo-stack-height(column))
+  })
+}
+
 /// Renders a single letter in a sequence logo with proper scaling.
 ///
 /// - letter (dictionary): Dictionary with keys `char` (str) and `height` (length).
 /// - col-width (length): Width of the column.
-/// - palette (dictionary): Color palette for residues.
+/// - palette (dictionary): Prepared color palette for residues.
+/// - glyph-metrics (dictionary): Precomputed glyph measurements keyed by residue.
 /// -> content
-#let _render-logo-letter(letter, col-width, palette) = {
+#let _render-logo-letter(letter, col-width, palette, glyph-metrics) = {
   context {
     let color = _lookup-palette-color(palette, letter.char)
-    let glyph = text(
-      fill: if color == none { _light-gray } else { color },
-      size: 10pt,
-      weight: "bold",
-      top-edge: "bounds",
-      bottom-edge: "bounds",
+    let glyph = _make-logo-glyph(
       letter.char,
+      fill: if color == none { _light-gray } else { color },
     )
-    let m = measure(glyph)
+    let m = glyph-metrics.at(letter.char)
     let sx = (col-width / m.width) * 100%
     let sy = (letter.height / m.height) * 100%
 
@@ -87,13 +137,14 @@
 ///
 /// Each column represents a position in the alignment. Stack height reflects
 /// conservation, and character height within a stack reflects relative
-/// frequency.
+/// frequency. `height` controls the vertical scale of the logo stacks; enabling
+/// `coordinate-axis` adds extra height below the logo.
 ///
 /// - alignment (dictionary): Dictionary mapping sequence identifiers to aligned sequences.
 /// - start (int, none): Starting position (1-indexed, inclusive) (default: none).
 /// - end (int, none): Ending position (1-indexed, inclusive) (default: none).
 /// - width (length, auto, ratio, relative): Total width of the logo (default: 100%).
-/// - height (length): Total height of the logo (default: 60pt).
+/// - height (length): Vertical scale used for the logo stacks (default: 60pt).
 /// - sampling-correction (bool): Whether to apply small sample correction (default: true).
 /// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna" (default: auto).
 /// - palette (dictionary, auto): Residue color palette to use (default: auto).
@@ -178,6 +229,7 @@
       let n-cols = logo-data.len()
       if n-cols == 0 { return }
       let col-width = size.width / n-cols
+      let glyph-metrics = _measure-logo-glyphs(config.chars)
 
       let logo-grid = grid(
         columns: (col-width,) * n-cols,
@@ -186,9 +238,13 @@
         ..logo-data.map(col => {
           stack(
             dir: ttb,
-            // Include a small spacing to avoid letters touching each other
-            spacing: 0.2pt,
-            ..col.map(l => _render-logo-letter(l, col-width, palette-to-use)),
+            spacing: _logo-letter-gap,
+            ..col.map(l => _render-logo-letter(
+              l,
+              col-width,
+              palette-to-use,
+              glyph-metrics,
+            )),
           )
         })
       )
@@ -203,7 +259,7 @@
       let axis-width = if n-cols == 1 { size.width } else {
         size.width - col-width
       }
-      let logo-height = measure(logo-grid).height
+      let logo-height = _resolve-logo-height(logo-data)
       let axis-label-height = measure(_make-axis-scale-label(
         str(last-pos),
         axis-label-size,
