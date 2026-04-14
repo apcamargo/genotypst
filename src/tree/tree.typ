@@ -9,8 +9,8 @@
 #let _tree-render-layout = layout
 
 /// Tree layout constants.
-#let _label-x-offset = 0.28em
-#let _internal-label-gap = 0.38em
+#let _label-x-offset = 0.31em
+#let _internal-label-gap = 0.17em
 #let _auto-height-scale = 1.9em
 #let _rectangular-fit-band-samples = 1
 #let _tree-fit-max-bands = 24
