@@ -1,5 +1,5 @@
 #import "../common/fixed_grid.typ": _fixed-width-grid
-#import "./alignment_backend.typ": _alignment-align, resolve-matrix-name
+#import "./alignment_backend.typ": _alignment-align, _resolve-matrix-name
 #import "./alignment_coords.typ": _parse-coord, _validate-path
 
 /// Validates and cleans a sequence string.
@@ -44,7 +44,7 @@
 
   // Matrix name resolution (case-insensitive)
   if scoring-matrix != none {
-    let canonical = resolve-matrix-name(scoring-matrix)
+    let canonical = _resolve-matrix-name(scoring-matrix)
     assert(
       canonical != none,
       message: "Unknown scoring matrix: '" + scoring-matrix + "'.",

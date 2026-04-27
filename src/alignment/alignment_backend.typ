@@ -10,7 +10,7 @@
 ///
 /// - name (str): Matrix name to look up (case-insensitive).
 /// -> str, none
-#let resolve-matrix-name(name) = {
+#let _resolve-matrix-name(name) = {
   let upper-name = upper(name)
   if upper-name in _available-matrices {
     upper-name

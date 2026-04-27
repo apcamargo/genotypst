@@ -1,4 +1,4 @@
-#import "./alignment_backend.typ": _alignment-matrix-info, resolve-matrix-name
+#import "./alignment_backend.typ": _alignment-matrix-info, _resolve-matrix-name
 #import "../common/colors.typ": _diverging-gradient
 
 /// Retrieves a scoring matrix by name from the WASM plugin.
@@ -16,7 +16,7 @@
 ///   - alphabet (array): Symbols covered by the matrix.
 ///   - matrix (array): 2D score matrix aligned to `alphabet`.
 #let get-scoring-matrix(name) = {
-  let canonical = resolve-matrix-name(name)
+  let canonical = _resolve-matrix-name(name)
   assert(canonical != none, message: "Unknown scoring matrix: '" + name + "'.")
 
   let raw-result = _alignment-matrix-info(canonical)
