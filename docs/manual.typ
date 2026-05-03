@@ -284,7 +284,7 @@ The DNA and RNA palettes assign a distinct color to each nucleotide.
   ..dna-rna-groups.map(render-palette-group)
 ))
 
-= Visualizing genomic loci with genome maps
+= Rendering genome maps and parsing GFF3 files
 
 Genome maps enable visualization of the genes and other genomic elements within a locus, highlighting their order, orientation, and length. `genotypst` provides a `render-genome-map` function that produces a genome map from an array of dictionaries, each representing a genomic feature that will be plotted:
 
@@ -335,6 +335,47 @@ Genome maps enable visualization of the genes and other genomic elements within 
   caption: [Genome map showing the genes within the 65,556--69,544 bp region of the F plasmid of _Escherichia coli_ K-12 (GenBank: AP001918.1).],
   supplement: none,
   kind: image,
+)
+
+If your genomic features are stored in a GFF3 file, you can use the `parse-gff` function to parse the file and return an array of dictionaries suitable as input to `render-genome-map`.
+
+In the example below:
+
+- `feature-types`: Return only features of the specified types.
+- `range`: Return only features within the specified genomic range, defined as `(accession, start, end)`.
+- `exclude-partial`: Exclude genes that are not fully contained within the specified range.
+- `label-attribute`: Use this feature attribute as the label in the genome map.
+
+```typst
+#let parsed_gff3_data = parse-gff(
+  read("data/NC_002483.gff3"),
+  feature-types: ("CDS", "pseudogene"),
+  range: ("NC_002483.1", 68960, 82550),
+  exclude-partial: true,
+  label-attribute: "product",
+)
+
+#render-genome-map(
+  parsed_gff3_data,
+  coordinate-axis: true,
+  scale-bar: true,
+  unit: "bp",
+)
+```
+
+#let parsed_gff3_data = parse-gff(
+  read("data/NC_002483.gff3"),
+  feature-types: ("CDS", "pseudogene"),
+  range: ("NC_002483.1", 68960, 82550),
+  exclude-partial: true,
+  label-attribute: "product",
+)
+
+#render-genome-map(
+  parsed_gff3_data,
+  coordinate-axis: true,
+  scale-bar: true,
+  unit: "bp",
 )
 
 = Working with phylogenetic trees

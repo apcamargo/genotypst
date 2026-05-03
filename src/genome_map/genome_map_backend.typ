@@ -1,5 +1,18 @@
 #let _genome-map-backend = plugin("genome_map.wasm")
 
+/// Parses GFF3 feature data through the WASM backend.
+///
+/// - data (str): Raw GFF3 source.
+/// - config (dictionary): Parser filter configuration.
+/// -> array
+#let _genome-map-parse-gff(data, config) = {
+  let result = _genome-map-backend.parse_gff(
+    bytes(data),
+    bytes(json.encode(config, pretty: false)),
+  )
+  json(result)
+}
+
 /// Resolves genome-map label layout through the WASM backend.
 ///
 /// - payload (dictionary): Label layout payload with global spacing values and
