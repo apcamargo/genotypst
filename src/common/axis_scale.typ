@@ -398,7 +398,7 @@
     color: label-color,
   )
   let label-size-box = measure(label-text)
-  let label-width-abs = _resolve-length(label-size-box.width)
+  let label-width-abs = label-size-box.width
   let label-left = _clamp(
     bar-left-abs + bar-width-abs / 2 - label-width-abs / 2,
     0pt,
