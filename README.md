@@ -116,6 +116,8 @@ To render a genomic locus, you can pass an array of genomic features to the `ren
 )
 ```
 
+You may also read genomic features from GFF3 files using the `parse-gff` function.
+
 ![Genome map showing five labeled features and the coordinate axis](./docs/genome_map_example.svg)
 
 You can also use `genotypst` to parse Newick data and visualize phylogenetic trees:
