@@ -26,10 +26,11 @@
     )
 
     let _ = _parse-and-validate-coord(
-      (highlight.at(0), highlight.at(1)),
+      highlight,
       max-row,
       max-col,
       "Highlight at index " + str(idx),
+      allow-extra-array-items: true,
     )
 
     if highlight.len() == 3 {
