@@ -2305,7 +2305,6 @@ fn evaluate_tree_bounds_only(
     align_tip_labels: bool,
 ) -> Bounds {
     let mut bounds = BoundsAccumulator::default();
-    let mut label_entries = Vec::new();
 
     for (index, primitive) in prepared_lines.iter().enumerate() {
         if let Some((_, obstacle)) =
@@ -2320,27 +2319,37 @@ fn evaluate_tree_bounds_only(
         }
     }
 
+    let mut label_entries = align_tip_labels.then(|| Vec::with_capacity(prepared_labels.len()));
+
     for (index, primitive) in prepared_labels.iter().enumerate() {
         let (label, label_bounds) =
             materialize_fitted_label(primitive, index, x_scale_pt, y_scale_pt, orientation);
-        label_entries.push(MaterializedLabelEntry {
-            label,
-            bounds: label_bounds,
-            placement_role: primitive.placement_role,
-        });
+        if let Some(ref mut entries) = label_entries {
+            entries.push(MaterializedLabelEntry {
+                label,
+                bounds: label_bounds,
+                placement_role: primitive.placement_role,
+            });
+        } else {
+            bounds.expand(
+                label_bounds.min_x,
+                label_bounds.min_y,
+                label_bounds.max_x,
+                label_bounds.max_y,
+            );
+        }
     }
 
-    if align_tip_labels {
-        align_materialized_tip_labels(&mut label_entries, orientation);
-    }
-
-    for entry in label_entries {
-        bounds.expand(
-            entry.bounds.min_x,
-            entry.bounds.min_y,
-            entry.bounds.max_x,
-            entry.bounds.max_y,
-        );
+    if let Some(mut entries) = label_entries {
+        align_materialized_tip_labels(&mut entries, orientation);
+        for entry in entries {
+            bounds.expand(
+                entry.bounds.min_x,
+                entry.bounds.min_y,
+                entry.bounds.max_x,
+                entry.bounds.max_y,
+            );
+        }
     }
 
     bounds.finalize()
@@ -2420,9 +2429,8 @@ fn materialize_fitted_tree(
     orientation: Orientation,
     align_tip_labels: bool,
 ) -> MaterializedTree {
-    let mut tree_lines = Vec::new();
-    let mut branch_obstacles = Vec::new();
-    let mut label_entries = Vec::new();
+    let mut tree_lines = Vec::with_capacity(prepared_lines.len());
+    let mut branch_obstacles = Vec::with_capacity(prepared_lines.len());
     let mut occupied_internal_label_bounds = Vec::new();
     let mut bounds = BoundsAccumulator::default();
     let root_position = transform_point(
@@ -2446,6 +2454,9 @@ fn materialize_fitted_tree(
         }
     }
 
+    let mut label_entries = align_tip_labels.then(|| Vec::with_capacity(prepared_labels.len()));
+    let mut tree_labels = Vec::with_capacity(prepared_labels.len());
+
     for (index, primitive) in prepared_labels.iter().enumerate() {
         let (label, label_bounds) = if primitive.placement_angle_half_turn.is_some() {
             materialize_fitted_internal_label(
@@ -2463,26 +2474,35 @@ fn materialize_fitted_tree(
         if primitive.placement_angle_half_turn.is_some() {
             occupied_internal_label_bounds.push(label_bounds);
         }
-        label_entries.push(MaterializedLabelEntry {
-            label,
-            bounds: label_bounds,
-            placement_role: primitive.placement_role,
-        });
+
+        if let Some(ref mut entries) = label_entries {
+            entries.push(MaterializedLabelEntry {
+                label,
+                bounds: label_bounds,
+                placement_role: primitive.placement_role,
+            });
+        } else {
+            bounds.expand(
+                label_bounds.min_x,
+                label_bounds.min_y,
+                label_bounds.max_x,
+                label_bounds.max_y,
+            );
+            tree_labels.push(label);
+        }
     }
 
-    if align_tip_labels {
-        align_materialized_tip_labels(&mut label_entries, orientation);
-    }
-
-    let mut tree_labels = Vec::new();
-    for entry in label_entries {
-        bounds.expand(
-            entry.bounds.min_x,
-            entry.bounds.min_y,
-            entry.bounds.max_x,
-            entry.bounds.max_y,
-        );
-        tree_labels.push(entry.label);
+    if let Some(mut entries) = label_entries {
+        align_materialized_tip_labels(&mut entries, orientation);
+        for entry in entries {
+            bounds.expand(
+                entry.bounds.min_x,
+                entry.bounds.min_y,
+                entry.bounds.max_x,
+                entry.bounds.max_y,
+            );
+            tree_labels.push(entry.label);
+        }
     }
 
     MaterializedTree {
