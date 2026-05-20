@@ -57,6 +57,7 @@
 /// - primitive (dictionary): Typst-native prepared label.
 /// -> dictionary
 #let _encode-fit-label(primitive) = (
+  placement_role: primitive.placement-role,
   anchor_tree: (
     x: primitive.anchor-tree.x,
     y: primitive.anchor-tree.y,
@@ -108,6 +109,7 @@
   fit_band_samples: payload.fit-band-samples,
   fit_max_bands: payload.fit-max-bands,
   optimize_uniform_rotation: payload.optimize-uniform-rotation,
+  align_tip_labels: payload.align-tip-labels,
 )
 
 /// Decodes a Rust fit response to the Typst-native structure.
@@ -129,6 +131,7 @@
   tree-labels: response.tree_labels.map(entry => (
     label-index: entry.label_index,
     origin: _pt-json-to-point(entry.origin_pt),
+    anchor: _pt-json-to-point(entry.anchor_pt),
     rotation: entry.rotation_deg * 1deg,
   )),
 )

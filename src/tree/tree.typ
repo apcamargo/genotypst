@@ -8,8 +8,8 @@
 // distinct handle to Typst's `layout(...)` function for both renderers.
 #let _tree-render-layout = layout
 
-/// Default outward spacing for tree labels.
-#let _label-gap = 0.31em
+/// Default outward spacing for tip labels.
+#let _tip-label-gap = 0.315em
 
 /// Vertical gap used for rectangular text internal labels.
 #let _internal-text-y-gap = 0.17em
@@ -82,6 +82,8 @@
 /// - height (length, auto): Requested rendered tree height.
 /// - branch-width (length): Branch stroke thickness.
 /// - tip-label-size (length): Tip label size.
+/// - align-tip-labels (bool): Whether tip-label alignment is enabled.
+/// - tip-leader-color (color): Stroke color for leader lines.
 /// - internal-label-size (length): Internal label size.
 /// - hide-internal-labels (bool): Whether internal labels are suppressed.
 /// - root-length (length): Root-edge length.
@@ -102,11 +104,15 @@
 ///   - scale-bar (bool): Whether scale-bar rendering is enabled.
 ///   - optimize-uniform-rotation (bool): Whether fit may optimize global rotation.
 ///   - fit-band-samples (int, none): Band samples used by the fit search.
+///   - align-tip-labels (bool): Resolved tip-label alignment setting.
+///   - tip-leader-color (color): Resolved leader line color.
 #let _resolve-rectangular-tree-render-config(
   width,
   height,
   branch-width,
   tip-label-size,
+  align-tip-labels,
+  tip-leader-color,
   internal-label-size,
   hide-internal-labels,
   root-length,
@@ -128,6 +134,14 @@
     cladogram,
   )
   assert(type(scale-bar) == bool, message: "scale-bar must be a boolean.")
+  assert(
+    type(align-tip-labels) == bool,
+    message: "align-tip-labels must be a boolean.",
+  )
+  assert(
+    type(tip-leader-color) == color,
+    message: "tip-leader-color must be a color.",
+  )
   assert(root-length >= 0pt, message: "root-length must be non-negative.")
   assert(
     orientation in ("horizontal", "vertical"),
@@ -159,6 +173,8 @@
     // Rectangular occupied span is monotone enough that one sample per band
     // keeps the search cheap without changing the generic solver structure.
     fit-band-samples: _rectangular-fit-band-samples,
+    align-tip-labels: align-tip-labels,
+    tip-leader-color: tip-leader-color,
   )
 }
 
@@ -270,7 +286,7 @@
     tip-label-italics: tip-label-italics,
     internal-label-size: internal-label-size,
     internal-label-color: internal-label-color,
-    label-gap: _label-gap,
+    tip-label-gap: _tip-label-gap,
     internal-text-y-gap: _internal-text-y-gap,
     auto-height-scale: _auto-height-scale,
     tip-label-metrics: (
@@ -469,6 +485,66 @@
   )
 }
 
+/// Inserts leader lines for already aligned tip labels in a fitted tree plan.
+///
+/// - fitted-plan (dictionary): Fitted tree layout plan containing lines and labels.
+/// - style (dictionary): Tree style record containing stroke metrics.
+/// - tip-leader-color (color): Stroke color for the dotted leader lines.
+/// -> dictionary
+#let _align-tip-labels-in-plan(fitted-plan, style, tip-leader-color) = {
+  let orientation = fitted-plan.orientation
+  let tip-labels = fitted-plan.tree-labels.filter(l => (
+    l.at("placement-role", default: none) == "tip-label"
+  ))
+  if tip-labels.len() == 0 {
+    return fitted-plan
+  }
+
+  let aligned-tip-coord = if orientation == "horizontal" {
+    calc.max(..tip-labels.map(l => l.anchor.x))
+  } else {
+    calc.min(..tip-labels.map(l => l.anchor.y))
+  }
+
+  let leader-lines = ()
+  let dashed-stroke = stroke(
+    paint: tip-leader-color,
+    thickness: style.branch-width,
+    dash: "dotted",
+    cap: "square",
+  )
+
+  for l in fitted-plan.tree-labels {
+    if l.at("placement-role", default: none) == "tip-label" {
+      let (start-pt, end-pt, padding) = if orientation == "horizontal" {
+        (
+          (x: l.anchor.x, y: l.anchor.y),
+          (x: aligned-tip-coord, y: l.anchor.y),
+          aligned-tip-coord - l.anchor.x,
+        )
+      } else {
+        (
+          (x: l.anchor.x, y: l.anchor.y),
+          (x: l.anchor.x, y: aligned-tip-coord),
+          l.anchor.y - aligned-tip-coord,
+        )
+      }
+
+      if padding > 1e-3pt {
+        leader-lines.push((
+          start: start-pt,
+          end: end-pt,
+          stroke: dashed-stroke,
+        ))
+      }
+    }
+  }
+
+  fitted-plan.insert("tree-lines", leader-lines + fitted-plan.tree-lines)
+  fitted-plan
+}
+
+
 /// Renders a rectangular phylogenetic tree from parsed or manual tree data.
 ///
 /// Supports customization of dimensions, styling, and orientation.
@@ -484,6 +560,8 @@
 /// - tip-label-size (length): Font size of tip labels (default: 1em).
 /// - tip-label-color (color, none): Color of tip labels (default: none, inherits from the document).
 /// - tip-label-italics (bool): Whether to use italics for tip labels (default: false).
+/// - align-tip-labels (bool): Whether to align tip labels and connect them to branches with dotted leader lines (default: false).
+/// - tip-leader-color (color): Stroke color for the dotted leader lines (default: medium gray).
 /// - internal-label-size (length): Font size of internal node labels (default: 0.85em).
 /// - internal-label-color (color, none): Color of internal node labels (default: medium gray; `none` inherits from the document).
 /// - hide-internal-labels (bool): Whether to hide all non-leaf labels
@@ -511,6 +589,8 @@
   tip-label-size: 1em,
   tip-label-color: none,
   tip-label-italics: false,
+  align-tip-labels: false,
+  tip-leader-color: _medium-gray,
   internal-label-size: 0.85em,
   internal-label-color: _medium-gray,
   hide-internal-labels: false,
@@ -530,6 +610,8 @@
     height,
     branch-width,
     tip-label-size,
+    align-tip-labels,
+    tip-leader-color,
     internal-label-size,
     hide-internal-labels,
     root-length,
@@ -569,7 +651,17 @@
           _tree-fit-max-bands,
           fit-band-samples: config.fit-band-samples,
           optimize-uniform-rotation: config.optimize-uniform-rotation,
+          align-tip-labels: config.align-tip-labels,
         )
+        let fitted-plan = if config.align-tip-labels {
+          _align-tip-labels-in-plan(
+            fitted-plan,
+            prepared.style,
+            config.tip-leader-color,
+          )
+        } else {
+          fitted-plan
+        }
         let scale-plan = if (
           config.scale-bar and not fitted-plan.width-unresolved
         ) {

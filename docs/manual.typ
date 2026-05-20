@@ -419,6 +419,7 @@ Two types of trees can be produced: rectangular trees (`render-rectangular-tree`
 
 - `tip-label-italics: true` renders tip labels in italics.
 - `orientation: "horizontal"` sets the rectangular tree to be oriented horizontally. It can also be set to `"vertical"` for a vertical layout.
+- `align-tip-labels: true` aligns tip labels and connects them to branches with dotted leader lines.
 - `hide-internal-labels: true` hides internal node labels.
 - `layout: "daylight"` applies the daylight layout algorithm to the unrooted tree. The default layout is `"equal-angle"`.
 
@@ -429,6 +430,7 @@ Two types of trees can be produced: rectangular trees (`render-rectangular-tree`
     hominoidea_tree,
     tip-label-italics: true,
     orientation: "horizontal",
+    align-tip-labels: true,
   )
   render-unrooted-tree(
     hominoidea_tree,
@@ -449,6 +451,7 @@ Two types of trees can be produced: rectangular trees (`render-rectangular-tree`
         hominoidea_tree,
         tip-label-italics: true,
         orientation: "horizontal",
+        align-tip-labels: true,
       )
     },
     caption: [Horizontal rectangular tree.],
@@ -489,7 +492,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
 )
 
 #context {
-  set text(font: "Maple Mono", size: 0.76em)
+  set text(font: "Maple Mono", size: 0.785em)
   render-msa(dna_msa)
 }
 ```
@@ -509,7 +512,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
   align: center + bottom,
   figure(
     context {
-      set text(size: 0.8em)
+      set text(size: 0.83em)
       render-msa(dna_msa, breakable: false)
     },
     caption: [Default document font.],
@@ -517,7 +520,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
   ),
   figure(
     context {
-      set text(font: "Maple Mono", size: 0.76em)
+      set text(font: "Maple Mono", size: 0.78em)
       render-msa(dna_msa, breakable: false)
     },
     caption: [Custom font (Maple Mono).],
@@ -616,29 +619,30 @@ By default, the visualizations produced by `genotypst` are rendered using the de
 ```typ
 #let hominoidea_tree = parse-newick(read("/docs/data/hominoidea.nwk"))
 #context {
-  show text: set text(font: "Libertinus Serif")
+  show text: set text(font: "Libertinus Serif", size: 0.9em)
   #render-rectangular-tree(hominoidea_tree, tip-label-italics: true)
 }
 ```
 
-#let hominoidea_tree = parse-newick(read("/docs/data/hominoidea.nwk"))
-
 #grid(
   columns: (1fr, 1fr),
   align: center + bottom,
-  gutter: 0.8cm,
+  gutter: 0.65cm,
   figure(
-    render-rectangular-tree(
-      hominoidea_tree,
-      tip-label-italics: true,
-      orientation: "horizontal",
-    ),
+    context {
+      set text(size: 0.9em)
+      render-rectangular-tree(
+        hominoidea_tree,
+        tip-label-italics: true,
+        orientation: "horizontal",
+      )
+    },
     caption: [Default document font.],
     supplement: none,
   ),
   figure(
     context {
-      show text: set text(font: "Libertinus Serif")
+      show text: set text(font: "Libertinus Serif", size: 0.9em)
       render-rectangular-tree(
         hominoidea_tree,
         tip-label-italics: true,

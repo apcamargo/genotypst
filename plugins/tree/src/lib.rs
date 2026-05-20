@@ -414,6 +414,13 @@ enum PlacementFrame {
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+enum PlacementRole {
+    TipLabel,
+    InternalLabel,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 enum XAlign {
     Left,
@@ -450,6 +457,7 @@ struct PreparedLine {
 
 #[derive(Debug, Clone, Copy, Deserialize)]
 struct PreparedLabel {
+    placement_role: PlacementRole,
     anchor_tree: Point,
     anchor_page: Point,
     x_align: XAlign,
@@ -483,6 +491,7 @@ struct FitRequest {
     fit_band_samples: Option<usize>,
     fit_max_bands: usize,
     optimize_uniform_rotation: bool,
+    align_tip_labels: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -593,7 +602,15 @@ struct BranchObstacle {
 struct MaterializedLabel {
     label_index: usize,
     origin: Point,
+    anchor: Point,
     rotation_deg: f64,
+}
+
+#[derive(Debug, Clone)]
+struct MaterializedLabelEntry {
+    label: MaterializedLabel,
+    bounds: Bounds,
+    placement_role: PlacementRole,
 }
 
 #[derive(Debug, Clone)]
@@ -701,6 +718,7 @@ struct SerializableLine {
 struct SerializableLabel {
     label_index: usize,
     origin_pt: Point,
+    anchor_pt: Point,
     rotation_deg: f64,
 }
 
@@ -2119,13 +2137,13 @@ fn materialize_label_geometry(
     x_scale_pt: f64,
     y_scale_pt: f64,
     orientation: Orientation,
-) -> (Point, Bounds) {
+) -> (Point, Bounds, Point) {
     let anchor = materialize_label_anchor(primitive, x_scale_pt, y_scale_pt, orientation);
     match primitive.placement_frame {
         PlacementFrame::Local => {
             let top_left = label_local_top_left(anchor, primitive);
             let bounds = rotated_label_bounds(top_left, primitive);
-            (top_left, bounds)
+            (top_left, bounds, anchor)
         }
         PlacementFrame::Screen => {
             let box_size = screen_label_box_size(primitive);
@@ -2150,7 +2168,7 @@ fn materialize_label_geometry(
                 width: box_size.x,
                 height: box_size.y,
             };
-            (origin, bounds)
+            (origin, bounds, anchor)
         }
     }
 }
@@ -2190,12 +2208,13 @@ fn materialize_fitted_label(
     y_scale_pt: f64,
     orientation: Orientation,
 ) -> (MaterializedLabel, Bounds) {
-    let (origin, bounds) =
+    let (origin, bounds, anchor) =
         materialize_label_geometry(primitive, x_scale_pt, y_scale_pt, orientation);
     (
         MaterializedLabel {
             label_index,
             origin,
+            anchor,
             rotation_deg: primitive.rotation_deg,
         },
         bounds,
@@ -2283,8 +2302,10 @@ fn evaluate_tree_bounds_only(
     x_scale_pt: f64,
     y_scale_pt: f64,
     orientation: Orientation,
+    align_tip_labels: bool,
 ) -> Bounds {
     let mut bounds = BoundsAccumulator::default();
+    let mut label_entries = Vec::new();
 
     for (index, primitive) in prepared_lines.iter().enumerate() {
         if let Some((_, obstacle)) =
@@ -2300,17 +2321,94 @@ fn evaluate_tree_bounds_only(
     }
 
     for (index, primitive) in prepared_labels.iter().enumerate() {
-        let (_, label_bounds) =
+        let (label, label_bounds) =
             materialize_fitted_label(primitive, index, x_scale_pt, y_scale_pt, orientation);
+        label_entries.push(MaterializedLabelEntry {
+            label,
+            bounds: label_bounds,
+            placement_role: primitive.placement_role,
+        });
+    }
+
+    if align_tip_labels {
+        align_materialized_tip_labels(&mut label_entries, orientation);
+    }
+
+    for entry in label_entries {
         bounds.expand(
-            label_bounds.min_x,
-            label_bounds.min_y,
-            label_bounds.max_x,
-            label_bounds.max_y,
+            entry.bounds.min_x,
+            entry.bounds.min_y,
+            entry.bounds.max_x,
+            entry.bounds.max_y,
         );
     }
 
     bounds.finalize()
+}
+
+fn shift_bounds_main_axis(bounds: &mut Bounds, orientation: Orientation, delta: f64) {
+    match orientation {
+        Orientation::Horizontal => {
+            bounds.min_x += delta;
+            bounds.max_x += delta;
+        }
+        Orientation::Vertical => {
+            bounds.min_y += delta;
+            bounds.max_y += delta;
+        }
+    }
+}
+
+fn shift_label_origin_main_axis(
+    label: &mut MaterializedLabel,
+    orientation: Orientation,
+    delta: f64,
+) {
+    match orientation {
+        Orientation::Horizontal => {
+            label.origin.x += delta;
+        }
+        Orientation::Vertical => {
+            label.origin.y += delta;
+        }
+    }
+}
+
+fn label_anchor_main_axis(label: &MaterializedLabel, orientation: Orientation) -> f64 {
+    match orientation {
+        Orientation::Horizontal => label.anchor.x,
+        Orientation::Vertical => label.anchor.y,
+    }
+}
+
+fn align_materialized_tip_labels(
+    label_entries: &mut [MaterializedLabelEntry],
+    orientation: Orientation,
+) {
+    let target = label_entries
+        .iter()
+        .filter(|entry| entry.placement_role == PlacementRole::TipLabel)
+        .map(|entry| label_anchor_main_axis(&entry.label, orientation))
+        .reduce(|best, value| match orientation {
+            Orientation::Horizontal => best.max(value),
+            Orientation::Vertical => best.min(value),
+        });
+
+    let Some(target) = target else {
+        return;
+    };
+
+    for entry in label_entries {
+        if entry.placement_role != PlacementRole::TipLabel {
+            continue;
+        }
+        let delta = target - label_anchor_main_axis(&entry.label, orientation);
+        if delta.abs() <= FIT_TOLERANCE_PT {
+            continue;
+        }
+        shift_label_origin_main_axis(&mut entry.label, orientation, delta);
+        shift_bounds_main_axis(&mut entry.bounds, orientation, delta);
+    }
 }
 
 fn materialize_fitted_tree(
@@ -2320,10 +2418,11 @@ fn materialize_fitted_tree(
     x_scale_pt: f64,
     y_scale_pt: f64,
     orientation: Orientation,
+    align_tip_labels: bool,
 ) -> MaterializedTree {
     let mut tree_lines = Vec::new();
     let mut branch_obstacles = Vec::new();
-    let mut tree_labels = Vec::new();
+    let mut label_entries = Vec::new();
     let mut occupied_internal_label_bounds = Vec::new();
     let mut bounds = BoundsAccumulator::default();
     let root_position = transform_point(
@@ -2361,16 +2460,29 @@ fn materialize_fitted_tree(
         } else {
             materialize_fitted_label(primitive, index, x_scale_pt, y_scale_pt, orientation)
         };
-        bounds.expand(
-            label_bounds.min_x,
-            label_bounds.min_y,
-            label_bounds.max_x,
-            label_bounds.max_y,
-        );
         if primitive.placement_angle_half_turn.is_some() {
             occupied_internal_label_bounds.push(label_bounds);
         }
-        tree_labels.push(label);
+        label_entries.push(MaterializedLabelEntry {
+            label,
+            bounds: label_bounds,
+            placement_role: primitive.placement_role,
+        });
+    }
+
+    if align_tip_labels {
+        align_materialized_tip_labels(&mut label_entries, orientation);
+    }
+
+    let mut tree_labels = Vec::new();
+    for entry in label_entries {
+        bounds.expand(
+            entry.bounds.min_x,
+            entry.bounds.min_y,
+            entry.bounds.max_x,
+            entry.bounds.max_y,
+        );
+        tree_labels.push(entry.label);
     }
 
     MaterializedTree {
@@ -2608,6 +2720,21 @@ fn uniform_point_formulas(
     )
 }
 
+fn effective_label_anchor_tree(
+    primitive: &PreparedLabel,
+    align_tip_labels: bool,
+    tree_depth: f64,
+) -> Point {
+    if align_tip_labels && primitive.placement_role == PlacementRole::TipLabel {
+        Point {
+            x: tree_depth,
+            y: primitive.anchor_tree.y,
+        }
+    } else {
+        primitive.anchor_tree
+    }
+}
+
 fn uniform_axis_descriptor(
     min_formula: Formula,
     max_formula: Formula,
@@ -2663,8 +2790,14 @@ fn uniform_line_bounds_descriptors(
 fn uniform_label_bounds_descriptors(
     primitive: &PreparedLabel,
     orientation: Orientation,
+    align_tip_labels: bool,
+    tree_depth: f64,
 ) -> (UniformAxisDescriptor, UniformAxisDescriptor) {
-    let anchor = uniform_point_formulas(primitive.anchor_tree, primitive.anchor_page, orientation);
+    let anchor = uniform_point_formulas(
+        effective_label_anchor_tree(primitive, align_tip_labels, tree_depth),
+        primitive.anchor_page,
+        orientation,
+    );
     let relative_bounds = if primitive.placement_angle_half_turn.is_some() {
         let mut min_x = f64::INFINITY;
         let mut min_y = f64::INFINITY;
@@ -2708,6 +2841,8 @@ fn build_uniform_bounds_descriptors(
     prepared_lines: &[PreparedLine],
     prepared_labels: &[PreparedLabel],
     orientation: Orientation,
+    align_tip_labels: bool,
+    tree_depth: f64,
 ) -> UniformBoundsDescriptors {
     let mut x = Vec::new();
     let mut y = Vec::new();
@@ -2720,7 +2855,8 @@ fn build_uniform_bounds_descriptors(
     }
 
     for primitive in prepared_labels {
-        let (x_desc, y_desc) = uniform_label_bounds_descriptors(primitive, orientation);
+        let (x_desc, y_desc) =
+            uniform_label_bounds_descriptors(primitive, orientation, align_tip_labels, tree_depth);
         x.push(x_desc);
         y.push(y_desc);
     }
@@ -2768,9 +2904,14 @@ fn label_screen_anchor_formulas(
     primitive: &PreparedLabel,
     orientation: Orientation,
     axis_kind: AxisKind,
+    align_tip_labels: bool,
+    tree_depth: f64,
 ) -> FormulaPoint {
-    let canonical =
-        solve_canonical_point(primitive.anchor_tree, Point { x: 0.0, y: 0.0 }, axis_kind);
+    let canonical = solve_canonical_point(
+        effective_label_anchor_tree(primitive, align_tip_labels, tree_depth),
+        Point { x: 0.0, y: 0.0 },
+        axis_kind,
+    );
     let transformed = transform_point_formulas(canonical.x, canonical.y, orientation);
     FormulaPoint {
         x: shift_affine_formula(transformed.x, primitive.anchor_page.x),
@@ -2782,12 +2923,20 @@ fn label_solve_descriptor(
     primitive: &PreparedLabel,
     orientation: Orientation,
     axis_kind: AxisKind,
+    align_tip_labels: bool,
+    tree_depth: f64,
 ) -> Result<SolveDescriptor, String> {
     if primitive.placement_frame == PlacementFrame::Local {
         return Err("Local-frame labels are only supported by uniform tree fitting.".into());
     }
 
-    let anchor = label_screen_anchor_formulas(primitive, orientation, axis_kind);
+    let anchor = label_screen_anchor_formulas(
+        primitive,
+        orientation,
+        axis_kind,
+        align_tip_labels,
+        tree_depth,
+    );
     let box_size = screen_label_box_size(primitive);
     let relative_top_left = screen_label_relative_top_left(primitive);
     let min_x = shift_affine_formula(anchor.x, relative_top_left.x);
@@ -2813,6 +2962,8 @@ fn build_solve_descriptors(
     prepared_lines: &[PreparedLine],
     prepared_labels: &[PreparedLabel],
     orientation: Orientation,
+    align_tip_labels: bool,
+    tree_depth: f64,
 ) -> Result<SolveDescriptors, String> {
     let mut depth = Vec::new();
     let mut spread = Vec::new();
@@ -2831,11 +2982,15 @@ fn build_solve_descriptors(
             primitive,
             orientation,
             AxisKind::Depth,
+            align_tip_labels,
+            tree_depth,
         )?);
         spread.push(label_solve_descriptor(
             primitive,
             orientation,
             AxisKind::Spread,
+            align_tip_labels,
+            tree_depth,
         )?);
     }
 
@@ -3130,6 +3285,8 @@ fn evaluate_uniform_fit(
         &fit_inputs.prepared_lines,
         &fit_inputs.prepared_labels,
         request.orientation,
+        request.align_tip_labels,
+        fit_inputs.tree_depth,
     );
     evaluate_uniform_fit_from_bounds_descriptors(
         request.fit_max_bands,
@@ -3238,6 +3395,7 @@ fn materialize_uniform(
     orientation: Orientation,
     viewport_policy: UniformViewportPolicy,
     evaluated_fit: EvaluatedFit,
+    align_tip_labels: bool,
 ) -> FittedWidth {
     let materialized_tree = materialize_fitted_tree(
         &fit_inputs.prepared_lines,
@@ -3246,6 +3404,7 @@ fn materialize_uniform(
         evaluated_fit.x_scale,
         evaluated_fit.y_scale,
         orientation,
+        align_tip_labels,
     );
     let viewport = viewport_policy.finalize(materialized_tree.tree_occupied_bounds);
     FittedWidth {
@@ -3262,6 +3421,7 @@ fn evaluate_materialized_uniform_fit(
     orientation: Orientation,
     viewport_policy: UniformViewportPolicy,
     evaluated_fit: EvaluatedFit,
+    align_tip_labels: bool,
 ) -> EvaluatedFit {
     let materialized_tree = materialize_fitted_tree(
         &fit_inputs.prepared_lines,
@@ -3270,6 +3430,7 @@ fn evaluate_materialized_uniform_fit(
         evaluated_fit.x_scale,
         evaluated_fit.y_scale,
         orientation,
+        align_tip_labels,
     );
     let viewport = viewport_policy.finalize(materialized_tree.tree_occupied_bounds);
     EvaluatedFit {
@@ -3296,6 +3457,7 @@ fn evaluate_uniform_rotation_candidate(
             request.orientation,
             viewport_policy,
             evaluated_fit,
+            request.align_tip_labels,
         ),
     }
 }
@@ -3316,6 +3478,7 @@ fn fit_tree_plan_uniform(
             request.orientation,
             viewport_policy,
             evaluate_uniform_fit(request, fit_inputs, viewport_policy),
+            request.align_tip_labels,
         );
     }
 
@@ -3355,6 +3518,7 @@ fn fit_tree_plan_uniform(
         request.orientation,
         viewport_policy,
         evaluated_fit,
+        request.align_tip_labels,
     )
 }
 
@@ -3370,6 +3534,8 @@ fn fit_tree_plan_independent_axes(
         &fit_inputs.prepared_lines,
         &fit_inputs.prepared_labels,
         request.orientation,
+        request.align_tip_labels,
+        fit_inputs.tree_depth,
     )?;
     let viewport_height = auto_height;
 
@@ -3397,6 +3563,7 @@ fn fit_tree_plan_independent_axes(
                 intrinsic_scale,
                 intrinsic_scale,
                 request.orientation,
+                request.align_tip_labels,
             );
             FittedWidth {
                 width_unresolved: false,
@@ -3444,6 +3611,7 @@ fn fit_tree_plan_independent_axes(
                 x_scale,
                 y_scale,
                 request.orientation,
+                request.align_tip_labels,
             );
             FittedWidth {
                 width_unresolved,
@@ -3530,6 +3698,7 @@ fn finalize_fitted_tree_plan(
             .map(|label| SerializableLabel {
                 label_index: label.label_index,
                 origin_pt: label.origin,
+                anchor_pt: label.anchor,
                 rotation_deg: label.rotation_deg,
             })
             .collect(),
@@ -3610,6 +3779,7 @@ pub fn fit_tree(config: &[u8]) -> Result<Vec<u8>, String> {
             0.0,
             0.0,
             request.orientation,
+            request.align_tip_labels,
         );
         request.auto_height_floor_pt.max(label_only_bounds.height)
     } else {
@@ -3815,6 +3985,7 @@ mod tests {
     ) -> PreparedLabel {
         let placement = horizontal_label_placement(preferred_angle_half_turn);
         PreparedLabel {
+            placement_role: PlacementRole::InternalLabel,
             anchor_tree: Point { x: 0.0, y: 0.0 },
             anchor_page: Point { x: 0.0, y: 0.0 },
             x_align: placement.x_align,
@@ -3830,6 +4001,51 @@ mod tests {
         }
     }
 
+    fn test_tip_label(
+        anchor_x: f64,
+        anchor_y: f64,
+        x_gap_pt: f64,
+        y_gap_pt: f64,
+        measure_width_pt: f64,
+        measure_height_pt: f64,
+    ) -> PreparedLabel {
+        PreparedLabel {
+            placement_role: PlacementRole::TipLabel,
+            anchor_tree: Point {
+                x: anchor_x,
+                y: anchor_y,
+            },
+            anchor_page: Point { x: 0.0, y: 0.0 },
+            x_align: XAlign::Left,
+            y_align: YAlign::Top,
+            x_gap_pt,
+            y_gap_pt,
+            rotation_deg: 0.0,
+            placement_frame: PlacementFrame::Screen,
+            branch_angle_half_turn: None,
+            placement_angle_half_turn: None,
+            measure_width_pt,
+            measure_height_pt,
+        }
+    }
+
+    fn test_line(start_x: f64, start_y: f64, end_x: f64, end_y: f64) -> PreparedLine {
+        PreparedLine {
+            start_anchor: Anchor {
+                tree: Point {
+                    x: start_x,
+                    y: start_y,
+                },
+                page: Point { x: 0.0, y: 0.0 },
+            },
+            end_anchor: Anchor {
+                tree: Point { x: end_x, y: end_y },
+                page: Point { x: 0.0, y: 0.0 },
+            },
+            half_stroke_pt: 0.0,
+        }
+    }
+
     fn test_branch_obstacle(start: Point, end: Point, half_stroke_pt: f64) -> BranchObstacle {
         BranchObstacle {
             start,
@@ -3837,6 +4053,28 @@ mod tests {
             half_stroke_pt,
             bounds: line_bounds(start, end, half_stroke_pt),
         }
+    }
+
+    #[test]
+    fn aligned_tip_label_solve_uses_tree_depth_for_tip_bounds() {
+        let line = test_line(0.0, 0.0, 10.0, 0.0);
+        let labels = [
+            test_tip_label(0.0, 0.0, 2.0, 0.0, 40.0, 4.0),
+            test_tip_label(10.0, 4.0, 2.0, 0.0, 4.0, 4.0),
+        ];
+        let unaligned =
+            build_solve_descriptors(&[line], &labels, Orientation::Horizontal, false, 10.0)
+                .expect("unaligned descriptors should build");
+        let aligned =
+            build_solve_descriptors(&[line], &labels, Orientation::Horizontal, true, 10.0)
+                .expect("aligned descriptors should build");
+
+        let unaligned_depth_span = evaluate_solve_span(&unaligned.depth, 1.0);
+        let aligned_depth_span = evaluate_solve_span(&aligned.depth, 1.0);
+        assert!(
+            aligned_depth_span > unaligned_depth_span + 9.0,
+            "aligned solve descriptors should include the shallow long label at the deepest tip",
+        );
     }
 
     #[test]

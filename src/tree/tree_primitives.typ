@@ -87,12 +87,12 @@
 #let _tree-rectangular-internal-label-gaps(label-body-is-text-like, style) = {
   if label-body-is-text-like {
     (
-      x-gap: style.label-gap,
+      x-gap: style.tip-label-gap,
       y-gap: style.internal-text-y-gap,
     )
   } else {
     let uniform-gap = calc.max(
-      style.label-gap,
+      style.tip-label-gap,
       style.internal-text-y-gap,
     )
     (
@@ -333,10 +333,10 @@
             if orientation == "vertical" {
               -cross-offset
             } else {
-              style.label-gap
+              style.tip-label-gap
             },
             if orientation == "vertical" {
-              style.label-gap
+              style.tip-label-gap
             } else {
               -cross-offset
             },
@@ -357,7 +357,7 @@
             node-point,
             radial-placement.x-align,
             radial-placement.y-align,
-            style.label-gap * radial-placement.gap-sign,
+            style.tip-label-gap * radial-placement.gap-sign,
             local-y-gap,
             radial-placement.rotation,
             node.label-body,
@@ -416,8 +416,8 @@
         node-point,
         internal-placement.x-align,
         internal-placement.y-align,
-        style.label-gap,
-        style.label-gap,
+        style.tip-label-gap,
+        style.tip-label-gap,
         0deg,
         node.label-body,
         style.internal-label-size,

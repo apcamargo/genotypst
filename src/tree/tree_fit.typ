@@ -178,6 +178,7 @@
 /// - fit-max-bands (int): Maximum number of exponentially growing bands.
 /// - fit-band-samples (int, none): Number of samples evaluated per fit band for independent-axis fitting.
 /// - optimize-uniform-rotation (bool): Whether uniform-fit layouts may search global rotations.
+/// - align-tip-labels (bool): Whether tip-label alignment is enabled.
 /// -> dictionary
 #let _fit-prepared-tree-plan(
   prepared-fit-plan,
@@ -189,6 +190,7 @@
   fit-max-bands,
   fit-band-samples: none,
   optimize-uniform-rotation: false,
+  align-tip-labels: false,
 ) = {
   let raw-width = layout-size.width
   let provisional-width = _tree-width-is-unresolved(width, raw-width)
@@ -227,6 +229,7 @@
     fit-band-samples: fit-band-samples,
     fit-max-bands: fit-max-bands,
     optimize-uniform-rotation: optimize-uniform-rotation,
+    align-tip-labels: align-tip-labels,
   ))
   (
     tree-lines: fit-result.tree-lines.map(entry => (
@@ -234,11 +237,16 @@
       end: entry.end,
       stroke: prepared-fit-plan.prepared-lines.at(entry.line-index).stroke,
     )),
-    tree-labels: fit-result.tree-labels.map(entry => (
-      origin: entry.origin,
-      rotation: entry.rotation,
-      content: prepared-fit-plan.prepared-labels.at(entry.label-index).content,
-    )),
+    tree-labels: fit-result.tree-labels.map(entry => {
+      let prep = prepared-fit-plan.prepared-labels.at(entry.label-index)
+      (
+        origin: entry.origin,
+        anchor: entry.anchor,
+        rotation: entry.rotation,
+        content: prep.content,
+        placement-role: prep.placement-role,
+      )
+    }),
     tree-translation: fit-result.tree-translation,
     width-unresolved: fit-result.width-unresolved,
     root-position: fit-result.root-position,

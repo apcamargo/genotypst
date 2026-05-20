@@ -1,5 +1,5 @@
 #let _light-gray = oklch(85%, 0.012, 264.5deg)
-#let _medium-gray = oklch(68%, 0.012, 264.5deg)
+#let _medium-gray = oklch(70%, 0.012, 264.5deg)
 #let _dark-gray = oklch(37.5%, 0.012, 264.5deg)
 #let _yellow = oklch(87.5%, 0.165, 93.9deg)
 
