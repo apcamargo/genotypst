@@ -510,7 +510,7 @@
   let dashed-stroke = stroke(
     paint: tip-leader-color,
     thickness: style.branch-width,
-    dash: "dotted",
+    dash: (style.branch-width, 2.3 * style.branch-width),
     cap: "square",
   )
 
