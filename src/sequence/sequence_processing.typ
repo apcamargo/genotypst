@@ -180,6 +180,14 @@
   (ok: missing.len() == 0, missing: missing.sorted())
 }
 
+#let _assert-palette-coverage(palette, sequences) = {
+  let coverage = _check-palette-coverage(palette, sequences)
+  assert(
+    coverage.ok,
+    message: "Palette missing residues: " + coverage.missing.join(", "),
+  )
+}
+
 /// Validates that all sequences in the MSA have the same length.
 ///
 /// Ensures that all sequences in a multiple sequence alignment have identical

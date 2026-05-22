@@ -3,7 +3,7 @@
 #import "../common/interval.typ": _resolve-1indexed-window
 #import "./sequence_alphabet.typ": _resolve-alphabet-config
 #import "./sequence_processing.typ": (
-  _check-palette-coverage, _collect-window-column-stats, _lookup-palette-color,
+  _assert-palette-coverage, _collect-window-column-stats, _lookup-palette-color,
   _prepare-palette, _validate-alignment,
 )
 
@@ -146,11 +146,7 @@
   }
 
   if colors and palette != auto {
-    let coverage = _check-palette-coverage(palette-to-use, sequences)
-    assert(
-      coverage.ok,
-      message: "Palette missing residues: " + coverage.missing.join(", "),
-    )
+    _assert-palette-coverage(palette-to-use, sequences)
   }
 
   let window = _resolve-1indexed-window(
