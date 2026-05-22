@@ -52,12 +52,6 @@
 /// -> int
 #let _matrix-index(row, col, cols) = row * cols + col
 
-/// Converts a numeric row-major key into a dictionary key.
-///
-/// - index (int): Row-major index.
-/// -> str
-#let _index-key(index) = str(index)
-
 /// Validates dense row-major cell values.
 ///
 /// - cell-values (array): Flat row-major cell values.
@@ -233,7 +227,7 @@
 
     for col-idx in range(cols) {
       let index = _matrix-index(row-idx, col-idx, cols)
-      let key = _index-key(index)
+      let key = str(index)
       let fill-color = highlight-map.at(key, default: none)
       let cell-radius = _get-cell-radius(
         row-idx,
@@ -402,7 +396,7 @@
   cols,
   cell-count,
 ) = {
-  let edge-key = _index-key(_edge-index(from-coord, to-coord, cols, cell-count))
+  let edge-key = str(_edge-index(from-coord, to-coord, cols, cell-count))
   let arr-color = if edge-key in path-edge-set {
     path-arrow-color
   } else {
@@ -639,7 +633,7 @@
   for h in highlights {
     let coord = _parse-coord(h)
     let index = _matrix-index(coord.row, coord.col, expected-cols)
-    let key = _index-key(index)
+    let key = str(index)
 
     // Preserve existing behavior: first matching highlight wins.
     if not (key in highlight-map) {
@@ -652,7 +646,7 @@
   if cell-values != none and path-cell-bold {
     for coord in parsed-path {
       path-cell-set.insert(
-        _index-key(_matrix-index(coord.row, coord.col, expected-cols)),
+        str(_matrix-index(coord.row, coord.col, expected-cols)),
         true,
       )
     }
@@ -663,7 +657,7 @@
     for i in range(parsed-path.len() - 1) {
       let from-coord = parsed-path.at(i)
       let to-coord = parsed-path.at(i + 1)
-      let edge-key = _index-key(
+      let edge-key = str(
         _edge-index(from-coord, to-coord, expected-cols, expected-len),
       )
       path-edge-set.insert(
