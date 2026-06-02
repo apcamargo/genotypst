@@ -5,8 +5,8 @@
 )
 #import "./sequence_alphabet.typ": _resolve-alphabet-config
 #import "./sequence_processing.typ": (
-  _assert-palette-coverage, _collect-window-column-stats, _lookup-palette-color,
-  _prepare-palette, _validate-alignment,
+  _collect-window-column-stats, _lookup-palette-color, _resolve-palette,
+  _validate-alignment,
 )
 
 #let _logo-letter-size = 10pt
@@ -176,11 +176,7 @@
   _validate-alignment(alignment)
   let sequences = alignment.values()
   let config = _resolve-alphabet-config(alphabet, sequences)
-  let palette-to-use = if palette == auto {
-    config.palette
-  } else {
-    _prepare-palette(palette)
-  }
+  let palette-to-use = _resolve-palette(palette, config, sequences)
   let max-len = sequences.map(s => s.len()).fold(0, calc.max)
   let window = _resolve-1indexed-window(
     start,
@@ -207,10 +203,6 @@
       message: "axis-logo-gap must be non-negative.",
     )
   }
-  if palette != auto {
-    _assert-palette-coverage(palette-to-use, sequences)
-  }
-
   let column-stats = _collect-window-column-stats(
     sequences,
     window.actual-start,

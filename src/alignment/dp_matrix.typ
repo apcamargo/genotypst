@@ -479,56 +479,31 @@
     for col in range(cols) {
       let bits = arrows.at(_matrix-index(row, col, cols))
       let from-coord = (row: row, col: col)
+      let emit = to-coord => _render-arrow(
+        from-coord,
+        to-coord,
+        arrow-color,
+        cell-size,
+        label-col-width,
+        label-row-height,
+        path-edge-set,
+        path-arrow-color,
+        arrow-width,
+        arrow-length-scale,
+        cols,
+        cell-count,
+      )
 
       if row > 0 and col > 0 and bits.bit-and(1) != 0 {
-        _render-arrow(
-          from-coord,
-          (row: row - 1, col: col - 1),
-          arrow-color,
-          cell-size,
-          label-col-width,
-          label-row-height,
-          path-edge-set,
-          path-arrow-color,
-          arrow-width,
-          arrow-length-scale,
-          cols,
-          cell-count,
-        )
+        emit((row: row - 1, col: col - 1))
       }
 
       if row > 0 and bits.bit-and(2) != 0 {
-        _render-arrow(
-          from-coord,
-          (row: row - 1, col: col),
-          arrow-color,
-          cell-size,
-          label-col-width,
-          label-row-height,
-          path-edge-set,
-          path-arrow-color,
-          arrow-width,
-          arrow-length-scale,
-          cols,
-          cell-count,
-        )
+        emit((row: row - 1, col: col))
       }
 
       if col > 0 and bits.bit-and(4) != 0 {
-        _render-arrow(
-          from-coord,
-          (row: row, col: col - 1),
-          arrow-color,
-          cell-size,
-          label-col-width,
-          label-row-height,
-          path-edge-set,
-          path-arrow-color,
-          arrow-width,
-          arrow-length-scale,
-          cols,
-          cell-count,
-        )
+        emit((row: row, col: col - 1))
       }
     }
   }

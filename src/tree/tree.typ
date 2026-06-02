@@ -284,6 +284,7 @@
     tip-label-size: tip-label-size,
     tip-label-color: tip-label-color,
     tip-label-italics: tip-label-italics,
+    tip-label-style: tip-label-style,
     internal-label-size: internal-label-size,
     internal-label-color: internal-label-color,
     tip-label-gap: _tip-label-gap,
@@ -514,29 +515,27 @@
     cap: "square",
   )
 
-  for l in fitted-plan.tree-labels {
-    if l.at("placement-role", default: none) == "tip-label" {
-      let (start-pt, end-pt, padding) = if orientation == "horizontal" {
-        (
-          (x: l.anchor.x, y: l.anchor.y),
-          (x: aligned-tip-coord, y: l.anchor.y),
-          aligned-tip-coord - l.anchor.x,
-        )
-      } else {
-        (
-          (x: l.anchor.x, y: l.anchor.y),
-          (x: l.anchor.x, y: aligned-tip-coord),
-          l.anchor.y - aligned-tip-coord,
-        )
-      }
+  for l in tip-labels {
+    let (start-pt, end-pt, padding) = if orientation == "horizontal" {
+      (
+        (x: l.anchor.x, y: l.anchor.y),
+        (x: aligned-tip-coord, y: l.anchor.y),
+        aligned-tip-coord - l.anchor.x,
+      )
+    } else {
+      (
+        (x: l.anchor.x, y: l.anchor.y),
+        (x: l.anchor.x, y: aligned-tip-coord),
+        l.anchor.y - aligned-tip-coord,
+      )
+    }
 
-      if padding > 1e-3pt {
-        leader-lines.push((
-          start: start-pt,
-          end: end-pt,
-          stroke: dashed-stroke,
-        ))
-      }
+    if padding > 1e-3pt {
+      leader-lines.push((
+        start: start-pt,
+        end: end-pt,
+        stroke: dashed-stroke,
+      ))
     }
   }
 

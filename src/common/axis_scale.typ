@@ -1,5 +1,14 @@
 #import "./layout_math.typ": _clamp, _resolve-length
 
+/// Returns whether a numeric value is effectively an integer.
+///
+/// - value (int, float): Value to check.
+/// -> bool
+#let _value-is-integer(value) = {
+  let nearest-int = calc.round(value)
+  calc.abs(value - nearest-int) < 1e-6
+}
+
 /// Formats a scale label with optional unit.
 ///
 /// - value (int, float): Scale value.
@@ -7,9 +16,8 @@
 /// -> str
 #let _format-scale-label(value, unit) = {
   let rounded = calc.round(value, digits: 2)
-  let nearest-int = calc.round(rounded)
-  let display-value = if calc.abs(rounded - nearest-int) < 1e-6 {
-    int(nearest-int)
+  let display-value = if _value-is-integer(rounded) {
+    int(calc.round(rounded))
   } else {
     rounded
   }
@@ -32,15 +40,6 @@
   bottom-edge: "descender",
   ..if color != none { (fill: color) },
 )[#label]
-
-/// Returns whether a numeric value is effectively integral.
-///
-/// - value (int, float): Value to check.
-/// -> bool
-#let _value-is-integer(value) = {
-  let nearest-int = calc.round(value)
-  calc.abs(value - nearest-int) < 1e-6
-}
 
 /// Normalizes an effectively integral numeric value to an integer.
 ///
@@ -70,22 +69,35 @@
   true
 }
 
+/// Snaps a scale length up or down to a 1/2.5/5/7.5 x 10^n step.
+///
+/// - target (float): Target scale length.
+/// - ceil (bool): Round the mantissa up to the next step when `true`, down when
+///   `false`.
+/// -> float
+#let _snap-scale(target, ceil) = {
+  let exponent = calc.floor(calc.log(target))
+  let base = calc.pow(10, exponent)
+  let scaled = target / base
+  let step = if ceil {
+    if scaled <= 1 { 1 } else if scaled <= 2.5 { 2.5 } else if scaled <= 5 {
+      5
+    } else if scaled <= 7.5 { 7.5 } else { 10 }
+  } else {
+    if scaled >= 10 { 10 } else if scaled >= 7.5 { 7.5 } else if scaled >= 5 {
+      5
+    } else if scaled >= 2.5 { 2.5 } else { 1 }
+  }
+  step * base
+}
+
 /// Rounds a scale length to 1/2.5/5/7.5 x 10^n.
 ///
 /// - target (float): Target scale length.
 /// -> float
 #let _round-scale(target) = {
   if target <= 0 { return 1 }
-
-  let exponent = calc.floor(calc.log(target))
-  let base = calc.pow(10, exponent)
-  let scaled = target / base
-  let step = if scaled <= 1 { 1 } else if scaled <= 2.5 { 2.5 } else if (
-    scaled <= 5
-  ) { 5 } else if scaled <= 7.5 {
-    7.5
-  } else { 10 }
-  step * base
+  _snap-scale(target, true)
 }
 
 /// Floors a scale length to 1/2.5/5/7.5 x 10^n.
@@ -94,16 +106,7 @@
 /// -> float
 #let _floor-scale(target) = {
   if target <= 0 { return 0 }
-
-  let exponent = calc.floor(calc.log(target))
-  let base = calc.pow(10, exponent)
-  let scaled = target / base
-  let step = if scaled >= 10 { 10 } else if scaled >= 7.5 { 7.5 } else if (
-    scaled >= 5
-  ) { 5 } else if scaled >= 2.5 {
-    2.5
-  } else { 1 }
-  step * base
+  _snap-scale(target, false)
 }
 
 /// Resolves the integer tick values used by a coordinate axis.

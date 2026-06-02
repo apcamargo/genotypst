@@ -51,6 +51,7 @@
 /// - total-non-gap (int): Total number of non-gap characters in the column.
 /// - num-sequences (int): Total number of sequences in the alignment.
 /// - sampling-correction (bool): Apply small sample correction.
+/// - max-bits (float): Maximum information content (`log2(alphabet-size)`).
 /// - alphabet-size (int): Size of the alphabet.
 /// -> float
 #let _compute-sequence-conservation(
@@ -58,11 +59,11 @@
   total-non-gap,
   num-sequences,
   sampling-correction,
+  max-bits,
   alphabet-size,
 ) = {
   if total-non-gap == 0 { return 0.0 }
 
-  let max-bits = calc.log(alphabet-size, base: 2.0)
   let entropy = 0.0
   for count in counts.values() {
     let p = count / total-non-gap
@@ -139,6 +140,7 @@
         stats.total-non-gap,
         num-sequences,
         sampling-correction,
+        alphabet-config.max-bits,
         alphabet-config.size,
       ),
     )
@@ -180,12 +182,44 @@
   (ok: missing.len() == 0, missing: missing.sorted())
 }
 
+/// Asserts that a prepared palette covers every observed residue.
+///
+/// - palette (dictionary): Prepared palette with canonical uppercase keys.
+/// - sequences (array): Array of sequence strings.
+/// -> none
 #let _assert-palette-coverage(palette, sequences) = {
   let coverage = _check-palette-coverage(palette, sequences)
   assert(
     coverage.ok,
     message: "Palette missing residues: " + coverage.missing.join(", "),
   )
+}
+
+/// Resolves the palette to use for coloring and validates residue coverage.
+///
+/// Returns an empty palette when `enabled` is `false`. Otherwise resolves to the
+/// alphabet's default palette when `palette` is `auto`, or a prepared custom
+/// palette. A custom palette is asserted to cover every observed residue.
+///
+/// - palette (auto, dictionary): Requested palette or `auto` for the default.
+/// - config (dictionary): Canonical alphabet configuration with a `palette` field.
+/// - sequences (array): Array of sequence strings.
+/// - enabled (bool): Whether coloring is enabled (default: true).
+/// -> dictionary
+#let _resolve-palette(palette, config, sequences, enabled: true) = {
+  if not enabled { return (:) }
+
+  let resolved = if palette == auto {
+    config.palette
+  } else {
+    _prepare-palette(palette)
+  }
+
+  if palette != auto {
+    _assert-palette-coverage(resolved, sequences)
+  }
+
+  resolved
 }
 
 /// Validates that all sequences in the MSA have the same length.

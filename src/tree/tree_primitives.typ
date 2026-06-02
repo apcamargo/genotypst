@@ -276,9 +276,7 @@
   let nodes = layout-tree.nodes
   let root = nodes.at(layout-tree.root-id)
   let rectangular = layout-tree.primitive-mode == "rectangular"
-  let tip-label-style = if style.tip-label-italics { "italic" } else {
-    "normal"
-  }
+  let tip-label-style = style.tip-label-style
 
   if rectangular and root.input-rooted {
     primitives.push((

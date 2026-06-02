@@ -1,3 +1,13 @@
+/// Measures the monospace cell width of the current font.
+///
+/// Uses the wider of "W" and "M" as the reference glyph width. Must be called
+/// inside a `context` block.
+/// -> length
+#let _measure-monospace-width() = calc.max(
+  measure(text("W")).width,
+  measure(text("M")).width,
+)
+
 /// Renders a fixed-width grid using the current text font.
 ///
 /// Cells can be passed as raw content or as dictionaries with `body` and
@@ -39,7 +49,7 @@
   }
 
   let width = if cell-width == none {
-    calc.max(measure(text("W")).width, measure(text("M")).width)
+    _measure-monospace-width()
   } else {
     cell-width
   }

@@ -73,15 +73,11 @@
 ) = {
   context {
     let leading = par.leading
-    let char-width = calc.max(
-      measure(text("W")).width,
-      measure(text("M")).width,
-    )
     let lines = ()
     let spacing = if entry-spacing == none { leading } else { entry-spacing }
     let render-segment = segment => _fixed-width-grid(
       (segment.clusters(),),
-      cell-width: char-width,
+      cell-width: none,
     )
 
     for (acc, seq) in sequences.pairs() {

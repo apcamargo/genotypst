@@ -1,10 +1,10 @@
 #import "../common/colors.typ": _light-gray
-#import "../common/fixed_grid.typ": _fixed-width-grid
+#import "../common/fixed_grid.typ": _fixed-width-grid, _measure-monospace-width
 #import "../common/interval.typ": _resolve-1indexed-window
 #import "./sequence_alphabet.typ": _resolve-alphabet-config
 #import "./sequence_processing.typ": (
-  _assert-palette-coverage, _collect-window-column-stats, _lookup-palette-color,
-  _prepare-palette, _validate-alignment,
+  _collect-window-column-stats, _lookup-palette-color, _resolve-palette,
+  _validate-alignment,
 )
 
 /// Renders a single character in an MSA with optional coloring.
@@ -139,15 +139,12 @@
   let total-max-len = sequences.first().len()
 
   let config = _resolve-alphabet-config(alphabet, sequences)
-  let palette-to-use = if colors {
-    if palette == auto { config.palette } else { _prepare-palette(palette) }
-  } else {
-    (:)
-  }
-
-  if colors and palette != auto {
-    _assert-palette-coverage(palette-to-use, sequences)
-  }
+  let palette-to-use = _resolve-palette(
+    palette,
+    config,
+    sequences,
+    enabled: colors,
+  )
 
   let window = _resolve-1indexed-window(
     start,
@@ -173,10 +170,7 @@
 
   context {
     let leading = par.leading
-    let char-width = calc.max(
-      measure(text("W")).width,
-      measure(text("M")).width,
-    )
+    let char-width = _measure-monospace-width()
     let outset-y = leading / 2
     let box-width = char-width + 0.03em
 
