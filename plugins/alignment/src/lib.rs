@@ -8,7 +8,7 @@ mod scoring;
 
 use aligners::{GlobalAligner, LocalAligner};
 use matrices::BuiltinMatrix;
-use scoring::ScoringConfig;
+use scoring::{AlignmentError, ScoringConfig};
 use serde::Deserialize;
 #[cfg(target_arch = "wasm32")]
 use wasm_minimal_protocol::*;
@@ -28,28 +28,28 @@ struct AlignConfig {
 }
 
 impl AlignConfig {
-    fn validate(&self) -> Result<(), String> {
+    fn validate(&self) -> Result<(), AlignmentError> {
         let has_matrix = self.matrix.is_some();
         let has_match = self.match_score.is_some();
         let has_mismatch = self.mismatch_score.is_some();
 
         if has_matrix && (has_match || has_mismatch) {
-            return Err("Cannot use both 'matrix' and 'match_score'/'mismatch_score' - they are mutually exclusive".into());
+            return Err(AlignmentError::Other("Cannot use both 'matrix' and 'match_score'/'mismatch_score' - they are mutually exclusive".into()));
         }
         if !has_matrix && has_match != has_mismatch {
-            return Err(
+            return Err(AlignmentError::Other(
                 "Both 'match_score' and 'mismatch_score' are required when not using a matrix"
                     .into(),
-            );
+            ));
         }
         if !has_matrix && !has_match {
-            return Err("Scoring method required: provide either 'matrix' or both 'match_score' and 'mismatch_score'".into());
+            return Err(AlignmentError::Other("Scoring method required: provide either 'matrix' or both 'match_score' and 'mismatch_score'".into()));
         }
         if self.gap_open != self.gap_extend {
-            return Err(format!(
+            return Err(AlignmentError::Other(format!(
                 "Affine gap penalties not supported: gap_open ({}) must equal gap_extend ({})",
                 self.gap_open, self.gap_extend
-            ));
+            )));
         }
         Ok(())
     }
@@ -74,18 +74,22 @@ pub fn align(seq1: &[u8], seq2: &[u8], config: &[u8]) -> Result<Vec<u8>, String>
     let config: AlignConfig =
         serde_json::from_slice(config).map_err(|e| format!("Invalid config JSON: {}", e))?;
 
-    config.validate()?;
+    config.validate().map_err(|e| e.to_string())?;
 
     let scoring = if let Some(ref name) = config.matrix {
-        if let Some(bm) = BuiltinMatrix::from_str(name) {
+        if let Some(bm) = BuiltinMatrix::from_name(name) {
             ScoringConfig::with_matrix(bm, config.gap_open, config.gap_extend)
         } else {
             return Err(format!("Unknown matrix name: '{}'", name));
         }
     } else {
         ScoringConfig::linear(
-            config.match_score.unwrap(),
-            config.mismatch_score.unwrap(),
+            config
+                .match_score
+                .expect("match_score must be Some after validation"),
+            config
+                .mismatch_score
+                .expect("mismatch_score must be Some after validation"),
             config.gap_open,
             config.gap_extend,
         )
@@ -123,7 +127,7 @@ pub fn matrix_info(name: &[u8]) -> Result<Vec<u8>, String> {
     let name_str =
         std::str::from_utf8(name).map_err(|e| format!("Invalid UTF-8 in matrix name: {}", e))?;
 
-    let matrix = BuiltinMatrix::from_str(name_str)
+    let matrix = BuiltinMatrix::from_name(name_str)
         .ok_or_else(|| format!("Unknown matrix name: '{}'", name_str))?;
 
     // Convert alphabet from Vec<u8> to Vec<String> for JSON output

@@ -143,68 +143,51 @@ mod tests {
 
     #[test]
     fn test_blosum62_scoring() {
-        let scorer = SubstitutionScorer::Matrix(BuiltinMatrix::Blosum62);
-        if let SubstitutionScorer::Matrix(matrix) = scorer {
-            // A-A: 4, A-R: -1
-            assert_eq!(matrix_score(matrix, b'A', b'A').unwrap(), 4);
-            assert_eq!(matrix_score(matrix, b'a', b'A').unwrap(), 4);
-            assert_eq!(matrix_score(matrix, b'A', b'R').unwrap(), -1);
-            assert_eq!(matrix_score(matrix, b'W', b'W').unwrap(), 11);
-        } else {
-            panic!("expected matrix scorer");
-        }
+        let matrix = BuiltinMatrix::Blosum62;
+        // A-A: 4, A-R: -1
+        assert_eq!(matrix_score(matrix, b'A', b'A').unwrap(), 4);
+        assert_eq!(matrix_score(matrix, b'a', b'A').unwrap(), 4);
+        assert_eq!(matrix_score(matrix, b'A', b'R').unwrap(), -1);
+        assert_eq!(matrix_score(matrix, b'W', b'W').unwrap(), 11);
     }
 
     #[test]
     fn test_ednafull_scoring() {
-        let scorer = SubstitutionScorer::Matrix(BuiltinMatrix::Ednafull);
-        if let SubstitutionScorer::Matrix(matrix) = scorer {
-            // A-A: 5, A-T: -4
-            assert_eq!(matrix_score(matrix, b'A', b'A').unwrap(), 5);
-            assert_eq!(matrix_score(matrix, b'A', b'T').unwrap(), -4);
-            // N-N: -1
-            assert_eq!(matrix_score(matrix, b'N', b'N').unwrap(), -1);
-        } else {
-            panic!("expected matrix scorer");
-        }
+        let matrix = BuiltinMatrix::Ednafull;
+        // A-A: 5, A-T: -4
+        assert_eq!(matrix_score(matrix, b'A', b'A').unwrap(), 5);
+        assert_eq!(matrix_score(matrix, b'A', b'T').unwrap(), -4);
+        // N-N: -1
+        assert_eq!(matrix_score(matrix, b'N', b'N').unwrap(), -1);
     }
 
     #[test]
     fn test_pam250_scoring() {
-        let scorer = SubstitutionScorer::Matrix(BuiltinMatrix::from_str("PAM250").unwrap());
-        if let SubstitutionScorer::Matrix(matrix) = scorer {
-            // A-A: 2, A-R: -2, W-W: 17
-            assert_eq!(matrix_score(matrix, b'A', b'A').unwrap(), 2);
-            assert_eq!(matrix_score(matrix, b'A', b'R').unwrap(), -2);
-            assert_eq!(matrix_score(matrix, b'W', b'W').unwrap(), 17);
-        } else {
-            panic!("expected matrix scorer");
-        }
+        let matrix = BuiltinMatrix::from_name("PAM250").unwrap();
+        // A-A: 2, A-R: -2, W-W: 17
+        assert_eq!(matrix_score(matrix, b'A', b'A').unwrap(), 2);
+        assert_eq!(matrix_score(matrix, b'A', b'R').unwrap(), -2);
+        assert_eq!(matrix_score(matrix, b'W', b'W').unwrap(), 17);
     }
 
     #[test]
     fn test_pam1_scoring() {
-        let scorer = SubstitutionScorer::Matrix(BuiltinMatrix::from_str("PAM1").unwrap());
-        if let SubstitutionScorer::Matrix(matrix) = scorer {
-            // A-A: 7
-            assert_eq!(matrix_score(matrix, b'A', b'A').unwrap(), 7);
-            // A-W: -inf (i32::MIN)
-            assert_eq!(matrix_score(matrix, b'A', b'W').unwrap(), i32::MIN);
-        } else {
-            panic!("expected matrix scorer");
-        }
+        let matrix = BuiltinMatrix::from_name("PAM1").unwrap();
+        // A-A: 7
+        assert_eq!(matrix_score(matrix, b'A', b'A').unwrap(), 7);
+        // A-W: -inf (i32::MIN)
+        assert_eq!(matrix_score(matrix, b'A', b'W').unwrap(), i32::MIN);
     }
 
     #[test]
     fn test_invalid_character_error() {
         let scorer = SubstitutionScorer::Matrix(BuiltinMatrix::Ednafull);
-        if let SubstitutionScorer::Matrix(matrix) = scorer {
-            // 'X' is not in EDNAFULL
-            let res = matrix_score(matrix, b'X', b'A');
-            assert!(matches!(res, Err(AlignmentError::InvalidCharacter(b'X'))));
-        } else {
+        let SubstitutionScorer::Matrix(matrix) = &scorer else {
             panic!("expected matrix scorer");
-        }
+        };
+        // 'X' is not in EDNAFULL
+        let res = matrix_score(*matrix, b'X', b'A');
+        assert!(matches!(res, Err(AlignmentError::InvalidCharacter(b'X'))));
 
         let res_v = scorer.validate(b"ATGCX");
         assert!(matches!(res_v, Err(AlignmentError::InvalidCharacter(b'X'))));

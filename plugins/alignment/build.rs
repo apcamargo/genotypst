@@ -226,7 +226,7 @@ pub(crate) enum BuiltinMatrix {{
 }}
 
 impl BuiltinMatrix {{
-    pub(crate) fn from_str(s: &str) -> Option<Self> {{
+    pub(crate) fn from_name(s: &str) -> Option<Self> {{
         match s.to_ascii_uppercase().as_str() {{
             {},
             _ => None,

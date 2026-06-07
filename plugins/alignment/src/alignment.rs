@@ -1,12 +1,16 @@
 //! Core alignment data structures and DP helpers.
 
-use crate::scoring::{ScoringConfig, SubstitutionScorer};
+use crate::scoring::{AlignmentError, ScoringConfig, SubstitutionScorer};
 
 /// Arrow directions stored as a 3-bit bitmask.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct Arrows(u8);
 
 impl Arrows {
+    pub(crate) const DIAGONAL: u8 = 1;
+    pub(crate) const UP: u8 = 2;
+    pub(crate) const LEFT: u8 = 4;
+
     pub(crate) fn new() -> Self {
         Self(0)
     }
@@ -26,12 +30,6 @@ impl Arrows {
     pub(crate) fn has_left(&self) -> bool {
         (self.0 & 4) != 0
     }
-}
-
-impl Arrows {
-    pub(crate) const DIAGONAL: u8 = 1;
-    pub(crate) const UP: u8 = 2;
-    pub(crate) const LEFT: u8 = 4;
 
     #[cfg(test)]
     pub(crate) fn set_diagonal(&mut self) {
@@ -93,12 +91,10 @@ impl DPMatrix {
         }
     }
 
-    #[inline]
     pub(crate) fn get(&self, i: usize, j: usize) -> &Cell {
         &self.cells[i * self.cols + j]
     }
 
-    #[inline]
     pub(crate) fn set(&mut self, i: usize, j: usize, cell: Cell) {
         self.cells[i * self.cols + j] = cell;
     }
@@ -145,18 +141,40 @@ pub(crate) struct FillResult {
     pub max_positions: Vec<(usize, usize)>,
 }
 
+fn compute_cell_score(diag_score: i32, up_score: i32, left_score: i32, local: bool) -> (i32, u8) {
+    let max_candidate = diag_score.max(up_score).max(left_score);
+    let cell_score = if local {
+        max_candidate.max(0)
+    } else {
+        max_candidate
+    };
+    let mut arrows = 0u8;
+    if !local || cell_score > 0 {
+        if diag_score == cell_score {
+            arrows |= Arrows::DIAGONAL;
+        }
+        if up_score == cell_score {
+            arrows |= Arrows::UP;
+        }
+        if left_score == cell_score {
+            arrows |= Arrows::LEFT;
+        }
+    }
+    (cell_score, arrows)
+}
+
 pub(crate) fn fill_matrix_linear(
     matrix: &mut DPMatrix,
     seq1: &[u8],
     seq2: &[u8],
     scoring: &ScoringConfig,
     local: bool,
-) -> FillResult {
+) -> Result<FillResult, AlignmentError> {
     match &scoring.scorer {
         SubstitutionScorer::Simple {
             match_score,
             mismatch_score,
-        } => fill_matrix_linear_simple(
+        } => Ok(fill_matrix_linear_simple(
             matrix,
             seq1,
             seq2,
@@ -164,7 +182,7 @@ pub(crate) fn fill_matrix_linear(
             *mismatch_score,
             scoring.gap_open,
             local,
-        ),
+        )),
         SubstitutionScorer::Matrix(matrix_scorer) => fill_matrix_linear_matrix(
             matrix,
             seq1,
@@ -193,47 +211,32 @@ fn fill_matrix_linear_simple(
     let seq2_upper_storage = uppercase_ascii_if_needed(seq2);
     let seq2_upper = seq2_upper_storage.as_deref().unwrap_or(seq2);
 
-    if local {
-        let mut max_score = 0;
-        let mut max_positions = Vec::new();
+    let mut max_score = 0;
+    let mut max_positions = Vec::new();
 
-        for i in 1..=n {
-            let row_offset = i * cols;
-            let prev_row_offset = (i - 1) * cols;
-            let (prior_rows, current_and_after) = matrix.cells.split_at_mut(row_offset);
-            let prev_row = &prior_rows[prev_row_offset..row_offset];
-            let row = &mut current_and_after[..cols];
-            let seq1_char = seq1[i - 1].to_ascii_uppercase();
+    for i in 1..=n {
+        let row_offset = i * cols;
+        let prev_row_offset = (i - 1) * cols;
+        let (prior_rows, current_and_after) = matrix.cells.split_at_mut(row_offset);
+        let prev_row = &prior_rows[prev_row_offset..row_offset];
+        let row = &mut current_and_after[..cols];
+        let seq1_char = seq1[i - 1].to_ascii_uppercase();
 
-            for j in 1..=m {
-                let seq2_char = seq2_upper[j - 1];
-                let substitution = if seq1_char == seq2_char {
-                    match_score
-                } else {
-                    mismatch_score
-                };
-                let diag_score = prev_row[j - 1].score.saturating_add(substitution);
-                let up_score = prev_row[j].score.saturating_add(gap);
-                let left_score = row[j - 1].score.saturating_add(gap);
+        for j in 1..=m {
+            let seq2_char = seq2_upper[j - 1];
+            let substitution = if seq1_char == seq2_char {
+                match_score
+            } else {
+                mismatch_score
+            };
+            let diag_score = prev_row[j - 1].score.saturating_add(substitution);
+            let up_score = prev_row[j].score.saturating_add(gap);
+            let left_score = row[j - 1].score.saturating_add(gap);
 
-                let max_candidate = diag_score.max(up_score).max(left_score);
-                let cell_score = max_candidate.max(0);
+            let (cell_score, arrows) = compute_cell_score(diag_score, up_score, left_score, local);
+            row[j] = Cell::with_arrows(cell_score, Arrows(arrows));
 
-                let mut arrows = 0;
-                if cell_score > 0 {
-                    if diag_score == cell_score {
-                        arrows |= Arrows::DIAGONAL;
-                    }
-                    if up_score == cell_score {
-                        arrows |= Arrows::UP;
-                    }
-                    if left_score == cell_score {
-                        arrows |= Arrows::LEFT;
-                    }
-                }
-
-                row[j] = Cell::with_arrows(cell_score, Arrows(arrows));
-
+            if local {
                 if cell_score > max_score {
                     max_score = cell_score;
                     max_positions.clear();
@@ -245,48 +248,14 @@ fn fill_matrix_linear_simple(
                 }
             }
         }
+    }
 
+    if local {
         FillResult {
             max_score,
             max_positions,
         }
     } else {
-        for i in 1..=n {
-            let row_offset = i * cols;
-            let prev_row_offset = (i - 1) * cols;
-            let (prior_rows, current_and_after) = matrix.cells.split_at_mut(row_offset);
-            let prev_row = &prior_rows[prev_row_offset..row_offset];
-            let row = &mut current_and_after[..cols];
-            let seq1_char = seq1[i - 1].to_ascii_uppercase();
-
-            for j in 1..=m {
-                let seq2_char = seq2_upper[j - 1];
-                let substitution = if seq1_char == seq2_char {
-                    match_score
-                } else {
-                    mismatch_score
-                };
-                let diag_score = prev_row[j - 1].score.saturating_add(substitution);
-                let up_score = prev_row[j].score.saturating_add(gap);
-                let left_score = row[j - 1].score.saturating_add(gap);
-
-                let max_score = diag_score.max(up_score).max(left_score);
-
-                let mut arrows = 0;
-                if diag_score == max_score {
-                    arrows |= Arrows::DIAGONAL;
-                }
-                if up_score == max_score {
-                    arrows |= Arrows::UP;
-                }
-                if left_score == max_score {
-                    arrows |= Arrows::LEFT;
-                }
-
-                row[j] = Cell::with_arrows(max_score, Arrows(arrows));
-            }
-        }
-
         FillResult {
             max_score: matrix.cells[n * cols + m].score,
             max_positions: Vec::new(),
@@ -303,49 +272,34 @@ fn fill_matrix_linear_matrix(
     score_dimension: usize,
     gap: i32,
     local: bool,
-) -> FillResult {
+) -> Result<FillResult, AlignmentError> {
     let n = seq1.len();
     let m = seq2.len();
     let cols = matrix.cols;
-    let seq1_indices = encode_matrix_sequence(seq1, lookup_map);
-    let seq2_indices = encode_matrix_sequence(seq2, lookup_map);
+    let seq1_indices = encode_matrix_sequence(seq1, lookup_map)?;
+    let seq2_indices = encode_matrix_sequence(seq2, lookup_map)?;
 
-    if local {
-        let mut max_score = 0;
-        let mut max_positions = Vec::new();
+    let mut max_score = 0;
+    let mut max_positions = Vec::new();
 
-        for i in 1..=n {
-            let row_offset = i * cols;
-            let prev_row_offset = (i - 1) * cols;
-            let (prior_rows, current_and_after) = matrix.cells.split_at_mut(row_offset);
-            let prev_row = &prior_rows[prev_row_offset..row_offset];
-            let row = &mut current_and_after[..cols];
-            let seq1_index = seq1_indices[i - 1] * score_dimension;
+    for i in 1..=n {
+        let row_offset = i * cols;
+        let prev_row_offset = (i - 1) * cols;
+        let (prior_rows, current_and_after) = matrix.cells.split_at_mut(row_offset);
+        let prev_row = &prior_rows[prev_row_offset..row_offset];
+        let row = &mut current_and_after[..cols];
+        let seq1_index = seq1_indices[i - 1] * score_dimension;
 
-            for j in 1..=m {
-                let substitution = score_table[seq1_index + seq2_indices[j - 1]];
-                let diag_score = prev_row[j - 1].score.saturating_add(substitution);
-                let up_score = prev_row[j].score.saturating_add(gap);
-                let left_score = row[j - 1].score.saturating_add(gap);
+        for j in 1..=m {
+            let substitution = score_table[seq1_index + seq2_indices[j - 1]];
+            let diag_score = prev_row[j - 1].score.saturating_add(substitution);
+            let up_score = prev_row[j].score.saturating_add(gap);
+            let left_score = row[j - 1].score.saturating_add(gap);
 
-                let max_candidate = diag_score.max(up_score).max(left_score);
-                let cell_score = max_candidate.max(0);
+            let (cell_score, arrows) = compute_cell_score(diag_score, up_score, left_score, local);
+            row[j] = Cell::with_arrows(cell_score, Arrows(arrows));
 
-                let mut arrows = 0;
-                if cell_score > 0 {
-                    if diag_score == cell_score {
-                        arrows |= Arrows::DIAGONAL;
-                    }
-                    if up_score == cell_score {
-                        arrows |= Arrows::UP;
-                    }
-                    if left_score == cell_score {
-                        arrows |= Arrows::LEFT;
-                    }
-                }
-
-                row[j] = Cell::with_arrows(cell_score, Arrows(arrows));
-
+            if local {
                 if cell_score > max_score {
                     max_score = cell_score;
                     max_positions.clear();
@@ -357,48 +311,19 @@ fn fill_matrix_linear_matrix(
                 }
             }
         }
+    }
 
+    Ok(if local {
         FillResult {
             max_score,
             max_positions,
         }
     } else {
-        for i in 1..=n {
-            let row_offset = i * cols;
-            let prev_row_offset = (i - 1) * cols;
-            let (prior_rows, current_and_after) = matrix.cells.split_at_mut(row_offset);
-            let prev_row = &prior_rows[prev_row_offset..row_offset];
-            let row = &mut current_and_after[..cols];
-            let seq1_index = seq1_indices[i - 1] * score_dimension;
-
-            for j in 1..=m {
-                let substitution = score_table[seq1_index + seq2_indices[j - 1]];
-                let diag_score = prev_row[j - 1].score.saturating_add(substitution);
-                let up_score = prev_row[j].score.saturating_add(gap);
-                let left_score = row[j - 1].score.saturating_add(gap);
-
-                let max_score = diag_score.max(up_score).max(left_score);
-
-                let mut arrows = 0;
-                if diag_score == max_score {
-                    arrows |= Arrows::DIAGONAL;
-                }
-                if up_score == max_score {
-                    arrows |= Arrows::UP;
-                }
-                if left_score == max_score {
-                    arrows |= Arrows::LEFT;
-                }
-
-                row[j] = Cell::with_arrows(max_score, Arrows(arrows));
-            }
-        }
-
         FillResult {
             max_score: matrix.cells[n * cols + m].score,
             max_positions: Vec::new(),
         }
-    }
+    })
 }
 
 fn uppercase_ascii_if_needed(seq: &[u8]) -> Option<Vec<u8>> {
@@ -407,14 +332,27 @@ fn uppercase_ascii_if_needed(seq: &[u8]) -> Option<Vec<u8>> {
         .then(|| seq.iter().map(|byte| byte.to_ascii_uppercase()).collect())
 }
 
-fn encode_matrix_sequence(seq: &[u8], lookup_map: &[Option<u8>; 256]) -> Vec<usize> {
+fn encode_matrix_sequence(
+    seq: &[u8],
+    lookup_map: &[Option<u8>; 256],
+) -> Result<Vec<usize>, AlignmentError> {
     seq.iter()
         .map(|&residue| {
             lookup_map[residue as usize]
-                .expect("matrix-scored sequences must be validated before DP filling")
-                as usize
+                .ok_or(AlignmentError::InvalidCharacter(residue))
+                .map(|idx| idx as usize)
         })
         .collect()
+}
+
+struct TracebackContext<'a> {
+    matrix: &'a DPMatrix,
+    seq1: &'a [u8],
+    seq2: &'a [u8],
+    all_paths: &'a mut Vec<TracebackPath>,
+    all_alignments: &'a mut Vec<AlignedPair>,
+    stop_condition: Box<dyn Fn(usize, usize, &Cell) -> bool + 'a>,
+    stop_on_no_arrows: bool,
 }
 
 pub(crate) fn traceback_all_paths(
@@ -434,58 +372,56 @@ pub(crate) fn traceback_all_paths(
     let mut current_aln1 = Vec::with_capacity(capacity);
     let mut current_aln2 = Vec::with_capacity(capacity);
 
+    let mut ctx = TracebackContext {
+        matrix,
+        seq1,
+        seq2,
+        all_paths: &mut all_paths,
+        all_alignments: &mut all_alignments,
+        stop_condition: Box::new(stop_condition),
+        stop_on_no_arrows,
+    };
+
     for &(start_i, start_j) in start_positions {
         current_path.steps.clear();
         current_aln1.clear();
         current_aln2.clear();
 
         traceback_recursive(
-            matrix,
+            &mut ctx,
             start_i,
             start_j,
             &mut current_path,
             &mut current_aln1,
             &mut current_aln2,
-            seq1,
-            seq2,
-            &mut all_paths,
-            &mut all_alignments,
-            stop_condition,
-            stop_on_no_arrows,
         );
     }
 
+    drop(ctx);
     (all_paths, all_alignments)
 }
 
-#[allow(clippy::too_many_arguments)]
 fn traceback_recursive(
-    matrix: &DPMatrix,
+    ctx: &mut TracebackContext,
     i: usize,
     j: usize,
     current_path: &mut TracebackPath,
     current_aln1: &mut Vec<u8>,
     current_aln2: &mut Vec<u8>,
-    seq1: &[u8],
-    seq2: &[u8],
-    all_paths: &mut Vec<TracebackPath>,
-    all_alignments: &mut Vec<AlignedPair>,
-    stop_condition: impl Fn(usize, usize, &Cell) -> bool + Copy,
-    stop_on_no_arrows: bool,
 ) {
     current_path.push(i, j);
 
-    let cell = matrix.get(i, j);
-    if stop_condition(i, j, cell) || (stop_on_no_arrows && cell.arrows.bits() == 0) {
+    let cell = ctx.matrix.get(i, j);
+    if (ctx.stop_condition)(i, j, cell) || (ctx.stop_on_no_arrows && cell.arrows.bits() == 0) {
         let pair = AlignedPair {
             seq1_aligned: reversed_utf8_string(current_aln1),
             seq2_aligned: reversed_utf8_string(current_aln2),
         };
 
-        all_paths.push(TracebackPath {
+        ctx.all_paths.push(TracebackPath {
             steps: current_path.steps.clone(),
         });
-        all_alignments.push(pair);
+        ctx.all_alignments.push(pair);
         current_path.steps.pop();
         return;
     }
@@ -493,46 +429,20 @@ fn traceback_recursive(
     let arrows = cell.arrows;
 
     if arrows.has_diagonal() && i > 0 && j > 0 {
-        current_aln1.push(seq1[i - 1]);
-        current_aln2.push(seq2[j - 1]);
+        current_aln1.push(ctx.seq1[i - 1]);
+        current_aln2.push(ctx.seq2[j - 1]);
 
-        traceback_recursive(
-            matrix,
-            i - 1,
-            j - 1,
-            current_path,
-            current_aln1,
-            current_aln2,
-            seq1,
-            seq2,
-            all_paths,
-            all_alignments,
-            stop_condition,
-            stop_on_no_arrows,
-        );
+        traceback_recursive(ctx, i - 1, j - 1, current_path, current_aln1, current_aln2);
 
         current_aln1.pop();
         current_aln2.pop();
     }
 
     if arrows.has_up() && i > 0 {
-        current_aln1.push(seq1[i - 1]);
+        current_aln1.push(ctx.seq1[i - 1]);
         current_aln2.push(b'-');
 
-        traceback_recursive(
-            matrix,
-            i - 1,
-            j,
-            current_path,
-            current_aln1,
-            current_aln2,
-            seq1,
-            seq2,
-            all_paths,
-            all_alignments,
-            stop_condition,
-            stop_on_no_arrows,
-        );
+        traceback_recursive(ctx, i - 1, j, current_path, current_aln1, current_aln2);
 
         current_aln1.pop();
         current_aln2.pop();
@@ -540,22 +450,9 @@ fn traceback_recursive(
 
     if arrows.has_left() && j > 0 {
         current_aln1.push(b'-');
-        current_aln2.push(seq2[j - 1]);
+        current_aln2.push(ctx.seq2[j - 1]);
 
-        traceback_recursive(
-            matrix,
-            i,
-            j - 1,
-            current_path,
-            current_aln1,
-            current_aln2,
-            seq1,
-            seq2,
-            all_paths,
-            all_alignments,
-            stop_condition,
-            stop_on_no_arrows,
-        );
+        traceback_recursive(ctx, i, j - 1, current_path, current_aln1, current_aln2);
 
         current_aln1.pop();
         current_aln2.pop();

@@ -31,7 +31,7 @@ impl GlobalAligner {
         self.scoring.scorer.validate(seq2)?;
 
         let mut matrix = self.initialize_matrix(n, m);
-        fill_matrix_linear(&mut matrix, seq1, seq2, &self.scoring, false);
+        fill_matrix_linear(&mut matrix, seq1, seq2, &self.scoring, false)?;
 
         let final_score = matrix.get(n, m).score;
         let start_positions = [(n, m)];
@@ -159,7 +159,7 @@ mod global_tests {
     #[test]
     fn test_pam1_forbidden_alignment() {
         let scoring =
-            ScoringConfig::with_matrix(BuiltinMatrix::from_str("PAM1").unwrap(), -10, -10);
+            ScoringConfig::with_matrix(BuiltinMatrix::from_name("PAM1").unwrap(), -10, -10);
         let aligner = GlobalAligner::new(scoring);
         // A vs W is forbidden (-inf) in PAM1.
         // An alignment should prefer gaps over matching A with W.
@@ -214,7 +214,7 @@ impl LocalAligner {
         self.scoring.scorer.validate(seq2)?;
 
         let mut matrix = self.initialize_matrix(n, m);
-        let fill_result = fill_matrix_linear(&mut matrix, seq1, seq2, &self.scoring, true);
+        let fill_result = fill_matrix_linear(&mut matrix, seq1, seq2, &self.scoring, true)?;
         let final_score = fill_result.max_score;
         let max_positions = fill_result.max_positions;
 
