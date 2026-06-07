@@ -2,6 +2,7 @@
 
 use bio::io::gff::{GffType, Reader, Record};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Cursor;
 
@@ -118,16 +119,19 @@ impl RangeFilter {
     }
 }
 
-fn strip_fasta_tail(input: &str) -> String {
-    let mut feature_text = String::with_capacity(input.len());
-    for line in input.lines() {
-        if line.trim_end() == "##FASTA" {
-            break;
+fn strip_fasta_tail(input: &str) -> Cow<'_, str> {
+    let mut offset = 0;
+    for line in input.split_inclusive('\n') {
+        let line_without_newline = line.strip_suffix('\n').unwrap_or(line);
+        let line_without_ending = line_without_newline
+            .strip_suffix('\r')
+            .unwrap_or(line_without_newline);
+        if line_without_ending.trim_end() == "##FASTA" {
+            return Cow::Borrowed(&input[..offset]);
         }
-        feature_text.push_str(line);
-        feature_text.push('\n');
+        offset += line.len();
     }
-    feature_text
+    Cow::Borrowed(input)
 }
 
 fn build_feature_type_filter(feature_types: &Option<Vec<String>>) -> Option<BTreeSet<&str>> {
@@ -713,6 +717,15 @@ chr1	src	gene	1	10	.	+	.	ID=gene1;same%5Fkey=a;same_key=b
         let features = parse_with_config(&data, default_config());
 
         assert_eq!(features.len(), 5);
+    }
+
+    #[test]
+    fn stops_at_fasta_tail_at_start_of_input() {
+        let data = "##FASTA\n>chr1\nACGTACGT\n";
+
+        let features = parse_with_config(data, default_config());
+
+        assert!(features.is_empty());
     }
 
     #[test]
