@@ -848,22 +848,26 @@ fn merge_unrooted_root_branch_lengths(first: Option<f64>, second: Option<f64>) -
 }
 
 fn suppression_subtree_tip_count(node: &RawTreeNode) -> usize {
-    if node.children.is_empty() {
-        1
-    } else {
-        node.children
-            .iter()
-            .map(suppression_subtree_tip_count)
-            .sum()
+    let mut stack = vec![node];
+    let mut count = 0;
+    while let Some(current) = stack.pop() {
+        if current.children.is_empty() {
+            count += 1;
+        } else {
+            stack.extend(&current.children);
+        }
     }
+    count
 }
 
 fn suppression_subtree_node_count(node: &RawTreeNode) -> usize {
-    1 + node
-        .children
-        .iter()
-        .map(suppression_subtree_node_count)
-        .sum::<usize>()
+    let mut stack = vec![node];
+    let mut count = 0;
+    while let Some(current) = stack.pop() {
+        count += 1;
+        stack.extend(&current.children);
+    }
+    count
 }
 
 fn compare_unrooted_suppression_candidates(first: &RawTreeNode, second: &RawTreeNode) -> Ordering {
@@ -1091,33 +1095,16 @@ fn node_angle_half_turn(from_x: f64, from_y: f64, to_x: f64, to_y: f64, default_
 }
 
 fn tree_layout_bounds(x_by_id: &[f64], y_by_id: &[f64]) -> LayoutBounds {
-    let mut min_x = None::<f64>;
-    let mut max_x = None::<f64>;
-    let mut min_y = None::<f64>;
-    let mut max_y = None::<f64>;
-
-    for (&x, &y) in x_by_id.iter().zip(y_by_id.iter()) {
-        match (min_x, max_x, min_y, max_y) {
-            (Some(cur_min_x), Some(cur_max_x), Some(cur_min_y), Some(cur_max_y)) => {
-                min_x = Some(cur_min_x.min(x));
-                max_x = Some(cur_max_x.max(x));
-                min_y = Some(cur_min_y.min(y));
-                max_y = Some(cur_max_y.max(y));
-            }
-            _ => {
-                min_x = Some(x);
-                max_x = Some(x);
-                min_y = Some(y);
-                max_y = Some(y);
-            }
-        }
+    let mut acc = BoundsAccumulator::default();
+    for (&x, &y) in x_by_id.iter().zip(y_by_id) {
+        acc.expand(x, y, x, y);
     }
-
+    let b = acc.finalize();
     LayoutBounds {
-        min_x: min_x.unwrap_or(0.0),
-        max_x: max_x.unwrap_or(0.0),
-        min_y: min_y.unwrap_or(0.0),
-        max_y: max_y.unwrap_or(0.0),
+        min_x: b.min_x,
+        max_x: b.max_x,
+        min_y: b.min_y,
+        max_y: b.max_y,
     }
 }
 
