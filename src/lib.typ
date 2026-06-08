@@ -1,3 +1,6 @@
+// Common
+#import "common/colors.typ": diverging-color-map
+
 // Sequence
 #import "sequence/fasta.typ": parse-fasta, render-fasta
 #import "sequence/msa.typ": render-msa

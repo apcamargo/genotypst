@@ -1,5 +1,5 @@
 #import "./alignment_backend.typ": _alignment-matrix-info, _resolve-matrix-name
-#import "../common/colors.typ": _diverging-gradient
+#import "../common/colors.typ": diverging-color-map
 
 /// Retrieves a scoring matrix by name from the WASM plugin.
 ///
@@ -87,35 +87,24 @@
   scoring-matrix.matrix.at(idx1).at(idx2)
 }
 
-/// Calculates background color for a score using gradient mapping.
+/// Samples a color from a pre-normalized color gradient.
 ///
-/// Maps a score to a color by sampling the provided color gradient with
-/// discrete steps.
+/// Maps a score to a color by sampling the provided gradient at a
+/// position proportional to the score's position within [min-val,
+/// max-val].
 ///
 /// - score (int, float): The score value.
 /// - min-val (float): Minimum value of the scale.
 /// - max-val (float): Maximum value of the scale.
-/// - color-map (array, none): Array of colors or gradient stops.
-///   Returns none if color-map is none or empty.
-///   Returns a solid color if color-map contains one entry.
+/// - color-gradient (gradient, none): Pre-normalized color gradient.
+///   Returns none if color-gradient is none.
 /// -> color, none
-#let _get-score-color(score, min-val, max-val, color-map) = {
-  if color-map == none { return none }
-  if color-map.len() == 0 { return none }
-  if color-map.len() == 1 {
-    let single = color-map.at(0)
-    if type(single) == array and single.len() > 0 {
-      return single.at(0)
-    } else {
-      return single
-    }
-  }
+#let _sample-color-gradient(score, min-val, max-val, color-gradient) = {
+  if color-gradient == none { return none }
   let ratio = if max-val == min-val { 0.5 } else {
     (score - min-val) / (max-val - min-val)
   }
-  let clamped-ratio = calc.clamp(ratio, 0.0, 1.0)
-  let stop-count = color-map.len()
-  gradient.linear(..color-map).sharp(stop-count).sample(clamped-ratio * 100%)
+  color-gradient.sample(calc.clamp(ratio, 0.0, 1.0) * 100%)
 }
 
 /// Formats a score for display, handling infinity values.
@@ -271,9 +260,9 @@
 /// - label-bold (bool): Whether labels should be bold.
 /// - stroke (stroke, none): Stroke for data cells.
 /// - limits (dictionary): Min/max limits for color scaling.
-/// - color-map (array, none): Color gradient.
+/// - color-gradient (gradient, none): Pre-normalized color gradient.
 /// -> array: Grid cells emitted in final row-major order for `grid(..cells)`.
-#let _generate-cells(view, label-bold, stroke, limits, color-map) = {
+#let _generate-cells(view, label-bold, stroke, limits, color-gradient) = {
   let cells = ()
   let blank-cell = () => grid.cell(stroke: none)[]
 
@@ -283,7 +272,12 @@
 
   let make-data-cell = (i, j) => {
     let score = view.cell-values.at(i).at(j)
-    let bg = _get-score-color(score, limits.min, limits.max, color-map)
+    let bg = _sample-color-gradient(
+      score,
+      limits.min,
+      limits.max,
+      color-gradient,
+    )
     grid.cell(fill: bg, stroke: stroke)[#_format-score(score)]
   }
 
@@ -330,6 +324,30 @@
   cells
 }
 
+/// Normalizes a color-map parameter to a gradient or none.
+///
+/// Accepts an array of colors, a gradient, or none. An empty array
+/// is treated as none. A non-empty array is converted to a smooth
+/// linear gradient.
+///
+/// - colormap (array, gradient, none): Color-map input.
+/// -> gradient, none
+#let _resolve-colormap(colormap) = {
+  if colormap == none { return none }
+  if type(colormap) == array {
+    if colormap.len() == 0 { return none }
+    gradient.linear(..colormap)
+  } else if type(colormap) == gradient {
+    colormap
+  } else {
+    assert(
+      false,
+      message: "color-map must be an array, gradient, or none, got "
+        + repr(colormap) + ".",
+    )
+  }
+}
+
 /// Renders a scoring matrix as a visual grid.
 ///
 /// Supports optional color gradient mapping, triangle display modes, and
@@ -345,10 +363,9 @@
 /// - gutter (length): Spacing between cells (default: 0pt).
 /// - label-bold (bool): Whether alphabet labels should be bold (default: true).
 /// - stroke (stroke, none): Stroke style for data cells (default: none).
-/// - color-map (array, none): Array of colors or gradient stops for cell backgrounds.
-///   none or () disables cell background fill.
-///   A single entry uses a constant fill color for all cells.
-///   (default: diverging red-blue gradient).
+/// - color-map (array, gradient, none): Array of colors or a gradient
+///   for cell backgrounds. none or () disables cell background fill.
+///   (default: diverging red-blue color map).
 /// -> content
 #let render-scoring-matrix(
   scoring-matrix,
@@ -359,8 +376,9 @@
   gutter: 0pt,
   label-bold: true,
   stroke: none,
-  color-map: _diverging-gradient,
+  color-map: diverging-color-map,
 ) = {
+  let color-gradient = _resolve-colormap(color-map)
   let view = _prepare-scoring-matrix-view(
     scoring-matrix,
     symbols,
@@ -368,7 +386,7 @@
     cell-size,
   )
   let limits = _get-scale-limits(view.scale-values, scale-limit)
-  let cells = _generate-cells(view, label-bold, stroke, limits, color-map)
+  let cells = _generate-cells(view, label-bold, stroke, limits, color-gradient)
 
   block(breakable: false, grid(
     columns: view.grid-columns,
