@@ -1,9 +1,9 @@
-//! GFF3 parsing and filtering for genome-map inputs.
+//! GFF3 parsing and filtering.
 
 use bio::io::gff::{GffType, Reader, Record};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, HashSet};
 use std::io::Cursor;
 
 #[derive(Deserialize)]
@@ -134,7 +134,7 @@ fn strip_fasta_tail(input: &str) -> Cow<'_, str> {
     Cow::Borrowed(input)
 }
 
-fn build_feature_type_filter(feature_types: &Option<Vec<String>>) -> Option<BTreeSet<&str>> {
+fn build_feature_type_filter(feature_types: &Option<Vec<String>>) -> Option<HashSet<&str>> {
     feature_types
         .as_ref()
         .map(|types| types.iter().map(String::as_str).collect())
@@ -215,15 +215,6 @@ fn phase_to_wire(record: &Record, record_index: usize) -> Result<Option<u8>, Str
         .map_err(|_| format!("Invalid GFF3 phase in record {record_index}"))
 }
 
-fn hex_value(byte: u8) -> Option<u8> {
-    match byte {
-        b'0'..=b'9' => Some(byte - b'0'),
-        b'a'..=b'f' => Some(byte - b'a' + 10),
-        b'A'..=b'F' => Some(byte - b'A' + 10),
-        _ => None,
-    }
-}
-
 fn decode_gff3_percent_escapes(input: &str, context: &str) -> Result<String, String> {
     let bytes = input.as_bytes();
     if !bytes.contains(&b'%') {
@@ -245,15 +236,10 @@ fn decode_gff3_percent_escapes(input: &str, context: &str) -> Result<String, Str
             ));
         }
 
-        let high = hex_value(bytes[index + 1]);
-        let low = hex_value(bytes[index + 2]);
-        let (Some(high), Some(low)) = (high, low) else {
-            return Err(format!(
-                "Invalid GFF3 percent escape in {context}: expected two hexadecimal digits"
-            ));
-        };
-
-        decoded.push((high << 4) | low);
+        let byte_val = u8::from_str_radix(&input[index + 1..index + 3], 16).map_err(|_| {
+            format!("Invalid GFF3 percent escape in {context}: expected two hexadecimal digits")
+        })?;
+        decoded.push(byte_val);
         index += 3;
     }
 
@@ -297,12 +283,19 @@ fn first_attribute_value(attributes: &BTreeMap<String, Vec<String>>, key: &str) 
         .cloned()
 }
 
+/// Converts a GFF record into a `GenomeMapFeature`.
+///
+/// Takes `&mut Record` because `rust-bio` exposes the raw strand
+/// and score strings only through `strand_mut()` and `score_mut()`
+/// (the immutable `strand()`/`score()` accessors are lossy —
+/// they collapse ambiguous values and cannot represent
+/// floating-point scores, respectively).
 fn record_to_feature(
     record: &mut Record,
     record_index: usize,
     config: &ParseGffConfig,
     strand_filter: Option<StrandFilter>,
-    feature_type_filter: Option<&BTreeSet<&str>>,
+    feature_type_filter: Option<&HashSet<&str>>,
     range_filter: Option<&NormalizedRange>,
 ) -> Result<Option<GenomeMapFeature>, String> {
     let accession = decode_record_field(record.seqname(), record_index, "seqid")?;
