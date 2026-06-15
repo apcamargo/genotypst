@@ -343,7 +343,8 @@
     assert(
       false,
       message: "color-map must be an array, gradient, or none, got "
-        + repr(colormap) + ".",
+        + repr(colormap)
+        + ".",
     )
   }
 }
