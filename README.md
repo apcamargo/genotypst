@@ -102,7 +102,7 @@ To render a genomic locus, you can pass an array of genomic features to the `ren
 ```typst
 // Render a genome map containing five features
 #let locus = (
-  (start: 400, end: 1260, strand: 1, label: [A], color: rgb("#56B4E9")),
+  (start: 1, end: 1260, strand: 1, label: [A], color: rgb("#56B4E9")),
   (start: 1300, end: 2200, strand: 1, label: [B]),
   (start: 2250, end: 3460, strand: -1, label: [C], color: rgb("#E69F00")),
   (start: 3500, end: 3800, label: [D]),
