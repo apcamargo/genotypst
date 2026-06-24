@@ -220,7 +220,8 @@ fn main() {
     writeln!(
         f,
         "
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = \"UPPERCASE\")]
 pub(crate) enum BuiltinMatrix {{
     {}
 }}

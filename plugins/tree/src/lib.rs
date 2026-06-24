@@ -64,19 +64,17 @@ struct LayoutNodeWire {
 
 /// Typst-facing layout fit modes returned in prepared layout metadata.
 #[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "kebab-case")]
 enum LayoutFitModeWire {
-    #[serde(rename = "independent-axes")]
     IndependentAxes,
-    #[serde(rename = "uniform")]
     Uniform,
 }
 
 /// Typst-facing primitive mode tags used by prepared layout responses.
 #[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "kebab-case")]
 enum PrimitiveModeWire {
-    #[serde(rename = "rectangular")]
     Rectangular,
-    #[serde(rename = "edge-segments")]
     EdgeSegments,
 }
 
@@ -110,12 +108,16 @@ struct LayoutTreeWire {
 struct PrepareLayoutRequest {
     #[serde(rename = "tree-data")]
     tree_data: Value,
+    #[serde(default)]
     cladogram: bool,
     #[serde(rename = "suppress-unrooted")]
+    #[serde(default)]
     suppress_unrooted: bool,
     #[serde(rename = "hide-internal-labels")]
+    #[serde(default)]
     hide_internal_labels: bool,
     #[serde(rename = "layout-kind")]
+    #[serde(default)]
     layout_kind: LayoutKind,
 }
 
@@ -369,45 +371,49 @@ struct ComponentArcEntry {
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "kebab-case")]
 enum FitMode {
     IndependentAxes,
     Uniform,
 }
 
 /// Tree layout kind used on the Rust JSON wire boundary.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "kebab-case")]
 enum LayoutKind {
+    #[default]
     Rectangular,
     EqualAngle,
     Daylight,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "kebab-case")]
 enum Orientation {
+    #[default]
     Horizontal,
     Vertical,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "kebab-case")]
 enum WidthMode {
+    #[default]
     Auto,
     Resolved,
     Provisional,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "kebab-case")]
 enum HeightMode {
+    #[default]
     Auto,
     Resolved,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "kebab-case")]
 enum PlacementFrame {
     Screen,
     Local,
@@ -421,7 +427,7 @@ enum PlacementRole {
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "kebab-case")]
 enum XAlign {
     Left,
     Right,
@@ -429,7 +435,7 @@ enum XAlign {
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "kebab-case")]
 enum YAlign {
     Top,
     Bottom,
@@ -477,20 +483,29 @@ struct PreparedLabel {
 struct FitRequest {
     fit_mode: FitMode,
     layout_kind: LayoutKind,
+    #[serde(default)]
     orientation: Orientation,
     prepared_lines: Vec<PreparedLine>,
     prepared_labels: Vec<PreparedLabel>,
     root_tree_point: Point,
     tree_depth: f64,
     tree_height: f64,
+    #[serde(default)]
     width_mode: WidthMode,
+    #[serde(default)]
     viewport_width_pt: Option<f64>,
+    #[serde(default)]
     height_mode: HeightMode,
+    #[serde(default)]
     viewport_height_pt: Option<f64>,
+    #[serde(default)]
     auto_height_floor_pt: f64,
+    #[serde(default)]
     fit_band_samples: Option<usize>,
     fit_max_bands: usize,
+    #[serde(default)]
     optimize_uniform_rotation: bool,
+    #[serde(default)]
     align_tip_labels: bool,
 }
 

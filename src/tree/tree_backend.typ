@@ -1,17 +1,5 @@
 #let _tree-backend = plugin("tree.wasm")
 
-/// Converts a Typst-native layout-kind value to the Rust wire format.
-///
-/// - layout-kind (str): Typst-native layout kind.
-/// -> str
-#let _tree-layout-kind-to-backend(layout-kind) = {
-  if layout-kind == "equal-angle" {
-    "equal_angle"
-  } else {
-    layout-kind
-  }
-}
-
 /// Serializes a Typst point dictionary to the Rust pt-based wire form.
 ///
 /// - point (dictionary): Point with length-valued `x` / `y`.
@@ -86,12 +74,8 @@
 /// - payload (dictionary): Typst-native fit payload.
 /// -> dictionary
 #let _encode-tree-fit-request(payload) = (
-  fit_mode: if payload.fit-mode == "independent-axes" {
-    "independent_axes"
-  } else {
-    payload.fit-mode
-  },
-  layout_kind: _tree-layout-kind-to-backend(payload.layout-kind),
+  fit_mode: payload.fit-mode,
+  layout_kind: payload.layout-kind,
   orientation: payload.orientation,
   prepared_lines: payload.prepared-lines.map(_encode-fit-line),
   prepared_labels: payload.prepared-labels.map(_encode-fit-label),
@@ -168,7 +152,7 @@
     cladogram: cladogram,
     suppress-unrooted: suppress-unrooted,
     hide-internal-labels: hide-internal-labels,
-    layout-kind: _tree-layout-kind-to-backend(layout-kind),
+    layout-kind: layout-kind,
   ))))
   let decoded = json(result)
   let nodes = decoded.nodes.map(node => (
@@ -176,14 +160,7 @@
     label-id: node.at("label-id", default: none),
   ))
   decoded.insert("nodes", nodes)
-  decoded.insert(
-    "layout-kind",
-    if decoded.layout-kind == "equal_angle" {
-      "equal-angle"
-    } else {
-      decoded.layout-kind
-    },
-  )
+  decoded.insert("layout-kind", decoded.layout-kind)
   decoded
 }
 

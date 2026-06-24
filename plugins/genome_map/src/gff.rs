@@ -13,7 +13,7 @@ struct ParseGffConfig {
     #[serde(default)]
     range: Option<RangeFilter>,
     #[serde(default)]
-    strand: Option<String>,
+    strand: Option<StrandFilter>,
     #[serde(default)]
     exclude_partial: bool,
     #[serde(default = "default_label_attribute")]
@@ -27,7 +27,8 @@ struct RangeFilter {
     end: Option<u64>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
 enum StrandFilter {
     Positive,
     Negative,
@@ -82,14 +83,7 @@ impl ParseGffConfig {
     }
 
     fn strand_filter(&self) -> Result<Option<StrandFilter>, String> {
-        match self.strand.as_deref() {
-            None => Ok(None),
-            Some("positive") => Ok(Some(StrandFilter::Positive)),
-            Some("negative") => Ok(Some(StrandFilter::Negative)),
-            Some(other) => Err(format!(
-                "strand must be null, 'positive', or 'negative'; got '{other}'"
-            )),
-        }
+        Ok(self.strand)
     }
 }
 

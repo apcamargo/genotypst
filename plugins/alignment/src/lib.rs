@@ -16,12 +16,24 @@ use wasm_minimal_protocol::*;
 #[cfg(target_arch = "wasm32")]
 initiate_protocol!();
 
+#[derive(Deserialize, Default, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "kebab-case")]
+enum AlignMode {
+    #[default]
+    Global,
+    Local,
+}
+
 /// Configuration for alignment, deserialized from JSON.
 #[derive(Deserialize)]
 struct AlignConfig {
-    mode: String,
-    matrix: Option<String>,
+    #[serde(default)]
+    mode: AlignMode,
+    #[serde(default)]
+    matrix: Option<BuiltinMatrix>,
+    #[serde(default)]
     match_score: Option<i32>,
+    #[serde(default)]
     mismatch_score: Option<i32>,
     gap_open: i32,
     gap_extend: i32,
@@ -76,12 +88,8 @@ pub fn align(seq1: &[u8], seq2: &[u8], config: &[u8]) -> Result<Vec<u8>, String>
 
     config.validate().map_err(|e| e.to_string())?;
 
-    let scoring = if let Some(ref name) = config.matrix {
-        if let Some(bm) = BuiltinMatrix::from_name(name) {
-            ScoringConfig::with_matrix(bm, config.gap_open, config.gap_extend)
-        } else {
-            return Err(format!("Unknown matrix name: '{}'", name));
-        }
+    let scoring = if let Some(bm) = config.matrix {
+        ScoringConfig::with_matrix(bm, config.gap_open, config.gap_extend)
     } else {
         ScoringConfig::linear(
             config
@@ -95,17 +103,15 @@ pub fn align(seq1: &[u8], seq2: &[u8], config: &[u8]) -> Result<Vec<u8>, String>
         )
     };
 
-    let result = if config.mode.eq_ignore_ascii_case("global") {
-        let aligner = GlobalAligner::new(scoring);
-        aligner.align(seq1_str.as_bytes(), seq2_str.as_bytes())
-    } else if config.mode.eq_ignore_ascii_case("local") {
-        let aligner = LocalAligner::new(scoring);
-        aligner.align(seq1_str.as_bytes(), seq2_str.as_bytes())
-    } else {
-        return Err(format!(
-            "Unknown alignment mode '{}'. Use 'global' or 'local'.",
-            config.mode
-        ));
+    let result = match config.mode {
+        AlignMode::Global => {
+            let aligner = GlobalAligner::new(scoring);
+            aligner.align(seq1_str.as_bytes(), seq2_str.as_bytes())
+        }
+        AlignMode::Local => {
+            let aligner = LocalAligner::new(scoring);
+            aligner.align(seq1_str.as_bytes(), seq2_str.as_bytes())
+        }
     };
 
     match result {
