@@ -20,6 +20,6 @@
     start: 100,
     end: 135,
     colors: true,
-    conservation: true,
+    show-conservation: true,
   )
 }

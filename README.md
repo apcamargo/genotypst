@@ -82,7 +82,7 @@ A region of the multiple sequence alignment can be rendered with `render-msa`:
 // Render a multiple sequence alignment between positions 100 and 135
 #context {
   set text(size: 0.85em)
-  render-msa(protein_msa, start: 100, end: 135, colors: true, conservation: true)
+  render-msa(protein_msa, start: 100, end: 135, colors: true, show-conservation: true)
 }
 ```
 

@@ -112,7 +112,7 @@
 /// - start (int, none): Starting position (1-indexed, inclusive) (default: none).
 /// - end (int, none): Ending position (1-indexed, inclusive) (default: none).
 /// - colors (bool): Whether to color residues by chemical properties (default: false).
-/// - conservation (bool): Whether to show conservation bars (default: false).
+/// - show-conservation (bool): Whether to show conservation bars (default: false).
 /// - sampling-correction (bool): Whether to apply small sample correction (default: true).
 /// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna" (default: auto).
 /// - breakable (bool): Whether to allow blocks to break across pages (default: true).
@@ -125,7 +125,7 @@
   start: none,
   end: none,
   colors: false,
-  conservation: false,
+  show-conservation: false,
   sampling-correction: true,
   alphabet: auto,
   breakable: true,
@@ -156,7 +156,7 @@
   let actual-end = window.actual-end
 
   let max-bits = config.max-bits
-  let column-stats = if conservation {
+  let column-stats = if show-conservation {
     _collect-window-column-stats(
       sequences,
       actual-start,
@@ -178,7 +178,7 @@
       block-start => {
         let block-end = calc.min(block-start + max-seq-width, actual-end)
 
-        let conservation-row = if conservation {
+        let conservation-row = if show-conservation {
           let block-stats = column-stats.slice(
             block-start - actual-start,
             block-end - actual-start,

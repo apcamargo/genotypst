@@ -196,7 +196,7 @@ The `render-msa` function displays multiple sequence alignments with optional re
 In the example below:
 
 - `colors: true` enables residue coloring based on biochemical properties.
-- `conservation: true` adds conservation bars above the alignment.
+- `show-conservation: true` adds bars above the alignment columns to indicate the residue conservation at each position of the alignment.
 - `start: 100` and `end: 145` limit the display to a specific region of interest (residues 100 to 145).
 
 ```typ
@@ -209,7 +209,7 @@ In the example below:
     start: 100,
     end: 145,
     colors: true,
-    conservation: true,
+    show-conservation: true,
   )
 }
 ```
@@ -224,21 +224,21 @@ In the example below:
       start: 100,
       end: 145,
       colors: true,
-      conservation: true,
+      show-conservation: true,
     )
   },
-  caption: [MSA visualization for positions 100--145, with residue coloring and conservation bars enabled.],
+  caption: [MSA visualization for positions 100--145, with residue coloring and bars indicating indicating residue conservation.],
   supplement: none,
   kind: image,
 )
 
 Residue coloring represents amino acid physicochemical properties. The sequence alphabet (amino acid, DNA, or RNA) is determined automatically and a suitable color palette is applied.
 
-The bars above the alignment indicate the degree of conservation at each column.
+The bars above the alignment indicate the degree of residue conservation at each column.
 
 == Sequence logos
 
-Sequence logos @schneider_sequence_1990 summarize conservation patterns within a sequence alignment and are commonly used to visualize binding sites, motifs, and functional domains. In a sequence logo, the total height of each stack represents the information content (in bits) at that position, while the height of individual letters reflects their relative frequencies.
+Sequence logos @schneider_sequence_1990 are graphical summaries of residue variation and conservation across positions in a sequence alignment and are commonly used to visualize binding sites, motifs, and functional domains. In a sequence logo, the total height of each stack represents the information content (in bits) at that position, while individual letters are scaled according to their relative frequencies.
 
 In the example below, we visualize the same region as the MSA of the previous section.
 
