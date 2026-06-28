@@ -9,9 +9,7 @@
   _validate-alignment,
 )
 
-#let _logo-letter-size = 10pt
-#let _logo-letter-weight = "bold"
-#let _logo-letter-gap = 0.2pt
+#let _logo-letter-gap = 0.25pt
 
 /// Computes per-residue glyph heights for a sequence logo.
 ///
@@ -66,8 +64,7 @@
 /// -> content
 #let _make-logo-glyph(char, fill: black) = text(
   fill: fill,
-  size: _logo-letter-size,
-  weight: _logo-letter-weight,
+  weight: "bold",
   top-edge: "bounds",
   bottom-edge: "bounds",
   char,
