@@ -105,7 +105,7 @@
   (name: "Proline", symbols: ("P",), names: ("Proline",), abbrevs: ("Pro",)),
 )
 
-#let dna-rna-groups = (
+#let nt-groups = (
   (
     name: "DNA palette",
     symbols: ("A", "C", "G", "T"),

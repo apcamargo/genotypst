@@ -45,16 +45,16 @@
   max-bits: calc.log(4, base: 2.0),
   chars: _dna-residues,
   char-set: _make-membership-set(_dna-residues),
-  palette: _canonical-residue-palette.dna.default,
+  palette: _canonical-residue-palette.nt.default,
 )
 #let _rna-config = (
   size: 4,
   max-bits: calc.log(4, base: 2.0),
   chars: _rna-residues,
   char-set: _make-membership-set(_rna-residues),
-  palette: _canonical-residue-palette.rna.default,
+  palette: _canonical-residue-palette.nt.default,
 )
-#let _dna-rna-set = _make-membership-set(_dna-residues + _rna-residues)
+#let _nt-set = _make-membership-set(_dna-residues + _rna-residues)
 #let _all-known-set = _make-membership-set(
   _aa-residues + _dna-residues + _rna-residues,
 )
@@ -88,7 +88,7 @@
   )
 
   if observed-keys.any(char => (
-    char in _aa-config.char-set and char not in _dna-rna-set
+    char in _aa-config.char-set and char not in _nt-set
   )) {
     "aa"
   } else if "U" in observed-keys {

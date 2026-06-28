@@ -202,18 +202,28 @@
   "Y": rgb("#BAC1D2"),
 )
 
-#let _dna-palette = (
+#let _nt-palette = (
   "A": rgb("#00C990"),
   "C": rgb("#4D78FF"),
   "G": rgb("#FF07B8"),
   "T": rgb("#F59116"),
+  "U": rgb("#494E5B"),
 )
 
-#let _rna-palette = (
-  "A": rgb("#00C990"),
-  "C": rgb("#4D78FF"),
-  "G": rgb("#FF07B8"),
-  "U": rgb("#F59116"),
+#let _gc-palette = (
+  "A": rgb("#4D78FF"),
+  "C": rgb("#E44356"),
+  "G": rgb("#E44356"),
+  "T": rgb("#4D78FF"),
+  "U": rgb("#4D78FF"),
+)
+
+#let _purine-pyrimidine-palette = (
+  "A": rgb("#BAC1D2"),
+  "C": rgb("#494E5B"),
+  "G": rgb("#BAC1D2"),
+  "T": rgb("#494E5B"),
+  "U": rgb("#494E5B"),
 )
 
 #let _canonical-residue-palette = (
@@ -227,16 +237,15 @@
     takabatake7: _aa-palette-takabatake7,
     takabatake8: _aa-palette-takabatake8,
   ),
-  dna: (
-    default: _dna-palette,
-  ),
-  rna: (
-    default: _rna-palette,
+  nt: (
+    default: _nt-palette,
+    gc: _gc-palette,
+    purine: _purine-pyrimidine-palette,
   ),
 )
 
 #let residue-palette = (
   aa: _with-lowercase-palette-group(_canonical-residue-palette.aa),
-  dna: _with-lowercase-palette-group(_canonical-residue-palette.dna),
-  rna: _with-lowercase-palette-group(_canonical-residue-palette.rna),
+  dna: _with-lowercase-palette-group(_canonical-residue-palette.nt),
+  rna: _with-lowercase-palette-group(_canonical-residue-palette.nt),
 )

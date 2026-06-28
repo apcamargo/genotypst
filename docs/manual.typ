@@ -1,5 +1,5 @@
 #import "../src/lib.typ": *
-#import "template.typ": aa-groups, dna-rna-groups, project, render-palette-group
+#import "template.typ": aa-groups, nt-groups, project, render-palette-group
 
 #show: project.with(
   title: "genotypst: A bioinformatics Typst package for sequence analysis and visualization",
@@ -281,7 +281,7 @@ The DNA and RNA palettes assign a distinct color to each nucleotide.
   column-gutter: 3em,
   align: left,
   inset: (y: 0.8em),
-  ..dna-rna-groups.map(render-palette-group)
+  ..nt-groups.map(render-palette-group)
 ))
 
 = Rendering genome maps and parsing GFF3 files
@@ -660,8 +660,7 @@ If you want to use an alternative palette to color residues, you can provide a d
 
 The following palettes are available:
 - *Protein:* `default` (8 colors), `dayhoff` (6), `zappo` (7), `takabatake4` (4), `takabatake5` (5), `takabatake6` (6), `takabatake7` (7), and `takabatake8` (8) @takabatake_improved_2021.
-- *DNA:* `default` (4)
-- *RNA:* `default` (4)
+- *DNA/RNA:* `default` (4), `gc` (2), `purine-pyrimidine` (2)
 
 For example, to use the Dayhoff amino acid color palette in a sequence logo:
 
