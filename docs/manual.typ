@@ -35,19 +35,19 @@ Use `render-fasta` to display sequences in the standard FASTA format.
 ```typ
 #context {
   set text(size: 0.8em)
-  render-fasta(sequences, max-width: 50)
+  render-fasta(sequences, max-line-length: 50)
 }
 ```
 
 #align(
   box(context {
     set text(size: 0.8em)
-    render-fasta(sequences, max-width: 50)
+    render-fasta(sequences, max-line-length: 50)
   }),
   center,
 )
 
-In this example, `max-width` controls how many characters appear per line (default is 60).
+In this example, `max-line-length` controls how many residues are shown per line (default is 60).
 
 == Pairwise sequence alignment
 

@@ -69,7 +69,7 @@
 /// - seq (str): The full sequence string.
 /// - block-start (int): Starting position of the block (0-indexed).
 /// - block-end (int): Ending position of the block (0-indexed, exclusive).
-/// - max-acc-width (int): Maximum width for accession display.
+/// - max-label-length (int): Maximum number of row-label characters to display.
 /// - colors (bool): Whether to color residues.
 /// - palette (dictionary): Color palette for residues.
 /// - consensus-chars (array, none): Consensus residue characters for this block.
@@ -81,13 +81,13 @@
   seq,
   block-start,
   block-end,
-  max-acc-width,
+  max-label-length,
   colors,
   palette,
   consensus-chars: none,
 ) = {
-  let display-acc = if acc.len() > max-acc-width {
-    acc.slice(0, max-acc-width - 1) + "…"
+  let display-acc = if acc.len() > max-label-length {
+    acc.slice(0, max-label-length - 1) + "…"
   } else {
     acc
   }
@@ -263,13 +263,14 @@
 
 /// Renders a multiple sequence alignment.
 ///
-/// Sequences are displayed in blocks of up to `max-seq-width` characters to fit
-/// within the document. Can also show residue colors, a consensus sequence, and
-/// conservation scores. Empty alignments render nothing and return `none`.
+/// Sequences are displayed in blocks of up to `max-line-length` residues
+/// Can also show residue colors, a consensus sequence, and bars above that
+/// indicate conservation at each column of the alignment. Empty alignments
+/// render nothing and return `none`.
 ///
 /// - alignment (dictionary): Dictionary mapping sequence identifiers to aligned sequences.
-/// - max-acc-width (int): Maximum width for accession display (default: 20).
-/// - max-seq-width (int): Maximum characters per line in a block (default: 50).
+/// - max-label-length (int): Maximum number of characters to display before truncating sequence identifiers (default: 25).
+/// - max-line-length (int): Maximum number of alignment columns per rendered block (default: 50).
 /// - start (int, none): Starting position (1-indexed, inclusive) (default: none).
 /// - end (int, none): Ending position (1-indexed, inclusive) (default: none).
 /// - colors (bool): Whether to color residues by chemical properties (default: false).
@@ -284,8 +285,8 @@
 /// -> content, none
 #let render-msa(
   alignment,
-  max-acc-width: 20,
-  max-seq-width: 50,
+  max-label-length: 25,
+  max-line-length: 50,
   start: none,
   end: none,
   colors: false,
@@ -371,9 +372,9 @@
     let outset-y = leading / 2
     let box-width = char-width + 0.03em
 
-    let blocks = range(render-start, render-end, step: max-seq-width).map(
+    let blocks = range(render-start, render-end, step: max-line-length).map(
       block-start => {
-        let block-end = calc.min(block-start + max-seq-width, render-end)
+        let block-end = calc.min(block-start + max-line-length, render-end)
         let relative-start = block-start - render-start
         let relative-end = block-end - render-start
         let consensus-chars = if consensus-coloring-enabled {
@@ -420,7 +421,7 @@
               seq,
               block-start,
               block-end,
-              max-acc-width,
+              max-label-length,
               colors,
               palette-to-use,
               consensus-chars: consensus-chars,

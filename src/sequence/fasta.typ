@@ -58,16 +58,16 @@
 }
 
 /// Renders a dictionary of sequences in FASTA format for display.
-/// Sequences are wrapped at `max-width` characters per line.
+/// Sequences are wrapped after `max-line-length` residues.
 ///
 /// - sequences (dictionary): Dictionary mapping sequence identifiers to sequences.
-/// - max-width (int): Maximum characters per line (default: 60).
+/// - max-line-length (int): Maximum number of residues per rendered line (default: 60).
 /// - bold-header (bool): Whether to render sequence headers in bold (default: false).
 /// - entry-spacing (length, none): Vertical spacing between entries. Defaults to line spacing when `none` (default: none).
 /// -> content
 #let render-fasta(
   sequences,
-  max-width: 60,
+  max-line-length: 60,
   bold-header: false,
   entry-spacing: none,
 ) = {
@@ -90,8 +90,8 @@
 
       if seq.len() == 0 { continue }
 
-      for i in range(0, seq.len(), step: max-width) {
-        let segment = seq.slice(i, calc.min(i + max-width, seq.len()))
+      for i in range(0, seq.len(), step: max-line-length) {
+        let segment = seq.slice(i, calc.min(i + max-line-length, seq.len()))
         lines.push(render-segment(segment))
       }
 
