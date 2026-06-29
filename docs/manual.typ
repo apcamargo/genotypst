@@ -659,7 +659,7 @@ By default, the visualizations produced by `genotypst` are rendered using the de
 If you want to use an alternative palette to color residues, you can provide a dictionary to the `palette` parameter of `render-msa` and `render-sequence-logo`. The provided palette can be either custom or one provided by `genotypst` under `residue-palette`.
 
 The following palettes are available:
-- *Protein:* `default` (8 colors), `dayhoff` (6), `zappo` (7), `takabatake4` (4), `takabatake5` (5), `takabatake6` (6), `takabatake7` (7), and `takabatake8` (8) @takabatake_improved_2021.
+- *Protein:* `default` (8 colors), `dayhoff` (6), `zappo` (7), `takabatake4` (4) @takabatake_improved_2021, `takabatake5` (5), `takabatake6` (6), `takabatake7` (7), `takabatake8` (8), `charge` (3), and `hydropathy` (4).
 - *DNA/RNA:* `default` (4), `gc` (2), `purine-pyrimidine` (2)
 
 For example, to use the Dayhoff amino acid color palette in a sequence logo:

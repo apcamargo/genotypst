@@ -202,7 +202,53 @@
   "Y": rgb("#BAC1D2"),
 )
 
-#let _nt-palette = (
+#let _aa-palette-charge = (
+  "A": rgb("#BAC1D2"),
+  "C": rgb("#BAC1D2"),
+  "D": rgb("#E44356"),
+  "E": rgb("#E44356"),
+  "F": rgb("#BAC1D2"),
+  "G": rgb("#BAC1D2"),
+  "H": rgb("#4D78FF"),
+  "I": rgb("#BAC1D2"),
+  "K": rgb("#4D78FF"),
+  "L": rgb("#BAC1D2"),
+  "M": rgb("#BAC1D2"),
+  "N": rgb("#BAC1D2"),
+  "P": rgb("#BAC1D2"),
+  "Q": rgb("#BAC1D2"),
+  "R": rgb("#4D78FF"),
+  "S": rgb("#BAC1D2"),
+  "T": rgb("#BAC1D2"),
+  "V": rgb("#BAC1D2"),
+  "W": rgb("#BAC1D2"),
+  "Y": rgb("#BAC1D2"),
+)
+
+#let _aa-palette-hydropathy = (
+  "A": rgb("#BAC1D2"),
+  "C": rgb("#F59116"),
+  "D": rgb("#E44356"),
+  "E": rgb("#E44356"),
+  "F": rgb("#BAC1D2"),
+  "G": rgb("#F59116"),
+  "H": rgb("#4D78FF"),
+  "I": rgb("#BAC1D2"),
+  "K": rgb("#4D78FF"),
+  "L": rgb("#BAC1D2"),
+  "M": rgb("#BAC1D2"),
+  "N": rgb("#F59116"),
+  "P": rgb("#BAC1D2"),
+  "Q": rgb("#F59116"),
+  "R": rgb("#4D78FF"),
+  "S": rgb("#F59116"),
+  "T": rgb("#F59116"),
+  "V": rgb("#BAC1D2"),
+  "W": rgb("#BAC1D2"),
+  "Y": rgb("#F59116"),
+)
+
+#let _nt-palette-default = (
   "A": rgb("#00C990"),
   "C": rgb("#4D78FF"),
   "G": rgb("#FF07B8"),
@@ -210,7 +256,7 @@
   "U": rgb("#494E5B"),
 )
 
-#let _gc-palette = (
+#let _nt-palette-gc = (
   "A": rgb("#4D78FF"),
   "C": rgb("#E44356"),
   "G": rgb("#E44356"),
@@ -218,7 +264,7 @@
   "U": rgb("#4D78FF"),
 )
 
-#let _purine-pyrimidine-palette = (
+#let _nt-palette-purine-pyrimidine = (
   "A": rgb("#BAC1D2"),
   "C": rgb("#494E5B"),
   "G": rgb("#BAC1D2"),
@@ -236,11 +282,13 @@
     takabatake6: _aa-palette-takabatake6,
     takabatake7: _aa-palette-takabatake7,
     takabatake8: _aa-palette-takabatake8,
+    charge: _aa-palette-charge,
+    hydropathy: _aa-palette-hydropathy,
   ),
   nt: (
-    default: _nt-palette,
-    gc: _gc-palette,
-    purine: _purine-pyrimidine-palette,
+    default: _nt-palette-default,
+    gc: _nt-palette-gc,
+    purine-pyrimidine: _nt-palette-purine-pyrimidine,
   ),
 )
 
