@@ -137,6 +137,130 @@
   (acc, seq-content)
 }
 
+/// Resolves the minimum column occupancy threshold to a float.
+///
+/// - minimum-column-occupancy (ratio, float): Minimum occupancy threshold.
+/// -> float
+#let _resolve-minimum-column-occupancy(minimum-column-occupancy) = {
+  assert(
+    type(minimum-column-occupancy) == ratio
+      or type(minimum-column-occupancy) == float,
+    message: "minimum-column-occupancy must be a ratio or a float.",
+  )
+
+  let normalized = if type(minimum-column-occupancy) == ratio {
+    assert(
+      minimum-column-occupancy <= 100%,
+      message: "minimum-column-occupancy must be <= 100%.",
+    )
+    minimum-column-occupancy / 100%
+  } else {
+    assert(
+      minimum-column-occupancy <= 1.0,
+      message: "minimum-column-occupancy must be <= 1.0.",
+    )
+    minimum-column-occupancy
+  }
+  calc.max(0.0, normalized)
+}
+
+/// Filters column statistics by a minimum occupancy threshold.
+///
+/// - column-stats (array): Prepared per-column statistics.
+/// - num-sequences (int): Total number of sequences in the alignment.
+/// - threshold (float): Minimum occupancy threshold.
+/// -> dictionary with keys:
+///   - offsets (array): Kept column offsets within the original window.
+///   - column-stats (array): Kept column statistics.
+#let _filter-msa-column-stats(column-stats, num-sequences, threshold) = {
+  let offsets = ()
+  let kept-stats = ()
+
+  for item in column-stats.enumerate() {
+    let (offset, stats) = item
+    if stats.total-non-gap / num-sequences >= threshold {
+      offsets.push(offset)
+      kept-stats.push(stats)
+    }
+  }
+
+  (offsets: offsets, column-stats: kept-stats)
+}
+
+/// Builds a filtered sequence from retained column offsets.
+///
+/// - seq (str): Original aligned sequence.
+/// - start (int): Original window start position.
+/// - offsets (array): Kept column offsets within the original window.
+/// -> str
+#let _filter-msa-sequence(seq, start, offsets) = {
+  let chars = ()
+  for offset in offsets {
+    chars.push(seq.at(start + offset))
+  }
+  chars.join("", default: "")
+}
+
+/// Filters aligned sequence pairs by retained column offsets.
+///
+/// - pairs (array): Alignment pairs.
+/// - start (int): Original window start position.
+/// - offsets (array): Kept column offsets within the original window.
+/// -> array
+#let _filter-msa-pairs(pairs, start, offsets) = {
+  pairs.map(p => {
+    let (acc, seq) = p
+    (acc, _filter-msa-sequence(seq, start, offsets))
+  })
+}
+
+/// Prepares the sequence rows, column stats, and coordinate range to render.
+///
+/// - pairs (array): Alignment pairs.
+/// - actual-start (int): Original window start position.
+/// - actual-end (int): Original window end position.
+/// - raw-column-stats (array): Prepared per-column statistics for the resolved window.
+/// - num-sequences (int): Total number of sequences in the alignment.
+/// - occupancy-threshold (float): Minimum occupancy threshold.
+/// -> dictionary with keys:
+///   - pairs (array): Alignment pairs to render.
+///   - column-stats (array): Column statistics to render.
+///   - render-start (int): Render coordinate start.
+///   - render-end (int): Render coordinate end.
+#let _prepare-msa-render-view(
+  pairs,
+  actual-start,
+  actual-end,
+  raw-column-stats,
+  num-sequences,
+  occupancy-threshold,
+) = {
+  if occupancy-threshold <= 0.0 {
+    (
+      pairs: pairs,
+      column-stats: raw-column-stats,
+      render-start: actual-start,
+      render-end: actual-end,
+    )
+  } else {
+    let filtered = _filter-msa-column-stats(
+      raw-column-stats,
+      num-sequences,
+      occupancy-threshold,
+    )
+    if filtered.offsets.len() == 0 {
+      none
+    } else {
+      (
+        pairs: _filter-msa-pairs(pairs, actual-start, filtered.offsets),
+        column-stats: filtered.column-stats,
+        render-start: 0,
+        render-end: filtered.offsets.len(),
+      )
+    }
+  }
+}
+
 /// Renders a multiple sequence alignment.
 ///
 /// Sequences are displayed in blocks of up to `max-seq-width` characters to fit
@@ -152,6 +276,7 @@
 /// - show-consensus-sequence (bool): Whether to show a consensus sequence (default: false).
 /// - color-consensus-only (bool): Whether to color only consensus residues (default: false).
 /// - show-conservation (bool): Whether to show conservation bars (default: false).
+/// - minimum-column-occupancy (ratio, float): Hide columns with occupancy below this threshold (default: 0%).
 /// - sampling-correction (bool): Whether to apply small sample correction (default: true).
 /// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna" (default: auto).
 /// - breakable (bool): Whether to allow blocks to break across pages (default: true).
@@ -167,6 +292,7 @@
   show-consensus-sequence: false,
   color-consensus-only: false,
   show-conservation: false,
+  minimum-column-occupancy: 0%,
   sampling-correction: true,
   alphabet: auto,
   breakable: true,
@@ -175,6 +301,9 @@
   let pairs = alignment.pairs()
   if pairs.len() == 0 { return }
 
+  let occupancy-threshold = _resolve-minimum-column-occupancy(
+    minimum-column-occupancy,
+  )
   _validate-alignment(alignment)
   let sequences = alignment.values()
   let total-max-len = sequences.first().len()
@@ -196,11 +325,14 @@
   let actual-start = window.actual-start
   let actual-end = window.actual-end
 
+  let filter-columns = occupancy-threshold > 0.0
   let max-bits = config.max-bits
   let consensus-coloring-enabled = colors and color-consensus-only
   let needs-consensus = show-consensus-sequence or consensus-coloring-enabled
-  let needs-column-stats = show-conservation or needs-consensus
-  let column-stats = if needs-column-stats {
+  let needs-column-stats = (
+    show-conservation or needs-consensus or filter-columns
+  )
+  let raw-column-stats = if needs-column-stats {
     _collect-window-column-stats(
       sequences,
       actual-start,
@@ -212,6 +344,21 @@
   } else {
     ()
   }
+
+  let render-view = _prepare-msa-render-view(
+    pairs,
+    actual-start,
+    actual-end,
+    raw-column-stats,
+    sequences.len(),
+    occupancy-threshold,
+  )
+  if render-view == none { return }
+  let render-pairs = render-view.pairs
+  let column-stats = render-view.column-stats
+  let render-start = render-view.render-start
+  let render-end = render-view.render-end
+
   let consensus-sequence = if needs-consensus {
     _compute-consensus-sequence(column-stats)
   } else {
@@ -224,11 +371,11 @@
     let outset-y = leading / 2
     let box-width = char-width + 0.03em
 
-    let blocks = range(actual-start, actual-end, step: max-seq-width).map(
+    let blocks = range(render-start, render-end, step: max-seq-width).map(
       block-start => {
-        let block-end = calc.min(block-start + max-seq-width, actual-end)
-        let relative-start = block-start - actual-start
-        let relative-end = block-end - actual-start
+        let block-end = calc.min(block-start + max-seq-width, render-end)
+        let relative-start = block-start - render-start
+        let relative-end = block-end - render-start
         let consensus-chars = if consensus-coloring-enabled {
           consensus-sequence.slice(relative-start, relative-end).clusters()
         } else {
@@ -265,7 +412,7 @@
           ()
         }
 
-        let sequence-rows = pairs
+        let sequence-rows = render-pairs
           .map(p => {
             let (acc, seq) = p
             let row = _render-msa-sequence-row(

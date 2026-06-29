@@ -227,7 +227,7 @@ In the example below:
       show-conservation: true,
     )
   },
-  caption: [MSA visualization for positions 100--145, with residue coloring and bars indicating residue conservation.],
+  caption: [MSA visualization for positions 100--145, with residue coloring, and bars indicating residue conservation.],
   supplement: none,
   kind: image,
 )
