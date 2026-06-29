@@ -191,7 +191,7 @@ You can render the entire scoring matrix using `render-scoring-matrix` function.
 
 == Multiple sequence alignments
 
-The `render-msa` function displays multiple sequence alignments with optional residue coloring and conservation bars.
+The `render-msa` function displays multiple sequence alignments and can optionally color residues, show the consensus sequence, and display residue conservation.
 
 In the example below:
 
@@ -227,7 +227,7 @@ In the example below:
       show-conservation: true,
     )
   },
-  caption: [MSA visualization for positions 100--145, with residue coloring and bars indicating indicating residue conservation.],
+  caption: [MSA visualization for positions 100--145, with residue coloring and bars indicating residue conservation.],
   supplement: none,
   kind: image,
 )

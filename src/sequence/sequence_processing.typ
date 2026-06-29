@@ -96,19 +96,55 @@
 /// -> dictionary with keys:
 ///   - counts (dictionary): Counts of valid characters at the column.
 ///   - total-non-gap (int): Total count of valid non-gap characters.
+///   - residue-order (array): Valid residues in first-seen sequence order.
 #let _get-column-stats(sequences, pos, alphabet-config) = {
   let counts = (:)
   let total-non-gap = 0
+  let residue-order = ()
   for seq in sequences {
     if pos < seq.len() {
       let char = upper(seq.at(pos))
       if char in alphabet-config.char-set {
+        if not (char in counts) {
+          residue-order.push(char)
+        }
         counts.insert(char, counts.at(char, default: 0) + 1)
         total-non-gap += 1
       }
     }
   }
-  (counts: counts, total-non-gap: total-non-gap)
+  (
+    counts: counts,
+    total-non-gap: total-non-gap,
+    residue-order: residue-order,
+  )
+}
+
+/// Computes the consensus sequence from pre-computed column statistics.
+///
+/// For each column, selects the most frequent valid residue. Ties are resolved
+/// by the first-seen residue order captured in the column statistics. Columns
+/// without valid residues are represented as gaps (`-`). The input is assumed
+/// to come from a validated MSA.
+///
+/// - column-stats (array): Prepared per-column statistics.
+/// -> str
+#let _compute-consensus-sequence(column-stats) = {
+  let consensus = ()
+  for stats in column-stats {
+    let best-char = "-"
+    let best-count = 0
+    let residue-order = stats.residue-order
+    for char in residue-order {
+      let count = stats.counts.at(char)
+      if count > best-count {
+        best-char = char
+        best-count = count
+      }
+    }
+    consensus.push(best-char)
+  }
+  consensus.join("", default: "")
 }
 
 /// Collects column statistics for a contiguous alignment window.
@@ -118,9 +154,11 @@
 /// - end (int): Window end position (0-indexed, exclusive).
 /// - alphabet-config (dictionary): Canonical alphabet configuration.
 /// - sampling-correction (bool): Apply small sample correction.
+/// - compute-conservation (bool): Compute conservation values.
 /// -> array of dictionaries with keys:
 ///   - counts (dictionary): Counts of valid characters at each column.
 ///   - total-non-gap (int): Total count of valid non-gap characters at each column.
+///   - residue-order (array): Valid residues in first-seen sequence order.
 ///   - conservation (float): Occupancy-scaled information content for each column.
 #let _collect-window-column-stats(
   sequences,
@@ -128,6 +166,7 @@
   end,
   alphabet-config,
   sampling-correction,
+  compute-conservation: true,
 ) = {
   let num-sequences = sequences.len()
   range(start, end).map(pos => {
@@ -135,14 +174,19 @@
     (
       counts: stats.counts,
       total-non-gap: stats.total-non-gap,
-      conservation: _compute-sequence-conservation(
-        stats.counts,
-        stats.total-non-gap,
-        num-sequences,
-        sampling-correction,
-        alphabet-config.max-bits,
-        alphabet-config.size,
-      ),
+      residue-order: stats.residue-order,
+      conservation: if compute-conservation {
+        _compute-sequence-conservation(
+          stats.counts,
+          stats.total-non-gap,
+          num-sequences,
+          sampling-correction,
+          alphabet-config.max-bits,
+          alphabet-config.size,
+        )
+      } else {
+        0.0
+      },
     )
   })
 }
@@ -204,7 +248,7 @@
 /// - palette (auto, dictionary): Requested palette or `auto` for the default.
 /// - config (dictionary): Canonical alphabet configuration with a `palette` field.
 /// - sequences (array): Array of sequence strings.
-/// - enabled (bool): Whether coloring is enabled (default: true).
+/// - enabled (bool): Whether coloring is enabled.
 /// -> dictionary
 #let _resolve-palette(palette, config, sequences, enabled: true) = {
   if not enabled { return (:) }

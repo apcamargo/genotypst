@@ -15,12 +15,12 @@
 /// measured from the current font using the wider of "W" and "M".
 ///
 /// - rows (array): 2D array of cell contents or dictionaries.
-/// - cell-width (length, none): Fixed cell width (default: none).
-/// - row-heights (array, none): Row heights (default: none).
-/// - column-gutter (length): Column gap (default: 0pt).
-/// - row-gutter (length): Row gap (default: 0pt).
-/// - cell-outset (dictionary, none): Outset applied to each cell (default: none).
-/// - cell-align (alignment): Cell content alignment (default: center + horizon).
+/// - cell-width (length, none): Fixed cell width.
+/// - row-heights (array, none): Row heights.
+/// - column-gutter (length): Column gap.
+/// - row-gutter (length): Row gap.
+/// - cell-outset (dictionary, none): Outset applied to each cell.
+/// - cell-align (alignment): Cell content alignment.
 /// Empty input renders nothing and returns `none`.
 /// -> content, none
 #let _fixed-width-grid(

@@ -60,7 +60,7 @@
 /// Builds the unscaled glyph used for sequence-logo letters.
 ///
 /// - char (str): Residue character to render.
-/// - fill (color): Glyph color (default: black).
+/// - fill (color): Glyph color.
 /// -> content
 #let _make-logo-glyph(char, fill: black) = text(
   fill: fill,

@@ -451,7 +451,7 @@
 /// - unit (str, none): Unit suffix.
 /// - axis-color (color, none): Axis label color.
 /// - axis-stroke (stroke): Stroke styling.
-/// - axis-left (length): Left offset for axis line and ticks (default: 0pt).
+/// - axis-left (length): Left offset for axis line and ticks.
 /// -> content, none
 #let _draw-coordinate-axis(
   coordinate-axis,

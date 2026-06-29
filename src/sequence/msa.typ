@@ -3,8 +3,8 @@
 #import "../common/interval.typ": _resolve-1indexed-window
 #import "./sequence_alphabet.typ": _resolve-alphabet-config
 #import "./sequence_processing.typ": (
-  _collect-window-column-stats, _lookup-palette-color, _resolve-palette,
-  _validate-alignment,
+  _collect-window-column-stats, _compute-consensus-sequence,
+  _lookup-palette-color, _resolve-palette, _validate-alignment,
 )
 
 /// Renders a single character in an MSA with optional coloring.
@@ -12,11 +12,14 @@
 /// - char (str): The character to render.
 /// - colors (bool): Whether to apply coloring.
 /// - palette (dictionary): Color palette for residues.
+/// - use-palette (bool): Whether to use residue palette colors.
 /// -> dictionary with keys:
 ///   - body (content): Rendered character content.
 ///   - fill (color, none): Optional background fill color.
-#let _render-msa-character(char, colors, palette) = {
-  let base-color = if colors { _lookup-palette-color(palette, char) } else {
+#let _render-msa-character(char, colors, palette, use-palette: true) = {
+  let base-color = if colors and use-palette {
+    _lookup-palette-color(palette, char)
+  } else {
     none
   }
   if base-color != none {
@@ -69,6 +72,7 @@
 /// - max-acc-width (int): Maximum width for accession display.
 /// - colors (bool): Whether to color residues.
 /// - palette (dictionary): Color palette for residues.
+/// - consensus-chars (array, none): Consensus residue characters for this block.
 /// -> array with:
 ///   - The accession text (content)
 ///   - The rendered sequence segment (array)
@@ -80,6 +84,7 @@
   max-acc-width,
   colors,
   palette,
+  consensus-chars: none,
 ) = {
   let display-acc = if acc.len() > max-acc-width {
     acc.slice(0, max-acc-width - 1) + "…"
@@ -95,16 +100,48 @@
 
   let rendered-seq = segment
     .clusters()
-    .map(char => _render-msa-character(char, colors, palette))
+    .enumerate()
+    .map(item => {
+      let (index, char) = item
+      let use-palette = if consensus-chars != none {
+        (
+          index < consensus-chars.len()
+            and upper(char) == upper(consensus-chars.at(index))
+        )
+      } else {
+        true
+      }
+      _render-msa-character(char, colors, palette, use-palette: use-palette)
+    })
 
   (display-acc, rendered-seq)
 }
 
-/// Renders a multiple sequence alignment in blocks.
+/// Renders prepared MSA cells as a fixed-width grid row.
 ///
-/// Supports optional residue coloring and conservation bars. Sequences are
-/// displayed in blocks of `max-seq-width` characters to fit within the
-/// document. Empty alignments render nothing and return `none`.
+/// - acc (content, str): Row label.
+/// - seq-cells (array): Rendered sequence cells.
+/// - cell-width (length): Width of each character cell.
+/// - cell-outset-y (length): Vertical cell outset.
+/// -> array with:
+///   - The row label
+///   - The rendered sequence grid
+#let _render-msa-row(acc, seq-cells, cell-width, cell-outset-y) = {
+  let seq-content = if seq-cells.len() == 0 { [] } else {
+    _fixed-width-grid(
+      (seq-cells,),
+      cell-width: cell-width,
+      cell-outset: (y: cell-outset-y),
+    )
+  }
+  (acc, seq-content)
+}
+
+/// Renders a multiple sequence alignment.
+///
+/// Sequences are displayed in blocks of up to `max-seq-width` characters to fit
+/// within the document. Can also show residue colors, a consensus sequence, and
+/// conservation scores. Empty alignments render nothing and return `none`.
 ///
 /// - alignment (dictionary): Dictionary mapping sequence identifiers to aligned sequences.
 /// - max-acc-width (int): Maximum width for accession display (default: 20).
@@ -112,6 +149,8 @@
 /// - start (int, none): Starting position (1-indexed, inclusive) (default: none).
 /// - end (int, none): Ending position (1-indexed, inclusive) (default: none).
 /// - colors (bool): Whether to color residues by chemical properties (default: false).
+/// - show-consensus-sequence (bool): Whether to show a consensus sequence (default: false).
+/// - color-consensus-only (bool): Whether to color only consensus residues (default: false).
 /// - show-conservation (bool): Whether to show conservation bars (default: false).
 /// - sampling-correction (bool): Whether to apply small sample correction (default: true).
 /// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna" (default: auto).
@@ -125,6 +164,8 @@
   start: none,
   end: none,
   colors: false,
+  show-consensus-sequence: false,
+  color-consensus-only: false,
   show-conservation: false,
   sampling-correction: true,
   alphabet: auto,
@@ -156,16 +197,25 @@
   let actual-end = window.actual-end
 
   let max-bits = config.max-bits
-  let column-stats = if show-conservation {
+  let consensus-coloring-enabled = colors and color-consensus-only
+  let needs-consensus = show-consensus-sequence or consensus-coloring-enabled
+  let needs-column-stats = show-conservation or needs-consensus
+  let column-stats = if needs-column-stats {
     _collect-window-column-stats(
       sequences,
       actual-start,
       actual-end,
       config,
       sampling-correction,
+      compute-conservation: show-conservation,
     )
   } else {
     ()
+  }
+  let consensus-sequence = if needs-consensus {
+    _compute-consensus-sequence(column-stats)
+  } else {
+    ""
   }
 
   context {
@@ -177,11 +227,18 @@
     let blocks = range(actual-start, actual-end, step: max-seq-width).map(
       block-start => {
         let block-end = calc.min(block-start + max-seq-width, actual-end)
+        let relative-start = block-start - actual-start
+        let relative-end = block-end - actual-start
+        let consensus-chars = if consensus-coloring-enabled {
+          consensus-sequence.slice(relative-start, relative-end).clusters()
+        } else {
+          none
+        }
 
         let conservation-row = if show-conservation {
           let block-stats = column-stats.slice(
-            block-start - actual-start,
-            block-end - actual-start,
+            relative-start,
+            relative-end,
           )
           let bars = _render-msa-conservation-row(
             block-stats,
@@ -189,6 +246,21 @@
             box-width,
           )
           ([], bars)
+        } else {
+          ()
+        }
+
+        let consensus-row = if show-consensus-sequence {
+          let row = _render-msa-sequence-row(
+            "Consensus",
+            consensus-sequence,
+            relative-start,
+            relative-end,
+            "Consensus".len(),
+            colors,
+            palette-to-use,
+          )
+          _render-msa-row(row.at(0), row.at(1), box-width, outset-y)
         } else {
           ()
         }
@@ -204,16 +276,9 @@
               max-acc-width,
               colors,
               palette-to-use,
+              consensus-chars: consensus-chars,
             )
-            let seq-cells = row.at(1)
-            let seq-content = if seq-cells.len() == 0 { [] } else {
-              _fixed-width-grid(
-                (seq-cells,),
-                cell-width: box-width,
-                cell-outset: (y: outset-y),
-              )
-            }
-            (row.at(0), seq-content)
+            _render-msa-row(row.at(0), row.at(1), box-width, outset-y)
           })
           .flatten()
 
@@ -225,6 +290,7 @@
             row-gutter: leading,
             align: left,
             ..conservation-row,
+            ..consensus-row,
             ..sequence-rows,
           ),
         )
