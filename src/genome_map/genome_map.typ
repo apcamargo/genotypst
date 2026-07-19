@@ -88,12 +88,7 @@
 /// Renders a genome map with optional feature labels, a coordinate axis, and a
 /// scale bar.
 ///
-/// Each gene dictionary in the input array can have the following fields:
-/// - start (int): Gene start coordinate (required, 1-indexed inclusive).
-/// - end (int): Gene end coordinate (required, 1-indexed inclusive).
-/// - strand (int, str, none): Direction (1 or -1, "+" or "-"); none draws a block.
-/// - label (content, none): Label text.
-/// - color (color, none): Fill color (none uses default-color).
+/// Each gene dictionary in the input array can have the following fields: start (int): Gene start coordinate (required, 1-indexed inclusive), end (int): Gene end coordinate (required, 1-indexed inclusive), strand (int, str, none): Gene direction (1 or -1, "+" or "-", none draws a block), label (content, none): Label text, color (color, none): Fill color (none uses default-color).
 ///
 /// Genes may be given in either coordinate order and are normalized to an
 /// inclusive interval before rendering.

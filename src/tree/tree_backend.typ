@@ -120,15 +120,6 @@
   )),
 )
 
-/// Parses a Newick string through the tree WASM plugin.
-///
-/// - data (str): Raw Newick source.
-/// -> dictionary
-#let _tree-parse-newick(data) = {
-  let result = _tree-backend.parse_newick(bytes(data.trim()))
-  json(result)
-}
-
 /// Prepares a normalized tree layout through the tree WASM plugin.
 ///
 /// - tree-data (dictionary): Backend-safe parsed or manually constructed tree

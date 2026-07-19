@@ -26,5 +26,4 @@
   coordinate-axis: true,
   width: 80%,
   gene-outline-color: text-color,
-  stroke-width: 3pt,
 )
