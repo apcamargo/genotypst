@@ -47,4 +47,5 @@ compile-pdf: fmt build-plugins
 
 # Compile all example SVGs
 compile-svgs: fmt build-plugins
-    fd '_example\.typ$' docs -x typst compile --root . {} {.}.svg --format svg
+    fd '_example\.typ$' docs -x typst compile --root . {} docs/svgs/{/.}_light.svg --format svg
+    fd '_example\.typ$' docs -x typst compile --root . {} docs/svgs/{/.}_dark.svg --format svg --input theme=dark

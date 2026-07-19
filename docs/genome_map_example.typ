@@ -7,8 +7,10 @@
   margin: 0cm,
 )
 
+#let theme = sys.inputs.at("theme", default: "light")
+#let text-color = if theme == "dark" { rgb("#f0f6fc") } else { rgb("#000000") }
+#set text(font: "Source Sans 3", fill: text-color)
 #set align(center)
-#set text(font: "Source Sans 3")
 #show raw: set text(font: "Source Code Pro", size: 9pt)
 
 #let locus = (
@@ -23,4 +25,6 @@
   locus,
   coordinate-axis: true,
   width: 80%,
+  gene-outline-color: text-color,
+  stroke-width: 3pt,
 )

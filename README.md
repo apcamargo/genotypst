@@ -41,7 +41,10 @@ You can perform a simple pairwise alignments and visualize both the alignment an
 )
 ```
 
-![Local alignment of a pair of DNA sequences](./docs/pair_alignment_example.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/svgs/pair_alignment_example_dark.svg">
+  <img alt="Local alignment of a pair of DNA sequences" src="./docs/svgs/pair_alignment_example_light.svg">
+</picture>
 
 ```typst
 // Render the dynamic programming matrix
@@ -54,7 +57,10 @@ You can perform a simple pairwise alignments and visualize both the alignment an
 )
 ```
 
-![Dynamic programming matrix for a local DNA sequence alignment](./docs/dp_matrix_example.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/svgs/dp_matrix_example_dark.svg">
+  <img alt="Dynamic programming matrix for a local DNA sequence alignment" src="./docs/svgs/dp_matrix_example_light.svg">
+</picture>
 
 Read a FASTA file containing a multiple sequence alignment:
 
@@ -86,7 +92,10 @@ A region of the multiple sequence alignment can be rendered with `render-msa`:
 }
 ```
 
-![Protein multiple sequence alignment with residue coloring and conservation](./docs/msa_example.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/svgs/msa_example_dark.svg">
+  <img alt="Protein multiple sequence alignment with residue coloring and conservation" src="./docs/svgs/msa_example_light.svg">
+</picture>
 
 The same region of the alignment can also be visualized as a sequence logo using `render-sequence-logo`:
 
@@ -94,8 +103,10 @@ The same region of the alignment can also be visualized as a sequence logo using
 // Render a sequence logo between positions 100 and 135
 #render-sequence-logo(sequences, start: 100, end: 135)
 ```
-
-![Sequence logo for a protein multiple sequence alignment](./docs/logo_example.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/svgs/logo_example_dark.svg">
+  <img alt="Sequence logo for a protein multiple sequence alignment" src="./docs/svgs/logo_example_light.svg">
+</picture>
 
 To render a genomic locus, you can pass an array of genomic features to the `render-genome-map` function:
 
@@ -118,7 +129,10 @@ To render a genomic locus, you can pass an array of genomic features to the `ren
 
 You may also read genomic features from GFF3 files using the `parse-gff` function.
 
-![Genome map showing five labeled features and the coordinate axis](./docs/genome_map_example.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/svgs/genome_map_example_dark.svg">
+  <img alt="Genome map showing five labeled features and the coordinate axis" src="./docs/svgs/genome_map_example_light.svg">
+</picture>
 
 You can also use `genotypst` to parse Newick data and visualize phylogenetic trees:
 
@@ -136,4 +150,7 @@ You can also use `genotypst` to parse Newick data and visualize phylogenetic tre
 )
 ```
 
-![Phylogenetic tree with three leaves and a root](./docs/tree_example.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/svgs/tree_example_dark.svg">
+  <img alt="Phylogenetic tree with three leaves and a root" src="./docs/svgs/tree_example_light.svg">
+</picture>
