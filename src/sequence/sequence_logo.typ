@@ -14,25 +14,37 @@
 /// Computes per-residue glyph heights for a sequence logo.
 ///
 /// Column stacks are scaled relative to the maximum observed conservation in
-/// the requested window. Within each stack, individual glyph heights represent
+/// the requested window, or to column occupancy when `stack-scale` is
+/// `"occupancy"`. Within each stack, individual glyph heights represent
 /// relative residue frequency. The returned heights exclude the inter-letter gap
 /// added later during stack layout.
 ///
 /// - column-stats (array): Prepared per-column statistics for the requested window.
 /// - logo-height (length): Reference height used to scale the tallest observed stack.
 /// - alphabet-config (dictionary): Canonical alphabet configuration.
+/// - num-sequences (int): Total number of sequences in the alignment.
+/// - stack-scale (str): Whether the letter stack height represents
+///   "conservation" or "occupancy" (default: "conservation").
 /// -> array: Array of columns, each column being an array of dictionaries
 ///   with keys:
 ///   - char (str): Character in the stack.
 ///   - height (length): Glyph height for that character.
-#let _get-logo-heights(column-stats, logo-height, alphabet-config) = {
+#let _get-logo-heights(
+  column-stats,
+  logo-height,
+  alphabet-config,
+  num-sequences,
+  stack-scale: "conservation",
+) = {
   if column-stats.len() == 0 { return () }
 
   let max-bits = alphabet-config.max-bits
   let max-observed-r = 0.0
 
-  for col in column-stats {
-    max-observed-r = calc.max(max-observed-r, col.conservation)
+  if stack-scale != "occupancy" {
+    for col in column-stats {
+      max-observed-r = calc.max(max-observed-r, col.conservation)
+    }
   }
 
   let divisor = if max-observed-r > 0 { max-observed-r } else { max-bits }
@@ -40,11 +52,16 @@
   let logo-data = ()
   for col in column-stats {
     let column-letters = ()
-    if col.conservation > 0 {
+    let scale = if stack-scale == "occupancy" {
+      col.total-non-gap / num-sequences
+    } else {
+      col.conservation / divisor
+    }
+    if scale > 0 {
       for char in alphabet-config.chars {
         if char in col.counts {
           let f-rel = col.counts.at(char) / col.total-non-gap
-          let symbol-height = (f-rel * col.conservation / divisor) * logo-height
+          let symbol-height = f-rel * scale * logo-height
           if symbol-height > 0pt {
             column-letters.push((char: char, height: symbol-height))
           }
@@ -132,16 +149,18 @@
 
 /// Renders a sequence logo from biological sequence data.
 ///
-/// Each column represents a position in the alignment. Stack height reflects
-/// conservation, and character height within a stack reflects relative
-/// frequency. `height` controls the vertical scale of the logo stacks; enabling
-/// `coordinate-axis` adds extra height below the logo.
+/// Each column represents a position in the alignment. By default, stack height
+/// reflects conservation, and character height within a stack reflects relative
+/// frequency. Set `stack-scale` to "occupancy" to scale stack height by column
+/// occupancy instead. `height` controls the vertical scale of the logo stacks.
 ///
 /// - alignment (dictionary): Dictionary mapping sequence identifiers to aligned sequences.
 /// - start (int, none): Starting position (1-indexed, inclusive) (default: none).
 /// - end (int, none): Ending position (1-indexed, inclusive) (default: none).
 /// - width (length, auto, ratio, relative): Total width of the logo (default: 100%).
 /// - height (length): Vertical scale used for the logo stacks (default: 60pt).
+/// - stack-scale (str): Whether stack height represents "conservation" or
+///   "occupancy" (default: "conservation").
 /// - sampling-correction (bool): Whether to apply small sample correction (default: true).
 /// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna" (default: auto).
 /// - palette (dictionary, auto): Residue color palette to use (default: auto).
@@ -159,6 +178,7 @@
   end: none,
   width: 100%,
   height: 60pt,
+  stack-scale: "conservation",
   sampling-correction: true,
   alphabet: auto,
   palette: auto,
@@ -171,6 +191,10 @@
   axis-logo-gap: 6pt,
 ) = {
   _validate-alignment(alignment)
+  assert(
+    stack-scale in ("conservation", "occupancy"),
+    message: "stack-scale must be 'conservation' or 'occupancy'.",
+  )
   let sequences = alignment.values()
   let config = _resolve-alphabet-config(alphabet, sequences)
   let palette-to-use = _resolve-palette(palette, config, sequences)
@@ -206,8 +230,15 @@
     window.actual-end,
     config,
     sampling-correction,
+    compute-conservation: stack-scale == "conservation",
   )
-  let logo-data = _get-logo-heights(column-stats, height, config)
+  let logo-data = _get-logo-heights(
+    column-stats,
+    height,
+    config,
+    sequences.len(),
+    stack-scale: stack-scale,
+  )
 
   block(width: width)[
     #layout(size => context {

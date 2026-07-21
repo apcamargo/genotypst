@@ -159,7 +159,8 @@
 ///   - counts (dictionary): Counts of valid characters at each column.
 ///   - total-non-gap (int): Total count of valid non-gap characters at each column.
 ///   - residue-order (array): Valid residues in first-seen sequence order.
-///   - conservation (float): Occupancy-scaled information content for each column.
+///   - conservation (float, none): Occupancy-scaled information content for
+///     each column, or `none` when `compute-conservation` is `false`.
 #let _collect-window-column-stats(
   sequences,
   start,
@@ -185,7 +186,7 @@
           alphabet-config.size,
         )
       } else {
-        0.0
+        none
       },
     )
   })
