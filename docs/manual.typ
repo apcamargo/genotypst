@@ -378,6 +378,79 @@ In the example below:
   unit: "bp",
 )
 
+== Coloring features by type
+
+Setting `colors: true` colors every feature by the GFF3 feature type `parse-gff` reports, so an annotation read from a file needs no per-feature work. `genome-map-palette` is exported, so the classes on a map can be labelled with a legend of your own:
+
+```typ
+#let locus = parse-gff(
+  read("data/NC_000913.gff3"),
+  feature-types: ("CDS", "tRNA", "ncRNA", "pseudogene"),
+  label-attribute: "gene",
+)
+
+#let legend-entry(class) = grid(
+  columns: (auto, auto),
+  column-gutter: 0.45em,
+  align: horizon,
+  circle(
+    radius: 0.42em,
+    fill: genome-map-palette.at(class),
+    stroke: 0.7pt + black,
+  ),
+  raw(class),
+)
+
+#let legend(classes) = grid(
+  columns: classes.len(),
+  column-gutter: 1.8em,
+  ..classes.map(legend-entry),
+)
+
+#render-genome-map(locus, colors: true, coordinate-axis: true, unit: "bp")
+
+#legend(("CDS", "tRNA", "ncRNA", "pseudogene"))
+```
+
+#let locus = parse-gff(
+  read("data/NC_000913.gff3"),
+  feature-types: ("CDS", "tRNA", "ncRNA", "pseudogene"),
+  label-attribute: "gene",
+)
+
+#let legend-entry(class) = grid(
+  columns: (auto, auto),
+  column-gutter: 0.45em,
+  align: horizon,
+  circle(
+    radius: 0.42em,
+    fill: genome-map-palette.at(class),
+    stroke: 0.7pt + black,
+  ),
+  raw(class),
+)
+
+#let legend(classes) = grid(
+  columns: classes.len(),
+  column-gutter: 1.8em,
+  ..classes.map(legend-entry),
+)
+
+#figure(
+  stack(
+    spacing: 0.9em,
+    render-genome-map(locus, colors: true, coordinate-axis: true, unit: "bp"),
+    legend(("CDS", "tRNA", "ncRNA", "pseudogene")),
+  ),
+  caption: [A locus of _Escherichia coli_ K-12 colored by feature type.],
+  supplement: none,
+  kind: image,
+)
+
+Feature types are sorted into classes, so a type does not have to appear in the palette to be colored: `mRNA` reads as coding, `snoRNA` as non-coding, and `LTR_retrotransposon` as a repeat, for example. The classes are `CDS`, `tRNA`, `rRNA`, `ncRNA`, `repeat_region`, `regulatory_region`, and `pseudogene`.
+
+Passing a `palette` replaces the built-in one, as in `palette: (..genome-map-palette, pseudogene: rgb("#E44356"))`.
+
 = Working with phylogenetic trees
 
 `genotypst` includes functions to parse and render phylogenetic trees. Trees can be created by parsing Newick-formatted strings with `parse-newick` or by manually constructing nested dictionary structures.
