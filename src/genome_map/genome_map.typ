@@ -6,6 +6,7 @@
 #import "./genome_map_layout.typ": (
   _interval-geometry, _prepare-genome-map-layout,
 )
+#import "./palette.typ": _resolve-gene-colors
 
 /// Draws gene arrows and blocks.
 ///
@@ -88,7 +89,7 @@
 /// Renders a genome map with optional feature labels, a coordinate axis, and a
 /// scale bar.
 ///
-/// Each gene dictionary in the input array can have the following fields: start (int): Gene start coordinate (required, 1-indexed inclusive), end (int): Gene end coordinate (required, 1-indexed inclusive), strand (int, str, none): Gene direction (1 or -1, "+" or "-", none draws a block), label (content, none): Label text, color (color, none): Fill color (none uses default-color).
+/// Each gene dictionary in the input array can have the following fields: start (int): Gene start coordinate (required, 1-indexed inclusive), end (int): Gene end coordinate (required, 1-indexed inclusive), strand (int, str, none): Gene direction (1 or -1, "+" or "-", none draws a block), label (content, none): Label text, color (color, none): Fill color (none uses default-color), feature-type (str), pseudogenic (bool) default: false, attributes: GFF3 attributes
 ///
 /// Genes may be given in either coordinate order and are normalized to an
 /// inclusive interval before rendering.
@@ -103,6 +104,8 @@
 /// - head-length (length, auto): Arrowhead length (default: auto).
 /// - min-head-length (length): Minimum arrowhead length (default: 3.5pt).
 /// - default-color (color): Default gene fill (default: light gray).
+/// - colors (bool)
+/// - palette (dictionary,auto): palette to use
 /// - gene-outline-color (color): Gene outline and label leader/underline color (default: black).
 /// - label-color (color, none): Feature label color (default: none, inherits from the document).
 /// - stroke-width (length): Stroke width for gene outlines, label leaders/underlines, and scale/axis lines (default: 0.75pt).
@@ -132,6 +135,8 @@
   head-length: auto,
   min-head-length: 3.5pt,
   default-color: _light-gray,
+  colors: false,
+  palette: auto,
   gene-outline-color: black,
   label-color: none,
   stroke-width: 0.75pt,
@@ -166,7 +171,7 @@
       )
     }
     let prepared = _prepare-genome-map-layout(
-      genes,
+      _resolve-gene-colors(genes, colors, palette),
       start,
       end,
       default-color,
