@@ -12,7 +12,7 @@ Refer to the [manual](./docs/manual.pdf) for a comprehensive guide containing ex
 
 ## Quickstart
 
-A minimal example illustrating the use of `genotypst` is shown below. To reproduce it, download the example multiple sequence alignment file [`msa.afa`](./docs/data/msa.afa).
+A minimal example illustrating the use of `genotypst` is shown below. To reproduce it, download the example multiple sequence alignment file [`msa.afa`](./docs/data/msa.afa) and the example annotation [`NC_000913.gff3`](./docs/data/NC_000913.gff3).
 
 In a Typst document, import the `genotypst` package:
 
@@ -127,12 +127,35 @@ To render a genomic locus, you can pass an array of genomic features to the `ren
 )
 ```
 
-You may also read genomic features from GFF3 files using the `parse-gff` function.
-
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./docs/svgs/genome_map_example_dark.svg">
   <img alt="Genome map showing five labeled features and the coordinate axis" src="./docs/svgs/genome_map_example_light.svg">
 </picture>
+
+You may also read genomic features from GFF3 files using the `parse-gff` function. Features parsed that way carry their GFF3 feature type, so `colors: true` is enough to color a whole annotation at once:
+
+```typst
+// Read an annotation and color it by feature type
+#let ecoli_locus = parse-gff(
+  read("NC_000913.gff3"),
+  feature-types: ("CDS", "tRNA", "ncRNA", "pseudogene"),
+  label-attribute: "gene",
+)
+
+#render-genome-map(
+  ecoli_locus,
+  colors: true,
+  coordinate-axis: true,
+  unit: "bp",
+)
+```
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/svgs/genome_map_colors_example_dark.svg">
+  <img alt="Genome map of an Escherichia coli locus with features colored by their GFF3 feature type, above a legend of the four classes present" src="./docs/svgs/genome_map_colors_example_light.svg">
+</picture>
+
+Types are sorted into seven classes. The legend above is built from `genome-map-palette`, which the package exports. See the [manual](./docs/manual.pdf) for details.
 
 You can also use `genotypst` to parse Newick data and visualize phylogenetic trees:
 
