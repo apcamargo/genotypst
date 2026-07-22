@@ -17,6 +17,7 @@
 // Genome map
 #import "genome_map/feature_parsers.typ": parse-gff
 #import "genome_map/genome_map.typ": render-genome-map
+#import "genome_map/palette.typ": genome-map-palette
 
 // Tree
 #import "tree/newick_parser.typ": parse-newick
