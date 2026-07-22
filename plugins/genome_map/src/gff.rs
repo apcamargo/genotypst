@@ -3,7 +3,7 @@
 use bio::io::gff::{GffType, Reader, Record};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Cursor;
 
 #[derive(Deserialize)]
@@ -55,10 +55,16 @@ struct GenomeMapFeature {
     score: Option<f64>,
     phase: Option<u8>,
     attributes: BTreeMap<String, Vec<String>>,
+    pseudogenic: bool,
     #[serde(rename = "original-start")]
     original_start: u64,
     #[serde(rename = "original-end")]
     original_end: u64,
+}
+
+struct AncestryNode {
+    pseudogenic: bool,
+    parents: Vec<String>,
 }
 
 impl ParseGffConfig {
@@ -277,6 +283,91 @@ fn first_attribute_value(attributes: &BTreeMap<String, Vec<String>>, key: &str) 
         .cloned()
 }
 
+fn decode_for_index(value: &str) -> String {
+    decode_gff3_percent_escapes(value, "").unwrap_or_else(|_| value.to_string())
+}
+
+fn reserved_attribute_values(record: &Record, key: &str) -> Vec<String> {
+    record
+        .attributes()
+        .get_vec(key)
+        .map(|values| values.iter().map(|value| decode_for_index(value)).collect())
+        .unwrap_or_default()
+}
+
+/// reads a feature type as pseudogenic
+fn type_is_pseudogenic(feature_type: &str) -> bool {
+    const NEEDLE: &[u8] = b"pseudogen";
+    feature_type
+        .as_bytes()
+        .windows(NEEDLE.len())
+        .any(|window| window.eq_ignore_ascii_case(NEEDLE))
+}
+
+/// reads an undecoded feature type as pseudogenic
+fn raw_type_is_pseudogenic(feature_type: &str) -> bool {
+    type_is_pseudogenic(feature_type)
+        || (feature_type.contains('%') && type_is_pseudogenic(&decode_for_index(feature_type)))
+}
+
+fn index_ancestry(record: &Record, index: &mut HashMap<String, AncestryNode>) {
+    let ids = reserved_attribute_values(record, "ID");
+    if ids.is_empty() {
+        return;
+    }
+
+    let pseudogenic = raw_type_is_pseudogenic(record.feature_type());
+    let parents = reserved_attribute_values(record, "Parent");
+    if !pseudogenic && parents.is_empty() {
+        return;
+    }
+
+    for id in ids {
+        let node = index.entry(id).or_insert_with(|| AncestryNode {
+            pseudogenic: false,
+            parents: Vec::new(),
+        });
+        node.pseudogenic |= pseudogenic;
+        for parent in &parents {
+            if !node.parents.contains(parent) {
+                node.parents.push(parent.clone());
+            }
+        }
+    }
+}
+
+/// resolves whether a feature is pseudogenic
+fn resolve_pseudogenic(
+    feature_type: &str,
+    attributes: &BTreeMap<String, Vec<String>>,
+    index: &HashMap<String, AncestryNode>,
+) -> bool {
+    if type_is_pseudogenic(feature_type) {
+        return true;
+    }
+
+    let mut visited: HashSet<&str> = HashSet::new();
+    let mut pending: Vec<&str> = attributes
+        .get("Parent")
+        .map(|parents| parents.iter().map(String::as_str).collect())
+        .unwrap_or_default();
+
+    while let Some(id) = pending.pop() {
+        if !visited.insert(id) {
+            continue;
+        }
+        let Some(ancestor) = index.get(id) else {
+            continue;
+        };
+        if ancestor.pseudogenic {
+            return true;
+        }
+        pending.extend(ancestor.parents.iter().map(String::as_str));
+    }
+
+    false
+}
+
 /// Converts a GFF record into a `GenomeMapFeature`.
 ///
 /// Takes `&mut Record` because `rust-bio` exposes the raw strand
@@ -349,6 +440,7 @@ fn record_to_feature(
         score,
         phase,
         attributes,
+        pseudogenic: false,
         original_start: start,
         original_end: end,
     };
@@ -365,11 +457,13 @@ fn parse_records(data: &str, config: &ParseGffConfig) -> Result<Vec<GenomeMapFea
     let cursor = Cursor::new(feature_text.as_bytes());
     let mut reader = Reader::new(cursor, GffType::GFF3);
     let mut features = Vec::new();
+    let mut ancestry = HashMap::new();
 
     for (record_offset, result) in reader.records().enumerate() {
         let record_index = record_offset + 1;
         let mut record =
             result.map_err(|e| format!("Failed to parse GFF3 record {record_index}: {e}"))?;
+        index_ancestry(&record, &mut ancestry);
         if let Some(feature) = record_to_feature(
             &mut record,
             record_index,
@@ -380,6 +474,11 @@ fn parse_records(data: &str, config: &ParseGffConfig) -> Result<Vec<GenomeMapFea
         )? {
             features.push(feature);
         }
+    }
+
+    for feature in &mut features {
+        feature.pseudogenic =
+            resolve_pseudogenic(&feature.feature_type, &feature.attributes, &ancestry);
     }
 
     Ok(features)
@@ -541,6 +640,174 @@ chr%201	src%20db	gene%3Aspecial	1	10	.	+	.	ID=gene1
         assert_eq!(features[0].accession, "chr 1");
         assert_eq!(features[0].feature_type, "gene:special");
         assert_eq!(features[0].source, "src db");
+    }
+
+    const PSEUDOGENE_GFF: &str = "\
+##gff-version 3
+chr1	src	pseudogene	10	20	.	+	.	ID=pg1
+chr1	src	CDS	10	20	.	+	0	ID=cds1;Parent=pg1
+chr1	src	pseudogene	30	40	.	+	.	ID=pg2
+chr1	src	mRNA	30	40	.	+	.	ID=mrna2;Parent=pg2
+chr1	src	exon	30	40	.	+	.	ID=exon2;Parent=mrna2
+chr1	src	gene	50	60	.	+	.	ID=g3
+chr1	src	CDS	50	60	.	+	0	ID=cds3;Parent=g3
+";
+
+    #[test]
+    fn resolves_pseudogenic_parts_through_the_record_hierarchy() {
+        let features = parse_with_config(PSEUDOGENE_GFF, default_config());
+        let flags: Vec<bool> = features.iter().map(|f| f.pseudogenic).collect();
+        assert_eq!(flags, vec![true, true, true, true, true, false, false]);
+    }
+
+    #[test]
+    fn resolves_pseudogenic_parts_when_the_pseudogene_records_are_filtered_out() {
+        let features = parse_with_config(
+            PSEUDOGENE_GFF,
+            serde_json::json!({
+                "feature_types": ["CDS"],
+                "range": null,
+                "strand": null,
+                "exclude_partial": false,
+                "label_attribute": "ID"
+            }),
+        );
+        assert_eq!(features.len(), 2);
+        assert!(features[0].pseudogenic);
+        assert!(!features[1].pseudogenic);
+    }
+
+    #[test]
+    fn resolves_pseudogenic_parts_when_the_pseudogene_record_is_out_of_range() {
+        let features = parse_with_config(
+            PSEUDOGENE_GFF,
+            serde_json::json!({
+                "feature_types": ["exon"],
+                "range": {"accession": "chr1", "start": 30, "end": 40},
+                "strand": null,
+                "exclude_partial": true,
+                "label_attribute": "ID"
+            }),
+        );
+
+        assert_eq!(features.len(), 1);
+        assert!(features[0].pseudogenic);
+    }
+
+    #[test]
+    fn treats_pseudogenic_feature_types_as_pseudogenic_without_a_parent() {
+        let data = "\
+##gff-version 3
+chr1	src	pseudogenic_tRNA	10	20	.	+	.	ID=pt1
+chr1	src	processed_pseudogene	30	40	.	+	.	ID=pp1
+chr1	src	tRNA	50	60	.	+	.	ID=t1
+";
+
+        let features = parse_with_config(data, default_config());
+
+        assert_eq!(
+            features.iter().map(|f| f.pseudogenic).collect::<Vec<_>>(),
+            vec![true, true, false]
+        );
+    }
+
+    #[test]
+    fn terminates_on_cyclic_parent_links() {
+        let data = "\
+##gff-version 3
+chr1	src	CDS	10	20	.	+	0	ID=a;Parent=b
+chr1	src	CDS	30	40	.	+	0	ID=b;Parent=a
+";
+
+        let features = parse_with_config(data, default_config());
+
+        assert!(features.iter().all(|feature| !feature.pseudogenic));
+    }
+
+    #[test]
+    fn resolves_pseudogenic_parts_however_deeply_they_are_nested() {
+        let depth = 64;
+        let mut data =
+            String::from("##gff-version 3\nchr1\tsrc\tpseudogene\t10\t20\t.\t+\t.\tID=a0\n");
+        for level in 1..=depth {
+            data.push_str(&format!(
+                "chr1\tsrc\texon\t10\t20\t.\t+\t.\tID=a{level};Parent=a{}\n",
+                level - 1
+            ));
+        }
+
+        let features = parse_with_config(&data, default_config());
+
+        assert_eq!(features.len(), depth + 1);
+        assert!(features.iter().all(|feature| feature.pseudogenic));
+    }
+
+    #[test]
+    fn resolves_pseudogenic_parts_across_multiple_parents() {
+        let data = "\
+##gff-version 3
+chr1	src	gene	10	40	.	+	.	ID=g1
+chr1	src	pseudogene	10	40	.	+	.	ID=pg1
+chr1	src	exon	10	20	.	+	.	ID=e1;Parent=g1,pg1
+";
+
+        let features = parse_with_config(data, default_config());
+
+        assert!(features[2].pseudogenic);
+    }
+
+    #[test]
+    fn indexing_ancestry_does_not_reject_records_the_filters_drop() {
+        let data = "\
+##gff-version 3
+chr1	src	exon	10	20	.	+	.	ID=broken%ZZ
+chr1	src	CDS	30	40	.	+	0	ID=cds1
+";
+
+        let features = parse_with_config(
+            data,
+            serde_json::json!({
+                "feature_types": ["CDS"],
+                "range": null,
+                "strand": null,
+                "exclude_partial": false,
+                "label_attribute": "ID"
+            }),
+        );
+
+        assert_eq!(features.len(), 1);
+        assert_eq!(features[0].feature_type, "CDS");
+    }
+
+    #[test]
+    fn merges_ancestry_across_records_sharing_an_id() {
+        let data = "\
+##gff-version 3
+chr1	src	pseudogene	10	60	.	+	.	ID=pg1
+chr1	src	gene	10	60	.	+	.	ID=g1
+chr1	src	mRNA	10	20	.	+	.	ID=m1;Parent=pg1
+chr1	src	mRNA	30	40	.	+	.	ID=m1;Parent=g1
+chr1	src	exon	30	40	.	+	.	ID=e1;Parent=m1
+";
+
+        let features = parse_with_config(data, default_config());
+
+        let exon = features.iter().find(|f| f.feature_type == "exon").unwrap();
+        assert!(exon.pseudogenic);
+    }
+
+    #[test]
+    fn reads_an_escaped_pseudogenic_feature_type() {
+        let data = "\
+##gff-version 3
+chr1	src	p%73eudogene	10	20	.	+	.	ID=pg1
+chr1	src	CDS	10	20	.	+	0	ID=cds1;Parent=pg1
+";
+
+        let features = parse_with_config(data, default_config());
+
+        assert_eq!(features[0].feature_type, "pseudogene");
+        assert!(features.iter().all(|feature| feature.pseudogenic));
     }
 
     #[test]
