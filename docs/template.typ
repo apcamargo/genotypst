@@ -150,3 +150,109 @@
       .flatten(),
   )
 }
+
+#let aa-groups = (
+  (
+    name: "Hydrophobic",
+    symbols: ("A", "H", "I", "L", "M", "V"),
+    names: (
+      "Alanine",
+      "Histidine",
+      "Isoleucine",
+      "Leucine",
+      "Methionine",
+      "Valine",
+    ),
+    abbrevs: ("Ala", "His", "Ile", "Leu", "Met", "Val"),
+  ),
+  (
+    name: "Polar",
+    symbols: ("S", "T", "Q", "N"),
+    names: ("Serine", "Threonine", "Glutamine", "Asparagine"),
+    abbrevs: ("Ser", "Thr", "Gln", "Asn"),
+  ),
+  (
+    name: "Aromatic",
+    symbols: ("F", "W", "Y"),
+    names: ("Phenylalanine", "Tryptophan", "Tyrosine"),
+    abbrevs: ("Phe", "Trp", "Tyr"),
+  ),
+  (
+    name: "Negatively charged",
+    symbols: ("D", "E"),
+    names: ("Aspartic acid", "Glutamic acid"),
+    abbrevs: ("Asp", "Glu"),
+  ),
+  (
+    name: "Positively charged",
+    symbols: ("K", "R"),
+    names: ("Lysine", "Arginine"),
+    abbrevs: ("Lys", "Arg"),
+  ),
+  (name: "Cysteine", symbols: ("C",), names: ("Cysteine",), abbrevs: ("Cys",)),
+  (name: "Glycine", symbols: ("G",), names: ("Glycine",), abbrevs: ("Gly",)),
+  (name: "Proline", symbols: ("P",), names: ("Proline",), abbrevs: ("Pro",)),
+)
+
+#let nt-groups = (
+  (
+    name: "DNA palette",
+    symbols: ("A", "C", "G", "T"),
+    names: ("Adenine", "Cytosine", "Guanine", "Thymine"),
+    palette: residue-palette.dna.default,
+  ),
+  (
+    name: "RNA palette",
+    symbols: ("A", "C", "G", "U"),
+    names: ("Adenine", "Cytosine", "Guanine", "Uracil"),
+    palette: residue-palette.rna.default,
+  ),
+)
+
+#let swatch(clr) = box(
+  width: 45pt,
+  fill: clr,
+  radius: 10pt,
+  outset: (y: 3.3pt),
+  align(center, text(
+    font: "Source Code Pro",
+    size: 8pt,
+    weight: "semibold",
+    fill: white.transparentize(30%),
+    clr.to-hex(),
+  )),
+)
+
+#let render-palette-group(group, palette: residue-palette.aa.default) = block(
+  breakable: false,
+  {
+    let has-abbrevs = "abbrevs" in group
+    let p = group.at("palette", default: palette)
+    let clr = p.at(group.symbols.at(0))
+    stack(
+      spacing: 5pt,
+      context box(text(
+        weight: "bold",
+        fill: if has-abbrevs { clr } else { text.fill },
+        group.name,
+      )),
+      table(
+        columns: if has-abbrevs { (80pt, 35pt, 25pt, 50pt) } else {
+          (115pt, 25pt, 50pt)
+        },
+        column-gutter: 0pt,
+        stroke: none,
+        inset: (y: 4pt, x: 0pt),
+        align: horizon,
+        ..range(group.symbols.len())
+          .map(i => (
+            group.names.at(i),
+            ..if has-abbrevs { (group.abbrevs.at(i),) } else { () },
+            group.symbols.at(i),
+            swatch(p.at(group.symbols.at(i))),
+          ))
+          .flatten()
+      ),
+    )
+  },
+)
