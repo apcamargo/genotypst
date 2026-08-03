@@ -1,8 +1,5 @@
 #import "../src/lib.typ": *
-#import "template.typ": (
-  aa-palettes, aa-residues, nt-palettes, nt-residues, project,
-  render-residue-palettes,
-)
+#import "template.typ": aa-palettes, aa-residues, nt-palettes, nt-residues, project, render-residue-palettes
 
 #show: project.with(
   title: "genotypst: A bioinformatics Typst package for sequence analysis and visualization",
@@ -265,22 +262,27 @@ Like `render-msa`, `render-sequence-logo` automatically applies the appropriate 
 
 `genotypst` uses predefined color palettes to assign colors to sequence residues. These palettes can be used to customize residue colors across different visualizations, as described in #link(<specifying-residue-palettes>)[Specifying residue palettes].
 
-The following palettes are available:
-
-- *Protein:* "default" (8 colors), "dayhoff" "takabatake4" (4) @takabatake_improved_2021, "takabatake5" (5), "takabatake6" (6), "takabatake7" (7), "takabatake8" (8), "charge" (3), and "hydropathy" (4).
-- *DNA/RNA:* "default" (4), "gc" (2), "purine-pyrimidine" (2)
-
-=== Amino acid palette
+=== Amino acid palettes
 
 Amino acids are colored according to their physicochemical properties. Grouping residues by color helps reveal the chemical nature of conserved positions (e.g., whether a position is consistently hydrophobic or charged), which is often important for understanding protein structure, function, and evolution.
 
-#align(center, render-residue-palettes(aa-residues, aa-palettes))
+#figure(
+  render-residue-palettes(aa-residues, aa-palettes),
+  caption: [The ten amino acid palettes available in `genotypst`. The labels on the left indicate the palette name, letters within the colored boxes indicate the amino acids, and the colors represent their color in the palette.],
+  supplement: none,
+  kind: image,
+)
 
 === Nucleic acid palettes
 
 The DNA and RNA palettes assign a distinct color to each nucleotide.
 
-#align(center, render-residue-palettes(nt-residues, nt-palettes))
+#figure(
+  render-residue-palettes(nt-residues, nt-palettes),
+  caption: [The four nucleic acid palettes available in `genotypst`. The labels on the left indicate the palette name, letters within the colored boxes indicate the nucleotides, and the colors represent their color in the palette.],
+  supplement: none,
+  kind: image,
+)
 
 = Rendering genome maps and parsing GFF3 files
 
