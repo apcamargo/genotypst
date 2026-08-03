@@ -47,14 +47,13 @@
   }
 
   show raw.where(block: true): block.with(
-    fill: oklch(96.5%, 0.005, 269deg),
+    fill: oklch(96.5%, 0.003, 269deg),
     inset: 10pt,
     radius: 4pt,
     width: 100%,
     breakable: false,
   )
 
-  // Title
   align(left)[
     #set par(justify: false)
     #text(size: 19.5pt, title)
@@ -85,68 +84,91 @@
   "W",
   "Y",
 )
-#let aa-residue-names = (
-  A: "Alanine",
-  R: "Arginine",
-  N: "Asparagine",
-  D: "Aspartic acid",
-  C: "Cysteine",
-  Q: "Glutamine",
-  E: "Glutamic acid",
-  G: "Glycine",
-  H: "Histidine",
-  I: "Isoleucine",
-  L: "Leucine",
-  K: "Lysine",
-  M: "Methionine",
-  F: "Phenylalanine",
-  P: "Proline",
-  S: "Serine",
-  T: "Threonine",
-  W: "Tryptophan",
-  Y: "Tyrosine",
-  V: "Valine",
-)
 #let nt-residues = ("A", "C", "G", "T", "U")
-#let nt-residue-names = (
-  A: "Adenine",
-  C: "Cytosine",
-  G: "Guanine",
-  T: "Thymine",
-  U: "Uracil",
-)
 
 #let aa-palettes = residue-palette.aa.pairs()
 #let nt-palettes = residue-palette.dna.pairs()
 
-#let render-palette-matrix(
-  residues,
-  residue-names,
-  palettes,
-  radius: 6pt,
-) = {
-  let names = palettes.map(p => p.at(0))
-  let maps = palettes.map(p => p.at(1))
-  table(
-    columns: maps.len() + 1,
-    align: (right + horizon,) + maps.map(_ => center + horizon),
-    stroke: none,
-    inset: (y: 3.5pt, x: 0pt),
-    table.header(
-      table.cell([]),
-      ..names.map(n => table.cell(
-        align: center + horizon,
-        rotate(-90deg, n),
-      )),
-    ),
-    ..residues
-      .map(res => (
-        table.cell([#residue-names.at(res) (#res)]),
-        ..maps.map(pm => table.cell(
-          align: center + horizon,
-          circle(radius: radius, fill: pm.at(res)),
-        )),
+#let _ink-on(fill) = if oklab(fill).components(alpha: false).at(0) < 70% {
+  fill.lighten(80%)
+} else {
+  fill.darken(55%)
+}
+
+#let _render-group-box(group) = box(
+  width: 100%,
+  height: 0.48cm,
+  fill: group.color,
+  radius: 2.5pt,
+  grid(
+    columns: group.symbols.map(_ => (1fr, auto)).flatten() + (1fr,),
+    rows: 100%,
+    align: horizon,
+    ..group
+      .symbols
+      .map(symbol => (
+        [],
+        text(
+          font: "Source Code Pro",
+          size: 0.85em,
+          weight: "semibold",
+          fill: _ink-on(group.color),
+          symbol,
+        ),
       ))
-      .flatten(),
+      .flatten()
+      + ([],),
+  ),
+)
+
+#let _render-palette-row(residues, all-colors, palette) = {
+  let groups = all-colors
+    .map(color => (
+      color: color,
+      symbols: residues.filter(residue => (
+        palette.at(residue).to-hex() == color.to-hex()
+      )),
+    ))
+    .filter(group => group.symbols.len() > 0)
+
+  grid(
+    columns: residues.map(_ => 0.48cm),
+    column-gutter: 0.13cm,
+    align: center + horizon,
+    ..groups.map(group => grid.cell(
+      colspan: group.symbols.len(),
+      _render-group-box(group),
+    )),
+  )
+}
+
+#let render-residue-palettes(residues, palettes) = {
+  let all-colors = ()
+  for (_, palette) in palettes {
+    for residue in residues {
+      let color = palette.at(residue)
+      if (
+        all-colors.position(existing => existing.to-hex() == color.to-hex())
+          == none
+      ) {
+        all-colors.push(color)
+      }
+    }
+  }
+
+  block(
+    breakable: false,
+    grid(
+      columns: (auto, auto),
+      align: (right + horizon, left + horizon),
+      column-gutter: 0.26cm,
+      row-gutter: 0.13cm,
+      ..palettes
+        .map(((name, palette)) => (
+          grid.cell(align: right + horizon, text(size: 0.875em)[#name]),
+          grid.cell(_render-palette-row(residues, all-colors, palette)),
+        ))
+        .flatten(),
+    ),
   )
 }

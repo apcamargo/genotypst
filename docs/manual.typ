@@ -1,5 +1,8 @@
 #import "../src/lib.typ": *
-#import "template.typ": aa-groups, nt-groups, project, render-palette-group
+#import "template.typ": (
+  aa-palettes, aa-residues, nt-palettes, nt-residues, project,
+  render-residue-palettes,
+)
 
 #show: project.with(
   title: "genotypst: A bioinformatics Typst package for sequence analysis and visualization",
@@ -53,7 +56,7 @@ In this example, `max-line-length` controls how many residues are shown per line
 
 Pairwise alignment is a method for comparing biological sequences, allowing quantification of sequence similarity and identification of evolutionary relationships between the residues of two sequences. `genotypst` supports both global alignment (end-to-end) @needleman_general_1970 and local alignment (best-matching subsequences) @smith_identification_1981, using dynamic programming with a user-defined scoring scheme (match/mismatch or a substitution matrix) and gap penalties.
 
-The `align-seq-pair` function performs pairwise alignment using either match/mismatch scores or a substitution matrix (see the scoring matrices section below).
+The `align-seq-pair` function performs pairwise alignment using either match/mismatch scores or a substitution matrix (see #link(<scoring-matrices>)[Scoring matrices]).
 
 ```typ
 #let dna_pair_alignment = align-seq-pair(
@@ -148,7 +151,7 @@ Dynamic programming is the core procedure used by the pairwise alignment algorit
   kind: image,
 )
 
-== Scoring matrices
+== Scoring matrices <scoring-matrices>
 
 Substitution matrices assign scores for aligning residues in pairwise and multiple sequence alignments, rewarding likely substitutions and penalizing unlikely ones. They represent substitution preferences as log-odds scores derived from observed evolutionary changes. In this way, they guide alignment algorithms by quantifying how plausible it is for one residue to replace another over time, helping produce biologically meaningful alignments. `genotypst` provides scoring matrices from the BLOSUM @henikoff_amino_1992 and PAM @dayhoff_model_1979 families for protein sequences, as well as the EDNAFULL matrix for DNA and RNA sequences.
 
@@ -162,7 +165,10 @@ Use `get-scoring-matrix` to retrieve a matrix data and `get-score-from-matrix` t
 
 #let blosum62 = get-scoring-matrix("BLOSUM62")
 #let ar_score = get-score-from-matrix(blosum62, "L", "D")
-#text[The substitution score for L vs D in BLOSUM62 is: #ar_score.]
+#raw(
+  "The substitution score for L vs D in BLOSUM62 is: " + str(ar_score),
+  block: true,
+)
 
 You can render the entire scoring matrix using `render-scoring-matrix` function. In the example below `scale-limit: 7` set the color scale limits to -7 to 7.
 
@@ -255,34 +261,26 @@ In the example below, we visualize the same region as the MSA of the previous se
 
 Like `render-msa`, `render-sequence-logo` automatically applies the appropriate color palette based on the sequence alphabet.
 
-== Color palettes
+== Residue palettes
 
-`genotypst` uses predefined color palettes to assign colors to sequence residues.
+`genotypst` uses predefined color palettes to assign colors to sequence residues. These palettes can be used to customize residue colors across different visualizations, as described in #link(<specifying-residue-palettes>)[Specifying residue palettes].
+
+The following palettes are available:
+
+- *Protein:* "default" (8 colors), "dayhoff" "takabatake4" (4) @takabatake_improved_2021, "takabatake5" (5), "takabatake6" (6), "takabatake7" (7), "takabatake8" (8), "charge" (3), and "hydropathy" (4).
+- *DNA/RNA:* "default" (4), "gc" (2), "purine-pyrimidine" (2)
 
 === Amino acid palette
 
 Amino acids are colored according to their physicochemical properties. Grouping residues by color helps reveal the chemical nature of conserved positions (e.g., whether a position is consistently hydrophobic or charged), which is often important for understanding protein structure, function, and evolution.
 
-#align(center, grid(
-  columns: (auto, auto),
-  column-gutter: 3em,
-  align: left,
-  inset: (y: 0.8em),
-  stack(spacing: 1.5em, ..aa-groups.slice(0, 3).map(render-palette-group)),
-  stack(spacing: 1.5em, ..aa-groups.slice(3).map(render-palette-group)),
-))
+#align(center, render-residue-palettes(aa-residues, aa-palettes))
 
 === Nucleic acid palettes
 
 The DNA and RNA palettes assign a distinct color to each nucleotide.
 
-#align(center, grid(
-  columns: (auto, auto),
-  column-gutter: 3em,
-  align: left,
-  inset: (y: 0.8em),
-  ..nt-groups.map(render-palette-group)
-))
+#align(center, render-residue-palettes(nt-residues, nt-palettes))
 
 = Rendering genome maps and parsing GFF3 files
 
@@ -654,15 +652,42 @@ By default, the visualizations produced by `genotypst` are rendered using the de
   ),
 )
 
-=== Specifying residue palettes
+=== Specifying residue palettes <specifying-residue-palettes>
 
 If you want to use an alternative palette to color residues, you can provide a dictionary to the `palette` parameter of `render-msa` and `render-sequence-logo`. The provided palette can be either custom or one provided by `genotypst` under `residue-palette`.
 
-The following palettes are available:
-- *Protein:* `default` (8 colors), `dayhoff` (6), `zappo` (7), `takabatake4` (4) @takabatake_improved_2021, `takabatake5` (5), `takabatake6` (6), `takabatake7` (7), `takabatake8` (8), `charge` (3), and `hydropathy` (4).
-- *DNA/RNA:* `default` (4), `gc` (2), `purine-pyrimidine` (2)
+For example, to color residues in a MSA according to their charge, you can use the `charge` palette:
 
-For example, to use the Dayhoff amino acid color palette in a sequence logo:
+```typ
+#context {
+  set text(size: 0.8em)
+  render-msa(
+    protein_msa,
+    start: 100,
+    end: 145,
+    colors: true,
+    palette: residue-palette.aa.charge,
+  )
+}
+```
+
+#figure(
+  context {
+    set text(size: 0.8em)
+    render-msa(
+      protein_msa,
+      start: 100,
+      end: 145,
+      colors: true,
+      palette: residue-palette.aa.charge,
+    )
+  },
+  caption: [MSA visualization for positions 100--145 using the `charge` amino acid color palette.],
+  supplement: none,
+  kind: image,
+)
+
+To use the Dayhoff amino acid color palette in a sequence logo:
 
 ```typ
 #render-sequence-logo(
