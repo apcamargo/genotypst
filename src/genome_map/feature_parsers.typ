@@ -129,6 +129,7 @@
 ///   - partial (bool): Whether the feature was clipped by a range.
 ///   - accession (str): Feature accession.
 ///   - feature-type (str): GFF3 feature type.
+///   - pseudogenic (bool)
 ///   - source (str): GFF3 source.
 ///   - score (float, none): GFF3 score.
 ///   - phase (int, none): GFF3 phase.
