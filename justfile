@@ -1,3 +1,5 @@
+root := justfile_directory()
+
 # Full pipeline: format, build plugins, compile docs
 all: fmt build-plugins compile-docs
 
@@ -43,9 +45,9 @@ build-genome-map: setup-wasm
 
 # Compile the manual PDF
 compile-pdf: fmt build-plugins
-    typst compile --root . docs/manual.typ docs/manual.pdf
+    typst compile --root {{root}} docs/manual.typ docs/manual.pdf
 
 # Compile all example SVGs
 compile-svgs: fmt build-plugins
-    fd '_example\.typ$' docs -x typst compile --root . {} docs/svgs/{/.}_light.svg --format svg
-    fd '_example\.typ$' docs -x typst compile --root . {} docs/svgs/{/.}_dark.svg --format svg --input theme=dark
+    fd '_example\.typ$' docs -x typst compile --root {{root}} {} docs/svgs/{/.}_light.svg --format svg
+    fd '_example\.typ$' docs -x typst compile --root {{root}} {} docs/svgs/{/.}_dark.svg --format svg --input theme=dark
