@@ -29,16 +29,12 @@
 
 /// Builds label content for axis and scale annotations.
 ///
-/// Omits `fill` when `color` is `none` so labels inherit ambient text color.
-///
 /// - label (str, content): Label content.
 /// - size (length): Label font size.
-/// - color (color, none): Optional label color.
 /// -> content
-#let _make-axis-scale-label(label, size, color: none) = text(
+#let _make-axis-scale-label(label, size) = text(
   size: size,
   bottom-edge: "descender",
-  ..if color != none { (fill: color) },
 )[#label]
 
 /// Normalizes an effectively integral numeric value to an integer.
@@ -159,7 +155,6 @@
 /// - axis-left (length): Axis left offset.
 /// - label-size (length): Tick-label size.
 /// - unit (str, none): Optional unit suffix.
-/// - axis-color (color, none): Optional label color.
 /// -> array: Dictionaries with `x` (length), `label-text` (content), and
 ///   `label-left` (length).
 #let _resolve-coordinate-axis-tick-layout(
@@ -170,7 +165,6 @@
   axis-left,
   label-size,
   unit,
-  axis-color,
 ) = {
   let label-gap = 2pt
   let ticks = _resolve-coordinate-axis-ticks(
@@ -185,11 +179,7 @@
       axis-left + track-width * ((tick - region-start) / region-length)
     }
     let label = _format-scale-label(tick, unit)
-    let label-text = _make-axis-scale-label(
-      label,
-      label-size,
-      color: axis-color,
-    )
+    let label-text = _make-axis-scale-label(label, label-size)
     let label-width = measure(label-text).width
     let label-max-left = calc.max(
       axis-left,
@@ -328,21 +318,33 @@
   (length: resolved-length, width: resolved-width)
 }
 
+/// Places a line, skipping it when the stroke is `none`.
+///
+/// Unlike `curve`, `polygon`, `rect`, and `grid.cell`, Typst's `line` rejects
+/// `stroke: none`, so every line drawn from a user-supplied stroke goes through
+/// this helper.
+///
+/// - start (array): Line start as `(x, y)` lengths.
+/// - end (array): Line end as `(x, y)` lengths.
+/// - line-stroke (stroke, none): Line stroke styling. `none` draws nothing.
+/// -> content, none
+#let _draw-line(start, end, line-stroke) = {
+  if line-stroke != none {
+    place(top + left, line(start: start, end: end, stroke: line-stroke))
+  }
+}
+
 /// Draws a horizontal line segment.
 ///
 /// - x (length): Starting x-position.
 /// - y (length): Starting y-position.
 /// - length (length): Segment length.
-/// - stroke (stroke): Line stroke styling.
+/// - line-stroke (stroke, none): Line stroke styling. `none` draws nothing.
 /// Non-positive lengths draw nothing and return `none`.
 /// -> content, none
-#let _draw-horizontal-segment(x, y, length, stroke) = {
+#let _draw-horizontal-segment(x, y, length, line-stroke) = {
   if length > 0pt {
-    place(top + left, dx: x, dy: y, line(
-      start: (0pt, 0pt),
-      end: (length, 0pt),
-      stroke: stroke,
-    ))
+    _draw-line((x, y), (x + length, y), line-stroke)
   }
 }
 
@@ -351,16 +353,12 @@
 /// - x (length): Starting x-position.
 /// - y (length): Starting y-position.
 /// - length (length): Segment length.
-/// - stroke (stroke): Line stroke styling.
+/// - line-stroke (stroke, none): Line stroke styling. `none` draws nothing.
 /// Non-positive lengths draw nothing and return `none`.
 /// -> content, none
-#let _draw-vertical-segment(x, y, length, stroke) = {
+#let _draw-vertical-segment(x, y, length, line-stroke) = {
   if length > 0pt {
-    place(top + left, dx: x, dy: y, line(
-      start: (0pt, 0pt),
-      end: (0pt, length),
-      stroke: stroke,
-    ))
+    _draw-line((x, y), (x, y + length), line-stroke)
   }
 }
 
@@ -373,10 +371,8 @@
 /// - tick-height (length): Tick height.
 /// - label-gap (length): Gap between ticks and label.
 /// - label-size (length): Label font size.
-/// - label-color (color, none): Label color.
 /// - label (str): Label text.
-/// - stroke-color (color): Stroke color for bar and ticks.
-/// - stroke-width (length): Stroke thickness for bar and ticks.
+/// - bar-stroke (stroke, none): Stroke styling for bar and ticks.
 /// -> content
 #let _draw-scale-bar-row(
   row-width,
@@ -386,20 +382,13 @@
   tick-height,
   label-gap,
   label-size,
-  label-color,
   label,
-  stroke-color,
-  stroke-width,
+  bar-stroke,
 ) = context {
   let row-width-abs = _resolve-length(row-width)
   let bar-left-abs = _resolve-length(bar-left)
   let bar-width-abs = _resolve-length(bar-width)
-  let stroke = (paint: stroke-color, thickness: stroke-width, cap: "round")
-  let label-text = _make-axis-scale-label(
-    label,
-    label-size,
-    color: label-color,
-  )
+  let label-text = _make-axis-scale-label(label, label-size)
   let label-size-box = measure(label-text)
   let label-width-abs = label-size-box.width
   let label-left = _clamp(
@@ -416,14 +405,14 @@
         bar-left-abs,
         bar-top + tick-height / 2,
         bar-width-abs,
-        stroke,
+        bar-stroke,
       )
-      _draw-vertical-segment(bar-left-abs, bar-top, tick-height, stroke)
+      _draw-vertical-segment(bar-left-abs, bar-top, tick-height, bar-stroke)
       _draw-vertical-segment(
         bar-left-abs + bar-width-abs,
         bar-top,
         tick-height,
-        stroke,
+        bar-stroke,
       )
       place(
         top + left,
@@ -448,9 +437,8 @@
 /// - tick-height (length): Tick height.
 /// - label-gap (length): Gap between tick and label.
 /// - label-size (length): Label font size.
-/// - unit (str, none): Unit suffix.
-/// - axis-color (color, none): Axis label color.
-/// - axis-stroke (stroke): Stroke styling.
+/// - axis-stroke (stroke, none): Stroke styling for the axis line and ticks.
+/// - unit (str, none): Optional unit suffix for tick labels.
 /// - axis-left (length): Left offset for axis line and ticks.
 /// -> content, none
 #let _draw-coordinate-axis(
@@ -463,9 +451,8 @@
   tick-height,
   label-gap,
   label-size,
-  unit,
-  axis-color,
   axis-stroke,
+  unit: none,
   axis-left: 0pt,
 ) = {
   if coordinate-axis {
@@ -478,7 +465,6 @@
       axis-left,
       label-size,
       unit,
-      axis-color,
     )
 
     for entry in tick-layout {

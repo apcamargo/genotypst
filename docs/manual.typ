@@ -1,5 +1,8 @@
 #import "../src/lib.typ": *
-#import "template.typ": aa-palettes, aa-residues, nt-palettes, nt-residues, project, render-residue-palettes
+#import "template.typ": (
+  aa-palettes, aa-residues, nt-palettes, nt-residues, project,
+  render-residue-palettes,
+)
 
 #show: project.with(
   title: "genotypst: A bioinformatics Typst package for sequence analysis and visualization",

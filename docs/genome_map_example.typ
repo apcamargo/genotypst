@@ -25,5 +25,7 @@
   locus,
   coordinate-axis: true,
   width: 80%,
-  gene-outline-color: text-color,
+  gene-stroke: stroke(thickness: 1pt, paint: text-color, join: "miter"),
+  label-stroke: stroke(thickness: 1pt, paint: text-color, cap: "round"),
+  axis-stroke: stroke(thickness: 1pt, paint: text-color, cap: "round"),
 )

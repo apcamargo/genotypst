@@ -1,6 +1,6 @@
 #import "../common/axis_scale.typ": (
-  _draw-horizontal-segment, _draw-scale-bar-row, _draw-vertical-segment,
-  _format-scale-label, _resolve-scale-bar-length,
+  _draw-horizontal-segment, _draw-line, _draw-scale-bar-row,
+  _draw-vertical-segment, _format-scale-label, _resolve-scale-bar-length,
 )
 
 /// Numeric tolerance used when fitting trees into a viewport.
@@ -10,8 +10,7 @@
 ///
 /// - fitted-plan (dictionary): Fitted tree data with viewport geometry and
 ///   positioned primitives.
-/// - branch-color (color): Scale bar color.
-/// - branch-width (length): Scale bar stroke thickness.
+/// - scale-stroke (stroke, none): Stroke for the scale-bar line and ticks.
 /// - scale-length (auto, int, float): Requested scale length in branch-length units. Positive when not auto.
 /// - unit (str, none): Optional scale-bar unit.
 /// - min-auto-bar-width (length): Minimum rendered width used in auto mode.
@@ -20,8 +19,7 @@
 /// -> content
 #let _build-scale-plan(
   fitted-plan,
-  branch-color,
-  branch-width,
+  scale-stroke,
   scale-length,
   unit,
   min-auto-bar-width,
@@ -58,10 +56,8 @@
     scale-tick-height,
     scale-label-gap,
     scale-label-size,
-    none,
     scale-label,
-    branch-color,
-    branch-width,
+    scale-stroke,
   )
 }
 
@@ -79,6 +75,9 @@
     height: fitted-plan.tree-viewport-height,
     {
       for primitive in fitted-plan.tree-lines {
+        if primitive.stroke == none {
+          continue
+        }
         let start = (
           x: primitive.start.x + tree-translation.x,
           y: primitive.start.y + tree-translation.y,
@@ -104,11 +103,11 @@
             primitive.stroke,
           )
         } else {
-          place(top + left, line(
-            start: (start.x, start.y),
-            end: (end.x, end.y),
-            stroke: primitive.stroke,
-          ))
+          _draw-line(
+            (start.x, start.y),
+            (end.x, end.y),
+            primitive.stroke,
+          )
         }
       }
       for primitive in fitted-plan.tree-labels {

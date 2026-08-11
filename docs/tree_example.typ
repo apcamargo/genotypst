@@ -22,5 +22,5 @@
   width: 110mm,
   height: 35mm,
   align-tip-labels: true,
-  branch-color: text-color,
+  branch-stroke: stroke(thickness: 1pt, paint: text-color, cap: "square"),
 )

@@ -258,11 +258,11 @@
 ///
 /// - view (dictionary): Prepared scoring-matrix view record.
 /// - label-bold (bool): Whether labels should be bold.
-/// - stroke (stroke, none): Stroke for data cells.
+/// - cell-stroke (stroke, none): Stroke for data cells.
 /// - limits (dictionary): Min/max limits for color scaling.
 /// - color-gradient (gradient, none): Pre-normalized color gradient.
 /// -> array: Grid cells emitted in final row-major order for `grid(..cells)`.
-#let _generate-cells(view, label-bold, stroke, limits, color-gradient) = {
+#let _generate-cells(view, label-bold, cell-stroke, limits, color-gradient) = {
   let cells = ()
   let blank-cell = () => grid.cell(stroke: none)[]
 
@@ -278,7 +278,7 @@
       limits.max,
       color-gradient,
     )
-    grid.cell(fill: bg, stroke: stroke)[#_format-score(score)]
+    grid.cell(fill: bg, stroke: cell-stroke)[#_format-score(score)]
   }
 
   if view.col-label-side == "top" {
@@ -363,7 +363,7 @@
 /// - cell-size (length): Size of each square cell (default: 1.75em).
 /// - gutter (length): Spacing between cells (default: 0pt).
 /// - label-bold (bool): Whether alphabet labels should be bold (default: true).
-/// - stroke (stroke, none): Stroke style for data cells (default: none).
+/// - cell-stroke (stroke, none): Stroke for data cells. `none` hides them (default: none).
 /// - color-map (array, gradient, none): Array of colors or a gradient
 ///   for cell backgrounds. none or () disables cell background fill.
 ///   (default: diverging red-blue color map).
@@ -376,7 +376,7 @@
   cell-size: 1.75em,
   gutter: 0pt,
   label-bold: true,
-  stroke: none,
+  cell-stroke: none,
   color-map: diverging-color-map,
 ) = {
   let color-gradient = _resolve-colormap(color-map)
@@ -387,7 +387,13 @@
     cell-size,
   )
   let limits = _get-scale-limits(view.scale-values, scale-limit)
-  let cells = _generate-cells(view, label-bold, stroke, limits, color-gradient)
+  let cells = _generate-cells(
+    view,
+    label-bold,
+    cell-stroke,
+    limits,
+    color-gradient,
+  )
 
   block(breakable: false, grid(
     columns: view.grid-columns,

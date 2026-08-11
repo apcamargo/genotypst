@@ -134,7 +134,7 @@
       }
       let right = left + label-width
       let text-center = left + label-width / 2
-      let underline-width = calc.max(0.75pt, gene-width - 0.75pt)
+      let underline-width = calc.max(1pt, gene-width - 1pt)
       let underline-left = gene-center - underline-width / 2
       let underline-right = underline-left + underline-width
       let dodge-left = calc.min(left, underline-left)

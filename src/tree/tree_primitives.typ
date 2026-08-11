@@ -9,7 +9,9 @@
 /// -> content
 #let _build-tree-label-content(label-primitive) = {
   let label-content = text(
-    size: label-primitive.text-size,
+    ..if label-primitive.text-size != none {
+      (size: label-primitive.text-size)
+    },
     ..if label-primitive.text-fill != none {
       (fill: label-primitive.text-fill)
     },
@@ -112,7 +114,7 @@
 /// - y-gap (length): Vertical gap in the active placement frame.
 /// - rotation (angle): Final label rotation.
 /// - label-body (str, content): Label content.
-/// - text-size (length): Label size.
+/// - text-size (length, none): Label size; `none` inherits the ambient font size.
 /// - text-fill (color, none): Label fill.
 /// - text-style (str): Label style.
 /// - label-body-is-text-like (bool, auto): Cached text-like classification for
@@ -282,7 +284,7 @@
     primitives.push((
       kind: "line",
       stroke: style.branch-stroke,
-      stroke-thickness: style.branch-width,
+      stroke-thickness: style.branch-thickness,
       start-anchor: (
         tree: (x: root.x-unit, y: root.y-unit),
         page: (x: -style.root-length, y: 0pt),
@@ -303,7 +305,7 @@
       primitives.push((
         kind: "line",
         stroke: style.branch-stroke,
-        stroke-thickness: style.branch-width,
+        stroke-thickness: style.branch-thickness,
         start-anchor: if rectangular {
           (
             tree: (x: parent.x-unit, y: node.y-unit),
@@ -340,7 +342,7 @@
             },
             if orientation == "vertical" { -90deg } else { 0deg },
             node.label-body,
-            style.tip-label-size,
+            none,
             style.tip-label-color,
             tip-label-style,
           ))
@@ -359,7 +361,7 @@
             local-y-gap,
             radial-placement.rotation,
             node.label-body,
-            style.tip-label-size,
+            none,
             style.tip-label-color,
             tip-label-style,
             placement-frame: "local",
@@ -373,7 +375,7 @@
       primitives.push((
         kind: "line",
         stroke: style.branch-stroke,
-        stroke-thickness: style.branch-width,
+        stroke-thickness: style.branch-thickness,
         start-anchor: (
           tree: (x: node.x-unit, y: first-child.y-unit),
           page: _zero-point,

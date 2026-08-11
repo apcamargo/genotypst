@@ -1,4 +1,7 @@
 #import "../common/colors.typ": _medium-gray
+#import "../common/strokes.typ": (
+  _default-axis-stroke, _default-branch-stroke, _default-tip-leader-stroke,
+)
 #import "./tree_backend.typ": _tree-prepare-layout-backend
 #import "./tree_fit.typ": _fit-prepared-tree-plan, _prepare-fit-tree-plan
 #import "./tree_primitives.typ": _build-tree-plan
@@ -40,8 +43,6 @@
 ///
 /// - width (length, auto, ratio, relative): Requested rendered width.
 /// - height (length, auto): Requested rendered tree height.
-/// - branch-width (length): Branch stroke thickness.
-/// - tip-label-size (length): Tip label size.
 /// - internal-label-size (length): Internal label size.
 /// - hide-internal-labels (bool): Whether internal labels are suppressed.
 /// - cladogram (bool): Whether cladogram mode is enabled.
@@ -49,15 +50,11 @@
 #let _validate-common-tree-args(
   width,
   height,
-  branch-width,
-  tip-label-size,
   internal-label-size,
   hide-internal-labels,
   cladogram,
 ) = {
   assert(type(cladogram) == bool, message: "cladogram must be a boolean.")
-  assert(branch-width > 0pt, message: "branch-width must be positive.")
-  assert(tip-label-size > 0pt, message: "tip-label-size must be positive.")
   assert(
     internal-label-size > 0pt,
     message: "internal-label-size must be positive.",
@@ -80,10 +77,7 @@
 ///
 /// - width (length, auto, ratio, relative): Requested rendered width.
 /// - height (length, auto): Requested rendered tree height.
-/// - branch-width (length): Branch stroke thickness.
-/// - tip-label-size (length): Tip label size.
 /// - align-tip-labels (bool): Whether tip-label alignment is enabled.
-/// - tip-leader-color (color): Stroke color for leader lines.
 /// - internal-label-size (length): Internal label size.
 /// - hide-internal-labels (bool): Whether internal labels are suppressed.
 /// - root-length (length): Root-edge length.
@@ -105,14 +99,10 @@
 ///   - optimize-uniform-rotation (bool): Whether fit may optimize global rotation.
 ///   - fit-band-samples (int, none): Band samples used by the fit search.
 ///   - align-tip-labels (bool): Resolved tip-label alignment setting.
-///   - tip-leader-color (color): Resolved leader line color.
 #let _resolve-rectangular-tree-render-config(
   width,
   height,
-  branch-width,
-  tip-label-size,
   align-tip-labels,
-  tip-leader-color,
   internal-label-size,
   hide-internal-labels,
   root-length,
@@ -127,8 +117,6 @@
   _validate-common-tree-args(
     width,
     height,
-    branch-width,
-    tip-label-size,
     internal-label-size,
     hide-internal-labels,
     cladogram,
@@ -137,10 +125,6 @@
   assert(
     type(align-tip-labels) == bool,
     message: "align-tip-labels must be a boolean.",
-  )
-  assert(
-    type(tip-leader-color) == color,
-    message: "tip-leader-color must be a color.",
   )
   assert(root-length >= 0pt, message: "root-length must be non-negative.")
   assert(
@@ -174,7 +158,6 @@
     // keeps the search cheap without changing the generic solver structure.
     fit-band-samples: _rectangular-fit-band-samples,
     align-tip-labels: align-tip-labels,
-    tip-leader-color: tip-leader-color,
   )
 }
 
@@ -182,8 +165,6 @@
 ///
 /// - width (length, auto, ratio, relative): Requested rendered width.
 /// - height (length, auto): Requested rendered tree height.
-/// - branch-width (length): Branch stroke thickness.
-/// - tip-label-size (length): Tip label size.
 /// - internal-label-size (length): Internal label size.
 /// - hide-internal-labels (bool): Whether internal labels are suppressed.
 /// - cladogram (bool): Whether cladogram mode is enabled.
@@ -201,8 +182,6 @@
 #let _resolve-unrooted-tree-render-config(
   width,
   height,
-  branch-width,
-  tip-label-size,
   internal-label-size,
   hide-internal-labels,
   cladogram,
@@ -211,8 +190,6 @@
   _validate-common-tree-args(
     width,
     height,
-    branch-width,
-    tip-label-size,
     internal-label-size,
     hide-internal-labels,
     cladogram,
@@ -235,53 +212,73 @@
 
 /// Builds the shared style record for tree rendering and tip-label metrics.
 ///
-/// - branch-width (length): Branch stroke thickness.
-/// - branch-color (color): Branch color.
-/// - tip-label-size (length): Tip label size.
+/// - branch-stroke (stroke, none): Branch stroke.
 /// - tip-label-color (color, none): Tip label color.
 /// - tip-label-italics (bool): Whether tip labels are italicized.
 /// - internal-label-size (length): Internal label size.
 /// - internal-label-color (color, none): Internal label color.
 /// -> dictionary
 #let _build-render-tree-style(
-  branch-width,
-  branch-color,
-  tip-label-size,
+  branch-stroke,
   tip-label-color,
   tip-label-italics,
   internal-label-size,
   internal-label-color,
 ) = {
+  let branch-thickness = 0pt
+  let resolved-branch-stroke = none
+  if branch-stroke != none {
+    let base = stroke(branch-stroke)
+    // Fitting reserves half a stroke of bleed, so resolve `auto` against the
+    // ambient line style, then Typst's built-in default.
+    branch-thickness = if base.thickness != auto {
+      base.thickness
+    } else if line.stroke.thickness != auto {
+      line.stroke.thickness
+    } else {
+      1pt
+    }
+    assert(
+      branch-thickness > 0pt,
+      message: "branch-stroke thickness must be positive.",
+    )
+    resolved-branch-stroke = if base.cap == auto {
+      // Rectangular trees draw horizontals and verticals as separate segments,
+      // which only meet flush at corners with square caps.
+      stroke((
+        paint: base.paint,
+        thickness: base.thickness,
+        cap: "square",
+        join: base.join,
+        dash: base.dash,
+        miter-limit: base.miter-limit,
+      ))
+    } else {
+      base
+    }
+  }
   let tip-label-style = if tip-label-italics { "italic" } else { "normal" }
   let ascender-to-baseline = measure(text(
-    size: tip-label-size,
     style: tip-label-style,
     top-edge: "ascender",
     bottom-edge: "baseline",
     "x",
   )).height
   let x-height-span = measure(text(
-    size: tip-label-size,
     style: tip-label-style,
     top-edge: "x-height",
     bottom-edge: "baseline",
     "x",
   )).height
   let full-height = measure(text(
-    size: tip-label-size,
     style: tip-label-style,
     top-edge: "ascender",
     bottom-edge: "descender",
     "x",
   )).height
   (
-    branch-stroke: stroke(
-      thickness: branch-width,
-      paint: branch-color,
-      cap: "square",
-    ),
-    branch-width: branch-width,
-    tip-label-size: tip-label-size,
+    branch-stroke: resolved-branch-stroke,
+    branch-thickness: branch-thickness,
     tip-label-color: tip-label-color,
     tip-label-italics: tip-label-italics,
     tip-label-style: tip-label-style,
@@ -301,9 +298,7 @@
 
 /// Builds the rectangular-tree style record.
 ///
-/// - branch-width (length): Branch stroke thickness.
-/// - branch-color (color): Branch color.
-/// - tip-label-size (length): Tip label size.
+/// - branch-stroke (stroke, none): Branch stroke.
 /// - tip-label-color (color, none): Tip label color.
 /// - tip-label-italics (bool): Whether tip labels are italicized.
 /// - internal-label-size (length): Internal label size.
@@ -311,9 +306,7 @@
 /// - root-length (length): Rendered root-edge length.
 /// -> dictionary
 #let _build-rectangular-tree-style(
-  branch-width,
-  branch-color,
-  tip-label-size,
+  branch-stroke,
   tip-label-color,
   tip-label-italics,
   internal-label-size,
@@ -321,9 +314,7 @@
   root-length,
 ) = {
   let style = _build-render-tree-style(
-    branch-width,
-    branch-color,
-    tip-label-size,
+    branch-stroke,
     tip-label-color,
     tip-label-italics,
     internal-label-size,
@@ -489,10 +480,13 @@
 /// Inserts leader lines for already aligned tip labels in a fitted tree plan.
 ///
 /// - fitted-plan (dictionary): Fitted tree layout plan containing lines and labels.
-/// - style (dictionary): Tree style record containing stroke metrics.
-/// - tip-leader-color (color): Stroke color for the dotted leader lines.
+/// - tip-leader-stroke (stroke, none): Stroke for the leader lines.
 /// -> dictionary
-#let _align-tip-labels-in-plan(fitted-plan, style, tip-leader-color) = {
+#let _align-tip-labels-in-plan(fitted-plan, tip-leader-stroke) = {
+  if tip-leader-stroke == none {
+    return fitted-plan
+  }
+
   let orientation = fitted-plan.orientation
   let tip-labels = fitted-plan.tree-labels.filter(l => (
     l.at("placement-role", default: none) == "tip-label"
@@ -508,12 +502,6 @@
   }
 
   let leader-lines = ()
-  let dashed-stroke = stroke(
-    paint: tip-leader-color,
-    thickness: style.branch-width,
-    dash: (style.branch-width, 2.3 * style.branch-width),
-    cap: "square",
-  )
 
   for l in tip-labels {
     let (start-pt, end-pt, padding) = if orientation == "horizontal" {
@@ -534,7 +522,7 @@
       leader-lines.push((
         start: start-pt,
         end: end-pt,
-        stroke: dashed-stroke,
+        stroke: tip-leader-stroke,
       ))
     }
   }
@@ -554,13 +542,11 @@
 /// - width (length, auto, ratio, relative): Width of the tree visualization
 ///   including labels (default: 100%).
 /// - height (length, auto): Height of the tree area (default: auto).
-/// - branch-width (length): Thickness of tree branches (default: 1pt).
-/// - branch-color (color): Color of tree branches (default: black).
-/// - tip-label-size (length): Font size of tip labels (default: 1em).
+/// - branch-stroke (stroke, none): Stroke for tree branches. `none` hides them (default: 0.75pt black, square caps).
 /// - tip-label-color (color, none): Color of tip labels (default: none, inherits from the document).
 /// - tip-label-italics (bool): Whether to use italics for tip labels (default: false).
-/// - align-tip-labels (bool): Whether to align tip labels and connect them to branches with dotted leader lines (default: false).
-/// - tip-leader-color (color): Stroke color for the dotted leader lines (default: medium gray).
+/// - align-tip-labels (bool): Whether to align tip labels and connect them to branches with leader lines (default: false).
+/// - tip-leader-stroke (stroke, none): Stroke for the tip-label leader lines. `none` hides them (default: 0.75pt medium gray, dashed, square caps).
 /// - internal-label-size (length): Font size of internal node labels (default: 0.85em).
 /// - internal-label-color (color, none): Color of internal node labels (default: medium gray; `none` inherits from the document).
 /// - hide-internal-labels (bool): Whether to hide all non-leaf labels
@@ -575,21 +561,20 @@
 /// - scale-length (auto, int, float): Scale-bar length in branch-length units. Positive when specified (default: auto).
 /// - unit (str, none): Optional scale-bar unit suffix (default: none).
 /// - min-auto-bar-width (length): Minimum auto-selected scale-bar width when space allows (default: 2.5em).
+/// - scale-stroke (stroke, none): Stroke for the scale-bar line and ticks. `none` hides them (default: 0.75pt black, butt caps).
 /// - scale-bar-gap (length): Gap between tree and scale bar (default: 0.6em).
-/// - scale-tick-height (length): Scale-bar tick height (default: 4.25pt).
-/// - scale-label-size (length): Scale-bar label size (default: 0.8em).
+/// - scale-tick-height (length): Scale-bar tick height (default: 5pt).
+/// - scale-label-size (length): Scale-bar label size (default: 0.85em).
 /// -> content
 #let render-rectangular-tree(
   tree-data,
   width: 100%,
   height: auto,
-  branch-width: 1pt,
-  branch-color: black,
-  tip-label-size: 1em,
+  branch-stroke: _default-branch-stroke,
   tip-label-color: none,
   tip-label-italics: false,
   align-tip-labels: false,
-  tip-leader-color: _medium-gray,
+  tip-leader-stroke: _default-tip-leader-stroke,
   internal-label-size: 0.85em,
   internal-label-color: _medium-gray,
   hide-internal-labels: false,
@@ -600,17 +585,15 @@
   scale-length: auto,
   unit: none,
   min-auto-bar-width: 2.5em,
+  scale-stroke: _default-axis-stroke,
   scale-bar-gap: 0.6em,
-  scale-tick-height: 4.25pt,
-  scale-label-size: 0.8em,
+  scale-tick-height: 5pt,
+  scale-label-size: 0.85em,
 ) = {
   let config = _resolve-rectangular-tree-render-config(
     width,
     height,
-    branch-width,
-    tip-label-size,
     align-tip-labels,
-    tip-leader-color,
     internal-label-size,
     hide-internal-labels,
     root-length,
@@ -625,9 +608,7 @@
   block(width: width)[
     #context {
       let style = _build-rectangular-tree-style(
-        branch-width,
-        branch-color,
-        tip-label-size,
+        branch-stroke,
         tip-label-color,
         tip-label-italics,
         internal-label-size,
@@ -653,11 +634,7 @@
           align-tip-labels: config.align-tip-labels,
         )
         let fitted-plan = if config.align-tip-labels {
-          _align-tip-labels-in-plan(
-            fitted-plan,
-            prepared.style,
-            config.tip-leader-color,
-          )
+          _align-tip-labels-in-plan(fitted-plan, tip-leader-stroke)
         } else {
           fitted-plan
         }
@@ -666,8 +643,7 @@
         ) {
           _build-scale-plan(
             fitted-plan,
-            branch-color,
-            branch-width,
+            scale-stroke,
             scale-length,
             unit,
             min-auto-bar-width,
@@ -694,9 +670,7 @@
 ///   Trees returned by `parse-newick(...)` remain string-labeled.
 /// - width (length, auto, ratio, relative): Width of the tree visualization including labels (default: 100%).
 /// - height (length, auto): Height of the tree area (default: auto).
-/// - branch-width (length): Thickness of tree branches (default: 1pt).
-/// - branch-color (color): Color of tree branches (default: black).
-/// - tip-label-size (length): Font size of tip labels (default: 1em).
+/// - branch-stroke (stroke, none): Stroke for tree branches. `none` hides them (default: 0.75pt black, square caps).
 /// - tip-label-color (color, none): Color of tip labels (default: none, inherits from the document).
 /// - tip-label-italics (bool): Whether to use italics for tip labels (default: false).
 /// - internal-label-size (length): Font size of internal node labels (default: 0.85em).
@@ -710,9 +684,7 @@
   tree-data,
   width: 100%,
   height: auto,
-  branch-width: 1pt,
-  branch-color: black,
-  tip-label-size: 1em,
+  branch-stroke: _default-branch-stroke,
   tip-label-color: none,
   tip-label-italics: false,
   internal-label-size: 0.85em,
@@ -724,8 +696,6 @@
   let config = _resolve-unrooted-tree-render-config(
     width,
     height,
-    branch-width,
-    tip-label-size,
     internal-label-size,
     hide-internal-labels,
     cladogram,
@@ -734,9 +704,7 @@
   block(width: width)[
     #context {
       let style = _build-render-tree-style(
-        branch-width,
-        branch-color,
-        tip-label-size,
+        branch-stroke,
         tip-label-color,
         tip-label-italics,
         internal-label-size,

@@ -1,4 +1,5 @@
 #import "../common/colors.typ": _light-gray
+#import "../common/strokes.typ": _default-axis-stroke, _default-outline-stroke
 #import "../common/axis_scale.typ": (
   _draw-coordinate-axis, _draw-horizontal-segment, _draw-scale-bar-row,
   _draw-vertical-segment,
@@ -16,7 +17,7 @@
 /// - gene-height (length): Height of gene arrows/blocks.
 /// - head-length (length, auto): Arrowhead length.
 /// - min-head-length (length): Minimum arrowhead length.
-/// - gene-stroke (stroke): Stroke styling for genes.
+/// - gene-stroke (stroke, none): Stroke styling for genes.
 /// -> content
 #let _draw-genes(
   genes,
@@ -103,10 +104,11 @@
 /// - head-length (length, auto): Arrowhead length (default: auto).
 /// - min-head-length (length): Minimum arrowhead length (default: 3.5pt).
 /// - default-color (color): Default gene fill (default: light gray).
-/// - gene-outline-color (color): Gene outline and label leader/underline color (default: black).
 /// - label-color (color, none): Feature label color (default: none, inherits from the document).
-/// - stroke-width (length): Stroke width for gene outlines, label leaders/underlines, and scale/axis lines (default: 0.75pt).
-/// - label-size (length): Label font size (default: 0.8em).
+/// - gene-stroke (stroke, none): Stroke for gene outlines and the gene-track baseline. `none` hides them (default: 0.75pt black, mitered).
+/// - label-stroke (stroke, none): Stroke for label leader lines and underlines. `none` hides them (default: 0.75pt black, butt caps).
+/// - axis-stroke (stroke, none): Stroke for the coordinate-axis and scale-bar lines and ticks. `none` hides them (default: 0.75pt black, butt caps). Tick labels always inherit the ambient text color.
+/// - label-size (length): Label font size (default: 0.85em).
 /// - label-horizontal-gap (length): Horizontal spacing between labels (default: 0.8pt).
 /// - label-vertical-gap (length): Vertical gap between label levels (default: 0.8em).
 /// - label-line-distance (length): Extra horizontal spacing kept between label leaders and nearby labels (default: 0.7pt).
@@ -118,10 +120,10 @@
 /// - unit (str, none): Optional unit suffix for the scale bar and coordinate axis (default: none).
 /// - coordinate-axis (bool): Whether to draw the coordinate axis (default: false).
 /// - coordinate-axis-track-gap (length): Gap between the gene track and the coordinate axis (default: 6pt).
-/// - coordinate-axis-label-size (length): Coordinate-axis tick-label size (default: 0.8em).
+/// - coordinate-axis-label-size (length): Coordinate-axis tick-label size (default: 0.85em).
 /// - scale-bar-gap (length): Vertical gap above the scale bar (default: 6pt).
-/// - scale-tick-height (length): Tick height for the scale bar and coordinate axis (default: 4.25pt).
-/// - scale-label-size (length): Scale-bar label size (default: 0.8em).
+/// - scale-tick-height (length): Tick height for the scale bar and coordinate axis (default: 5pt).
+/// - scale-label-size (length): Scale-bar label size (default: 0.85em).
 /// -> content
 #let render-genome-map(
   genes,
@@ -132,10 +134,11 @@
   head-length: auto,
   min-head-length: 3.5pt,
   default-color: _light-gray,
-  gene-outline-color: black,
   label-color: none,
-  stroke-width: 0.75pt,
-  label-size: 0.8em,
+  gene-stroke: _default-outline-stroke,
+  label-stroke: _default-axis-stroke,
+  axis-stroke: _default-axis-stroke,
+  label-size: 0.85em,
   label-horizontal-gap: 0.8pt,
   label-vertical-gap: 0.8em,
   label-line-distance: 0.7pt,
@@ -147,10 +150,10 @@
   unit: none,
   coordinate-axis: false,
   coordinate-axis-track-gap: 6pt,
-  coordinate-axis-label-size: 0.8em,
+  coordinate-axis-label-size: 0.85em,
   scale-bar-gap: 6pt,
-  scale-tick-height: 4.25pt,
-  scale-label-size: 0.8em,
+  scale-tick-height: 5pt,
+  scale-label-size: 0.85em,
 ) = block(width: width)[
   #layout(size => context {
     if coordinate-axis {
@@ -192,18 +195,6 @@
       min-head-length,
       size,
     )
-
-    let gene-stroke = (
-      paint: gene-outline-color,
-      thickness: stroke-width,
-      join: "miter",
-    )
-    let label-stroke = (
-      paint: gene-outline-color,
-      thickness: stroke-width,
-      cap: "round",
-    )
-    let scale-stroke = (paint: black, thickness: stroke-width, cap: "round")
 
     box(width: size.width, height: prepared.total-height, {
       // Baseline through the middle of the gene track.
@@ -261,9 +252,8 @@
         prepared.scale-tick-height,
         prepared.coordinate-axis-label-gap,
         coordinate-axis-label-size,
-        unit,
-        none,
-        scale-stroke,
+        axis-stroke,
+        unit: unit,
         axis-left: prepared.axis-left,
       )
 
@@ -277,10 +267,8 @@
           prepared.scale-tick-height,
           prepared.scale-label-gap,
           scale-label-size,
-          none,
           prepared.scale-label,
-          black,
-          stroke-width,
+          axis-stroke,
         )
       }
     })

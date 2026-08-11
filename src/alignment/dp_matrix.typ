@@ -1,4 +1,8 @@
-#import "../common/colors.typ": _dark-gray, _medium-gray, _yellow
+#import "../common/colors.typ": _medium-gray
+#import "../common/strokes.typ": (
+  _default-arrow-stroke, _default-cell-stroke, _default-path-arrow-stroke,
+  _default-path-stroke,
+)
 #import "./alignment_coords.typ": (
   _parse-and-validate-coord, _parse-coord, _validate-path,
 )
@@ -191,8 +195,7 @@
 /// - highlight-map (dictionary): Highlight fill colors keyed by row-major index.
 /// - path-cell-set (dictionary): Membership map for path cells keyed by
 ///   row-major index.
-/// - stroke-width (length): Cell border width.
-/// - stroke-color (color): Cell border color.
+/// - cell-stroke (stroke, none): Stroke for cell borders.
 /// - cell-inset (length): Cell inset for the background and text boxes.
 /// - corner-radius (length): Radius for outermost data-cell corners.
 /// -> array: Logical grid cells with paired `bg` and `text` content.
@@ -202,8 +205,7 @@
   cell-values,
   highlight-map,
   path-cell-set,
-  stroke-width,
-  stroke-color,
+  cell-stroke,
   cell-inset,
   corner-radius,
 ) = {
@@ -255,7 +257,7 @@
           width: 100%,
           height: 100%,
           fill: fill-color,
-          stroke: stroke-width + stroke-color,
+          stroke: cell-stroke,
           radius: cell-radius,
           inset: cell-inset,
         )[],
@@ -275,21 +277,19 @@
 /// Renders the traceback path overlay.
 ///
 /// - parsed-path (array): Parsed path coordinates in start-to-end order.
-/// - path-color (color): Path stroke color.
-/// - path-width (length): Path stroke width.
+/// - path-stroke (stroke, none): Stroke for the traceback path line.
 /// - label-col-width (length): Width of the left label column.
 /// - label-row-height (length): Height of the top label row.
 /// - cell-size (length): Size of each square cell.
 /// -> content, none
 #let _render-path(
   parsed-path,
-  path-color,
-  path-width,
+  path-stroke,
   label-col-width,
   label-row-height,
   cell-size,
 ) = {
-  if parsed-path.len() <= 1 {
+  if path-stroke == none or parsed-path.len() <= 1 {
     return
   }
 
@@ -312,15 +312,7 @@
       curve-components.push(curve.line(path-coords.at(i)))
     }
 
-    curve(
-      stroke: (
-        paint: path-color,
-        thickness: path-width,
-        cap: "round",
-        join: "round",
-      ),
-      ..curve-components,
-    )
+    curve(stroke: path-stroke, ..curve-components)
   })
 }
 
@@ -370,14 +362,14 @@
 ///
 /// - from-coord (dictionary): Edge start coordinate with `row` and `col`.
 /// - to-coord (dictionary): Edge end coordinate with `row` and `col`.
-/// - arrow-color (color): Default arrow color.
+/// - arrow-stroke (stroke, none): Default arrow stroke. `none` hides the arrow.
 /// - cell-size (length): Size of each square cell.
 /// - label-col-width (length): Width of the left label column.
 /// - label-row-height (length): Height of the top label row.
 /// - path-edge-set (dictionary): Membership map for path edges keyed by
 ///   `_edge-index(...)`.
-/// - path-arrow-color (color): Arrow color for edges on the highlighted path.
-/// - arrow-width (length): Arrow stroke width.
+/// - path-arrow-stroke (stroke, none): Arrow stroke for edges on the highlighted
+///   path. `none` hides the arrow.
 /// - arrow-length-scale (int, float): Positive multiplier for arrow length.
 /// - cols (int): Total number of columns.
 /// - cell-count (int): Total number of cells in the matrix.
@@ -385,22 +377,24 @@
 #let _render-arrow(
   from-coord,
   to-coord,
-  arrow-color,
+  arrow-stroke,
   cell-size,
   label-col-width,
   label-row-height,
   path-edge-set,
-  path-arrow-color,
-  arrow-width,
+  path-arrow-stroke,
   arrow-length-scale,
   cols,
   cell-count,
 ) = {
   let edge-key = str(_edge-index(from-coord, to-coord, cols, cell-count))
-  let arr-color = if edge-key in path-edge-set {
-    path-arrow-color
+  let edge-stroke = if edge-key in path-edge-set {
+    path-arrow-stroke
   } else {
-    arrow-color
+    arrow-stroke
+  }
+  if edge-stroke == none {
+    return
   }
 
   let from-center = _cell-center(
@@ -434,11 +428,7 @@
     _tiptoe-line(
       start: (start-x, start-y),
       end: (end-x, end-y),
-      stroke: (
-        paint: arr-color,
-        thickness: arrow-width,
-        cap: "round",
-      ),
+      stroke: edge-stroke,
       tip: _tiptoe-straight.with(width: 550%, length: 375%),
     )
   })
@@ -449,27 +439,26 @@
 /// - arrows (array, none): Flat row-major direction bitmasks.
 /// - rows (int): Total number of rows.
 /// - cols (int): Total number of columns.
-/// - arrow-color (color): Default arrow color.
+/// - arrow-stroke (stroke, none): Default arrow stroke. `none` hides the arrow.
 /// - cell-size (length): Size of each square cell.
 /// - label-col-width (length): Width of the left label column.
 /// - label-row-height (length): Height of the top label row.
 /// - path-edge-set (dictionary): Membership map for path edges keyed by
 ///   `_edge-index(...)`.
-/// - path-arrow-color (color): Arrow color for edges on the highlighted path.
-/// - arrow-width (length): Arrow stroke width.
+/// - path-arrow-stroke (stroke, none): Arrow stroke for edges on the highlighted
+///   path. `none` hides the arrow.
 /// - arrow-length-scale (int, float): Positive multiplier for arrow length.
 /// -> content, none
 #let _render-arrows(
   arrows,
   rows,
   cols,
-  arrow-color,
+  arrow-stroke,
   cell-size,
   label-col-width,
   label-row-height,
   path-edge-set,
-  path-arrow-color,
-  arrow-width,
+  path-arrow-stroke,
   arrow-length-scale,
 ) = {
   if arrows == none { return }
@@ -482,13 +471,12 @@
       let emit = to-coord => _render-arrow(
         from-coord,
         to-coord,
-        arrow-color,
+        arrow-stroke,
         cell-size,
         label-col-width,
         label-row-height,
         path-edge-set,
-        path-arrow-color,
-        arrow-width,
+        path-arrow-stroke,
         arrow-length-scale,
         cols,
         cell-count,
@@ -523,22 +511,19 @@
 /// - highlights (array): Cell highlights as `(row, col)` or `(row, col, color)` arrays (default: ()).
 /// - highlight-color (color): Default color for highlighted cells (default: light gray).
 /// - path (array, none): Traceback path as `(row, col)` arrays, in end-to-start order (default: none).
-/// - path-color (color): Color for the path line (default: semi-transparent yellow).
-/// - path-width (length): Width of the path line (default: 18pt).
+/// - path-stroke (stroke, none): Stroke for the traceback path line. `none` hides it (default: 18pt semi-transparent yellow, round caps and joins).
 /// - path-cell-bold (bool): Whether cell values in path cells are rendered in bold (default: true).
 /// - arrows (array, none): Flat row-major array with one integer per DP cell
 ///   (default: none). Pass `none` or `()` to disable arrows. Each integer is
 ///   a direction bitmask using `1 = diagonal`, `2 = up`, and `4 = left`.
 ///   Combine bits when multiple optimal predecessors exist, so `3` means
 ///   diagonal+up and `7` means all three directions.
-/// - arrow-color (color): Default color for arrows (default: medium gray).
-/// - highlight-path-arrows (bool): Whether arrows on the path use a different color (default: true).
-/// - path-arrow-color (color): Color for arrows on the traceback path (default: dark gray).
-/// - arrow-width (length): Width of the arrows (default: 1pt).
+/// - arrow-stroke (stroke, none): Stroke for arrows. `none` hides them (default: 0.75pt medium gray, round caps).
+/// - highlight-path-arrows (bool): Whether arrows on the path use a different stroke (default: true).
+/// - path-arrow-stroke (stroke, none): Stroke for arrows on the traceback path. `none` hides them (default: 0.75pt dark gray, round caps).
 /// - arrow-length-scale (int, float): Positive multiplier for arrow length (default: 1).
 /// - cell-size (length): Size of each square cell (default: 34pt).
-/// - stroke-width (length): Width of cell borders (default: 0.75pt).
-/// - stroke-color (color): Color of cell borders (default: medium gray).
+/// - cell-stroke (stroke, none): Stroke for cell borders. `none` hides them (default: 0.75pt medium gray).
 /// -> content
 #let render-dp-matrix(
   seq-1,
@@ -547,22 +532,18 @@
   highlights: (),
   highlight-color: _medium-gray.lighten(75%),
   path: none,
-  path-color: _yellow.transparentize(50%),
-  path-width: 18pt,
+  path-stroke: _default-path-stroke,
   path-cell-bold: true,
   arrows: none,
-  arrow-color: _medium-gray,
+  arrow-stroke: _default-arrow-stroke,
   highlight-path-arrows: true,
-  path-arrow-color: _dark-gray,
-  arrow-width: 1pt,
+  path-arrow-stroke: _default-path-arrow-stroke,
   arrow-length-scale: 1,
   cell-size: 34pt,
-  stroke-width: 0.75pt,
-  stroke-color: _medium-gray,
+  cell-stroke: _default-cell-stroke,
 ) = {
   assert(type(seq-1) == str, message: "seq-1 must be a string.")
   assert(type(seq-2) == str, message: "seq-2 must be a string.")
-  assert(type(arrow-width) == length, message: "arrow-width must be a length.")
   assert(
     type(arrow-length-scale) == int or type(arrow-length-scale) == float,
     message: "arrow-length-scale must be an integer or a float.",
@@ -655,8 +636,7 @@
     cell-values,
     highlight-map,
     path-cell-set,
-    stroke-width,
-    stroke-color,
+    cell-stroke,
     cell-inset,
     corner-radius,
   )
@@ -692,8 +672,7 @@
 
     _render-path(
       parsed-path,
-      path-color,
-      path-width,
+      path-stroke,
       label-col-width,
       label-row-height,
       cell-size,
@@ -705,13 +684,12 @@
       arrows,
       expected-rows,
       expected-cols,
-      arrow-color,
+      arrow-stroke,
       cell-size,
       label-col-width,
       label-row-height,
       path-edge-set,
-      path-arrow-color,
-      arrow-width,
+      path-arrow-stroke,
       arrow-length-scale,
     )
   })

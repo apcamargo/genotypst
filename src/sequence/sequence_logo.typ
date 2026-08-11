@@ -1,4 +1,5 @@
 #import "../common/colors.typ": _light-gray
+#import "../common/strokes.typ": _default-axis-stroke
 #import "../common/interval.typ": _resolve-1indexed-window
 #import "../common/axis_scale.typ": (
   _draw-coordinate-axis, _make-axis-scale-label,
@@ -165,10 +166,9 @@
 /// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna" (default: auto).
 /// - palette (dictionary, auto): Residue color palette to use (default: auto).
 /// - coordinate-axis (bool): Whether to show the coordinate axis under the logo (default: false).
-/// - axis-color (color): Color of the axis line and labels (default: black).
-/// - axis-stroke-width (length): Axis line thickness (default: 0.75pt).
-/// - axis-label-size (length): Axis label font size (default: 0.8em).
-/// - axis-tick-height (length): Axis tick height (default: 4.5pt).
+/// - axis-stroke (stroke, none): Stroke for the axis line and tick marks. `none` hides them (default: 0.75pt black, butt caps). Tick labels always inherit the ambient text color.
+/// - axis-label-size (length): Axis label font size (default: 0.85em).
+/// - axis-tick-height (length): Axis tick height (default: 5pt).
 /// - axis-label-gap (length): Gap between ticks and labels (default: 2.5pt).
 /// - axis-logo-gap (length): Gap between logo and axis (default: 6pt).
 /// -> content
@@ -183,10 +183,9 @@
   alphabet: auto,
   palette: auto,
   coordinate-axis: false,
-  axis-color: black,
-  axis-stroke-width: 0.75pt,
-  axis-label-size: 0.8em,
-  axis-tick-height: 4.5pt,
+  axis-stroke: _default-axis-stroke,
+  axis-label-size: 0.85em,
+  axis-tick-height: 5pt,
   axis-label-gap: 2.5pt,
   axis-logo-gap: 6pt,
 ) = {
@@ -207,10 +206,6 @@
   )
 
   if coordinate-axis {
-    assert(
-      axis-stroke-width > 0pt,
-      message: "axis-stroke-width must be positive.",
-    )
     assert(
       axis-tick-height > 0pt,
       message: "axis-tick-height must be positive.",
@@ -279,16 +274,10 @@
       let axis-label-height = measure(_make-axis-scale-label(
         str(last-pos),
         axis-label-size,
-        color: axis-color,
       )).height
       let axis-top = logo-height + axis-logo-gap
       let total-height = (
         axis-top + axis-tick-height + axis-label-gap + axis-label-height
-      )
-      let axis-stroke = (
-        paint: axis-color,
-        thickness: axis-stroke-width,
-        cap: "round",
       )
 
       box(width: size.width, height: total-height, {
@@ -303,8 +292,6 @@
           axis-tick-height,
           axis-label-gap,
           axis-label-size,
-          none,
-          axis-color,
           axis-stroke,
           axis-left: axis-left,
         )
