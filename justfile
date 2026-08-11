@@ -44,10 +44,12 @@ build-genome-map: setup-wasm
     cp plugins/genome_map/target/wasm32-unknown-unknown/release/genome_map.wasm src/genome_map/genome_map.wasm
 
 # Compile the manual PDF
+[working-directory: root]
 compile-pdf: fmt build-plugins
     typst compile --root {{root}} docs/manual.typ docs/manual.pdf
 
 # Compile all example SVGs
+[working-directory: root]
 compile-svgs: fmt build-plugins
     fd '_example\.typ$' docs -x typst compile --root {{root}} {} docs/svgs/{/.}_light.svg --format svg
     fd '_example\.typ$' docs -x typst compile --root {{root}} {} docs/svgs/{/.}_dark.svg --format svg --input theme=dark
