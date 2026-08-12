@@ -14,7 +14,7 @@ compile-docs: compile-pdf compile-svgs
 
 # Format all Typst files
 fmt-typst:
-    fd -e typ -x typstyle -v -i
+    typstyle -v -i .
 
 # Format all Rust code
 fmt-rust:
@@ -22,7 +22,7 @@ fmt-rust:
 
 # Format all TOML files
 fmt-toml:
-    fd -e toml -x tombi format {}
+    tombi format .
 
 # Install WASM target
 setup-wasm:
