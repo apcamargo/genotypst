@@ -1,6 +1,7 @@
 #import "../common/axis_scale.typ": (
-  _draw-horizontal-segment, _draw-line, _draw-scale-bar-row,
-  _draw-vertical-segment, _format-scale-label, _resolve-scale-bar-length,
+  _default-scale-label-gap, _draw-horizontal-segment, _draw-line,
+  _draw-scale-bar-row, _draw-vertical-segment, _format-scale-label,
+  _resolve-scale-bar-length,
 )
 
 /// Numeric tolerance used when fitting trees into a viewport.
@@ -10,22 +11,21 @@
 ///
 /// - fitted-plan (dictionary): Fitted tree data with viewport geometry and
 ///   positioned primitives.
-/// - scale-stroke (stroke, none): Stroke for the scale-bar line and ticks.
-/// - scale-length (auto, int, float): Requested scale length in branch-length units. Positive when not auto.
-/// - unit (str, none): Optional scale-bar unit.
-/// - min-auto-bar-width (length): Minimum rendered width used in auto mode.
-/// - scale-tick-height (length): Tick height.
-/// - scale-label-size (length): Label size.
+/// - config (dictionary): Canonical tree render config. Reads `scale-stroke`,
+///   `scale-length`, `unit`, `min-auto-bar-width`, `scale-tick-height`, and
+///   `scale-label-size`.
 /// -> content
-#let _build-scale-plan(
-  fitted-plan,
-  scale-stroke,
-  scale-length,
-  unit,
-  min-auto-bar-width,
-  scale-tick-height,
-  scale-label-size,
-) = {
+#let _build-scale-plan(fitted-plan, config) = {
+  let (
+    scale-stroke,
+    scale-length,
+    unit,
+    min-auto-bar-width,
+    scale-tick-height,
+    scale-label-size,
+    ..,
+  ) = config
+
   let row-width = fitted-plan.tree-viewport-width
   let root-position = fitted-plan.root-position
   let bar-left = if fitted-plan.orientation == "vertical" { 0pt } else {
@@ -47,14 +47,13 @@
     zero-length-message: "Cannot render scale bar for zero-depth tree.",
   )
   let scale-label = _format-scale-label(resolved-scale.length, unit)
-  let scale-label-gap = 1.5pt
   _draw-scale-bar-row(
     row-width,
     0pt,
     bar-left,
     resolved-scale.width,
     scale-tick-height,
-    scale-label-gap,
+    _default-scale-label-gap,
     scale-label-size,
     scale-label,
     scale-stroke,

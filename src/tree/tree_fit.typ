@@ -1,4 +1,4 @@
-#import "../common/layout_math.typ": _resolve-length
+#import "../common/layout_math.typ": _resolve-length, _resolve-signed-length
 #import "./tree_backend.typ": _tree-fit
 #import "./tree_primitives.typ": _build-tree-label-content
 
@@ -34,37 +34,19 @@
 /// - tree-plan (dictionary): Tree primitive plan.
 /// -> dictionary
 #let _measure-tree-primitives(tree-plan) = {
-  let measured-primitives = ()
-  for primitive in tree-plan.tree-primitives {
-    if primitive.kind == "label" {
+  tree-plan.insert(
+    "tree-primitives",
+    tree-plan.tree-primitives.map(primitive => {
+      if primitive.kind != "label" { return primitive }
       let label-content = _build-tree-label-content(primitive)
       let label-size = measure(label-content)
       primitive.insert("content", label-content)
       primitive.insert("measure-width", label-size.width)
       primitive.insert("measure-height", label-size.height)
-      let adjusted-primitive = _adjust-measured-content-tip-gaps(
-        primitive,
-        label-size,
-      )
-      measured-primitives.push(adjusted-primitive)
-    } else {
-      measured-primitives.push(primitive)
-    }
-  }
-  tree-plan.insert("tree-primitives", measured-primitives)
+      _adjust-measured-content-tip-gaps(primitive, label-size)
+    }),
+  )
   tree-plan
-}
-
-/// Resolves one possibly signed length.
-///
-/// - value (length): Length to resolve.
-/// -> length
-#let _resolve-signed-length(value) = {
-  if value < 0pt {
-    -_resolve-length(-value)
-  } else {
-    _resolve-length(value)
-  }
 }
 
 /// Resolves primitive geometry into absolute fit inputs.
@@ -97,6 +79,9 @@
         stroke: primitive.stroke,
       ))
     } else {
+      // Explicit projection, not `..primitive`: the measure-only inputs
+      // (`label-body`, `text-*`) are consumed by `_measure-tree-primitives`
+      // and must not be retained by the long-lived fit plan.
       prepared-labels.push((
         placement-role: primitive.placement-role,
         anchor-tree: primitive.anchor-tree,
@@ -158,6 +143,8 @@
   (
     fit-mode: measured-plan.fit-mode,
     layout-kind: measured-plan.layout-kind,
+    // Explicit projection for the same reason `_prepare-fit-inputs` uses one:
+    // a spread would silently retain any key added there later.
     prepared-lines: fit-inputs.prepared-lines,
     prepared-labels: fit-inputs.prepared-labels,
     root-tree-point: fit-inputs.root-tree-point,

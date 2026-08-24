@@ -3,6 +3,23 @@
 #let _styled-content-func = content.func(text(fill: black)[x])
 #let _sequence-content-func = content.func([x#linebreak()y])
 
+/// Content functions that are themselves text-like
+#let _text-like-leaf-funcs = (text, raw, _space-content-func, linebreak)
+
+/// Content functions that stay text-like if their `body` is
+#let _text-like-wrapper-funcs = (
+  emph,
+  strong,
+  highlight,
+  underline,
+  overline,
+  strike,
+  link,
+  smallcaps,
+  sub,
+  super,
+)
+
 /// Builds a label content element from a tree label primitive.
 ///
 /// - label-primitive (dictionary): Label primitive metadata.
@@ -43,26 +60,10 @@
   }
 
   let func = content.func(label-body)
-  if (
-    func == text
-      or func == raw
-      or func == _space-content-func
-      or func == linebreak
-  ) {
+  if func in _text-like-leaf-funcs {
     return true
   }
-  if (
-    func == emph
-      or func == strong
-      or func == highlight
-      or func == underline
-      or func == overline
-      or func == strike
-      or func == link
-      or func == smallcaps
-      or func == sub
-      or func == super
-  ) {
+  if func in _text-like-wrapper-funcs {
     return _tree-label-body-is-text-like(label-body.at("body", default: none))
   }
   if func == _styled-content-func {
@@ -325,22 +326,21 @@
       if node.label-body != none {
         if rectangular {
           let cross-offset = style.tip-label-metrics.branch-midpoint
+          let (y-align, x-gap, y-gap, rotation) = if (
+            orientation == "vertical"
+          ) {
+            ("bottom", -cross-offset, style.tip-label-gap, -90deg)
+          } else {
+            ("top", style.tip-label-gap, -cross-offset, 0deg)
+          }
           primitives.push(_tree-label-primitive(
             "tip-label",
             node-point,
             "left",
-            if orientation == "vertical" { "bottom" } else { "top" },
-            if orientation == "vertical" {
-              -cross-offset
-            } else {
-              style.tip-label-gap
-            },
-            if orientation == "vertical" {
-              style.tip-label-gap
-            } else {
-              -cross-offset
-            },
-            if orientation == "vertical" { -90deg } else { 0deg },
+            y-align,
+            x-gap,
+            y-gap,
+            rotation,
             node.label-body,
             none,
             style.tip-label-color,
@@ -394,11 +394,16 @@
           label-body-is-text-like,
           style,
         )
+        let (x-align, y-align) = if orientation == "vertical" {
+          ("left", "top")
+        } else {
+          ("right", "bottom")
+        }
         primitives.push(_tree-label-primitive(
           "internal-label",
           node-point,
-          if orientation == "vertical" { "left" } else { "right" },
-          if orientation == "vertical" { "top" } else { "bottom" },
+          x-align,
+          y-align,
           internal-label-gaps.x-gap,
           internal-label-gaps.y-gap,
           0deg,

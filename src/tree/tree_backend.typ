@@ -145,14 +145,9 @@
     hide-internal-labels: hide-internal-labels,
     layout-kind: layout-kind,
   ))))
-  let decoded = json(result)
-  let nodes = decoded.nodes.map(node => (
-    ..node,
-    label-id: node.at("label-id", default: none),
-  ))
-  decoded.insert("nodes", nodes)
-  decoded.insert("layout-kind", decoded.layout-kind)
-  decoded
+  // Nodes are returned as-is; the one consumer of `label-id` already defaults
+  // it when the backend omits the key.
+  json(result)
 }
 
 /// Fits a Typst-native tree payload through the tree WASM plugin.

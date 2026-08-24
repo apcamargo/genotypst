@@ -1,4 +1,5 @@
 #import "../common/colors.typ": _medium-gray
+#import "../common/layout_math.typ": _resolve-length
 #import "../common/strokes.typ": (
   _default-axis-stroke, _default-branch-stroke, _default-tip-leader-stroke,
 )
@@ -75,19 +76,7 @@
 
 /// Resolves the canonical rectangular-tree render configuration.
 ///
-/// - width (length, auto, ratio, relative): Requested rendered width.
-/// - height (length, auto): Requested rendered tree height.
-/// - align-tip-labels (bool): Whether tip-label alignment is enabled.
-/// - internal-label-size (length): Internal label size.
-/// - hide-internal-labels (bool): Whether internal labels are suppressed.
-/// - root-length (length): Root-edge length.
-/// - orientation (str): Tree orientation.
-/// - cladogram (bool): Whether cladogram mode is enabled.
-/// - scale-bar (bool): Whether scale bar rendering is enabled.
-/// - unit (str, none): Optional unit string.
-/// - scale-bar-gap (length): Gap between tree and scale bar.
-/// - scale-tick-height (length): Scale bar tick height.
-/// - scale-label-size (length): Scale bar label size.
+/// - config (dictionary): Raw public arguments of `render-rectangular-tree`.
 /// -> dictionary with keys:
 ///   - layout-kind (str): Backend layout identifier.
 ///   - orientation (str): Final render orientation.
@@ -99,21 +88,37 @@
 ///   - optimize-uniform-rotation (bool): Whether fit may optimize global rotation.
 ///   - fit-band-samples (int, none): Band samples used by the fit search.
 ///   - align-tip-labels (bool): Resolved tip-label alignment setting.
-#let _resolve-rectangular-tree-render-config(
-  width,
-  height,
-  align-tip-labels,
-  internal-label-size,
-  hide-internal-labels,
-  root-length,
-  orientation,
-  cladogram,
-  scale-bar,
-  unit,
-  scale-bar-gap,
-  scale-tick-height,
-  scale-label-size,
-) = {
+///   - width, height, branch-stroke, tip-label-color, tip-label-italics,
+///     internal-label-size, internal-label-color, root-length,
+///     tip-leader-stroke, scale-stroke, scale-length, unit,
+///     min-auto-bar-width, scale-tick-height, scale-label-size, scale-bar-gap:
+///     validated public arguments, forwarded for the style, fit, and scale-bar
+///     stages.
+#let _resolve-rectangular-tree-render-config(config) = {
+  let (
+    width,
+    height,
+    branch-stroke,
+    tip-label-color,
+    tip-label-italics,
+    align-tip-labels,
+    tip-leader-stroke,
+    internal-label-size,
+    internal-label-color,
+    hide-internal-labels,
+    root-length,
+    orientation,
+    cladogram,
+    scale-bar,
+    scale-length,
+    unit,
+    min-auto-bar-width,
+    scale-stroke,
+    scale-bar-gap,
+    scale-tick-height,
+    scale-label-size,
+  ) = config
+
   _validate-common-tree-args(
     width,
     height,
@@ -158,17 +163,28 @@
     // keeps the search cheap without changing the generic solver structure.
     fit-band-samples: _rectangular-fit-band-samples,
     align-tip-labels: align-tip-labels,
+    width: width,
+    height: height,
+    branch-stroke: branch-stroke,
+    tip-label-color: tip-label-color,
+    tip-label-italics: tip-label-italics,
+    internal-label-size: internal-label-size,
+    internal-label-color: internal-label-color,
+    root-length: root-length,
+    tip-leader-stroke: tip-leader-stroke,
+    scale-stroke: scale-stroke,
+    scale-length: scale-length,
+    unit: unit,
+    min-auto-bar-width: min-auto-bar-width,
+    scale-tick-height: scale-tick-height,
+    scale-label-size: scale-label-size,
+    scale-bar-gap: scale-bar-gap,
   )
 }
 
 /// Resolves the canonical unrooted-tree render configuration.
 ///
-/// - width (length, auto, ratio, relative): Requested rendered width.
-/// - height (length, auto): Requested rendered tree height.
-/// - internal-label-size (length): Internal label size.
-/// - hide-internal-labels (bool): Whether internal labels are suppressed.
-/// - cladogram (bool): Whether cladogram mode is enabled.
-/// - layout (str): Unrooted layout name.
+/// - config (dictionary): Raw public arguments of `render-unrooted-tree`.
 /// -> dictionary with keys:
 ///   - layout-kind (str): Backend layout identifier.
 ///   - orientation (str): Final render orientation.
@@ -179,14 +195,30 @@
 ///   - scale-bar (bool): Whether scale-bar rendering is enabled.
 ///   - optimize-uniform-rotation (bool): Whether fit may optimize global rotation.
 ///   - fit-band-samples (int, none): Band samples used by the fit search.
-#let _resolve-unrooted-tree-render-config(
-  width,
-  height,
-  internal-label-size,
-  hide-internal-labels,
-  cladogram,
-  layout,
-) = {
+///   - align-tip-labels (bool): Always `false`; unrooted layouts do not align
+///     tip labels.
+///   - width, height, branch-stroke, tip-label-color, tip-label-italics,
+///     internal-label-size, internal-label-color: validated public arguments,
+///     forwarded for the style and fit stages.
+///   - root-length, tip-leader-stroke, scale-stroke, scale-length, unit,
+///     min-auto-bar-width, scale-tick-height, scale-label-size, scale-bar-gap:
+///     inert defaults; unrooted layouts draw no root edge, leader lines, or
+///     scale bar. Present so this config carries the same key set as the
+///     rectangular one, which `_render-tree` and its stages consume.
+#let _resolve-unrooted-tree-render-config(config) = {
+  let (
+    width,
+    height,
+    branch-stroke,
+    tip-label-color,
+    tip-label-italics,
+    internal-label-size,
+    internal-label-color,
+    hide-internal-labels,
+    cladogram,
+    layout,
+  ) = config
+
   _validate-common-tree-args(
     width,
     height,
@@ -207,24 +239,44 @@
     scale-bar: false,
     optimize-uniform-rotation: true,
     fit-band-samples: none,
+    align-tip-labels: false,
+    width: width,
+    height: height,
+    branch-stroke: branch-stroke,
+    tip-label-color: tip-label-color,
+    tip-label-italics: tip-label-italics,
+    internal-label-size: internal-label-size,
+    internal-label-color: internal-label-color,
+    root-length: none,
+    tip-leader-stroke: none,
+    scale-stroke: none,
+    scale-length: auto,
+    unit: none,
+    min-auto-bar-width: 0pt,
+    scale-tick-height: 0pt,
+    scale-label-size: 0pt,
+    scale-bar-gap: 0pt,
   )
 }
 
 /// Builds the shared style record for tree rendering and tip-label metrics.
 ///
-/// - branch-stroke (stroke, none): Branch stroke.
-/// - tip-label-color (color, none): Tip label color.
-/// - tip-label-italics (bool): Whether tip labels are italicized.
-/// - internal-label-size (length): Internal label size.
-/// - internal-label-color (color, none): Internal label color.
+/// - config (dictionary): Canonical tree render config. Reads `branch-stroke`,
+///   `tip-label-color`, `tip-label-italics`, `internal-label-size`,
+///   `internal-label-color`, and `root-length` (`none` for layouts that draw no
+///   root edge).
 /// -> dictionary
-#let _build-render-tree-style(
-  branch-stroke,
-  tip-label-color,
-  tip-label-italics,
-  internal-label-size,
-  internal-label-color,
-) = {
+#let _build-render-tree-style(config) = {
+  let (
+    branch-stroke,
+    tip-label-color,
+    tip-label-italics,
+    internal-label-size,
+    internal-label-color,
+    root-length,
+    ..,
+  ) = config
+
   let branch-thickness = 0pt
   let resolved-branch-stroke = none
   if branch-stroke != none {
@@ -278,15 +330,20 @@
   )).height
   (
     branch-stroke: resolved-branch-stroke,
-    branch-thickness: branch-thickness,
+    // Every gap is resolved to an absolute length once here, so the per-node
+    // fit pass never has to measure an em-relative value.
+    branch-thickness: _resolve-length(branch-thickness),
     tip-label-color: tip-label-color,
     tip-label-italics: tip-label-italics,
     tip-label-style: tip-label-style,
     internal-label-size: internal-label-size,
     internal-label-color: internal-label-color,
-    tip-label-gap: _tip-label-gap,
-    internal-text-y-gap: _internal-text-y-gap,
-    auto-height-scale: _auto-height-scale,
+    tip-label-gap: _resolve-length(_tip-label-gap),
+    internal-text-y-gap: _resolve-length(_internal-text-y-gap),
+    auto-height-scale: _resolve-length(_auto-height-scale),
+    root-length: if root-length == none { none } else {
+      _resolve-length(root-length)
+    },
     tip-label-metrics: (
       // Rectangular and unrooted tip labels intentionally use the same
       // branch/text intersection height.
@@ -294,34 +351,6 @@
       full-height: full-height,
     ),
   )
-}
-
-/// Builds the rectangular-tree style record.
-///
-/// - branch-stroke (stroke, none): Branch stroke.
-/// - tip-label-color (color, none): Tip label color.
-/// - tip-label-italics (bool): Whether tip labels are italicized.
-/// - internal-label-size (length): Internal label size.
-/// - internal-label-color (color, none): Internal label color.
-/// - root-length (length): Rendered root-edge length.
-/// -> dictionary
-#let _build-rectangular-tree-style(
-  branch-stroke,
-  tip-label-color,
-  tip-label-italics,
-  internal-label-size,
-  internal-label-color,
-  root-length,
-) = {
-  let style = _build-render-tree-style(
-    branch-stroke,
-    tip-label-color,
-    tip-label-italics,
-    internal-label-size,
-    internal-label-color,
-  )
-  style.insert("root-length", root-length)
-  style
 }
 
 /// Rewrites manual tree labels into a backend-safe representation.
@@ -345,67 +374,70 @@
       type(node) == dictionary,
       message: "tree nodes must be dictionaries.",
     )
-    let prepared = (:)
+    // All other keys pass through untouched; `label-id` is a private backend
+    // channel, so a user-supplied one is always dropped.
+    let prepared = node
+    let _ = prepared.remove("label-id", default: none)
     let next-id = next-label-id
-    let content-labels = (:)
+    let content-label-pairs = ()
 
-    for (key, value) in node.pairs() {
-      if key == "label-id" {
-        // Private backend channel; user input should not override it.
-      } else if key == "name" {
-        if value == none or type(value) == str {
-          prepared.insert("name", value)
-        } else if type(value) == content {
-          if value == [] {
-            // Empty content renders nothing and should not affect layout.
-            prepared.insert("name", none)
-          } else {
-            let label-id = _tree-content-label-id-prefix + str(next-id)
-            next-id += 1
-            prepared.insert("name", none)
-            prepared.insert("label-id", label-id)
-            content-labels.insert(label-id, value)
-          }
-        } else {
-          assert(
-            false,
-            message: "manual tree node name must be a string, content, or none.",
-          )
-        }
-      } else if key == "children" {
-        assert(
-          value == none or type(value) == array,
-          message: "children must be an array or none.",
-        )
-        if value == none {
-          prepared.insert("children", none)
-        } else {
-          let children = ()
-          for child in value {
-            let prepared-child = visit(child, next-id)
-            next-id = prepared-child.next-label-id
-            content-labels += prepared-child.content-labels
-            children.push(prepared-child.node)
-          }
-          prepared.insert("children", children)
+    if "name" in prepared {
+      let value = prepared.name
+      if value == none or type(value) == str {
+        // Already backend-safe.
+      } else if type(value) == content {
+        prepared.insert("name", none)
+        // Empty content renders nothing and should not affect layout.
+        if value != [] {
+          let label-id = _tree-content-label-id-prefix + str(next-id)
+          next-id += 1
+          prepared.insert("label-id", label-id)
+          content-label-pairs.push((label-id, value))
         }
       } else {
-        prepared.insert(key, value)
+        assert(
+          false,
+          message: "manual tree node name must be a string, content, or none.",
+        )
+      }
+    }
+
+    if "children" in prepared {
+      let value = prepared.children
+      assert(
+        value == none or type(value) == array,
+        message: "children must be an array or none.",
+      )
+      if value != none {
+        let children = ()
+        for child in value {
+          let prepared-child = visit(child, next-id)
+          next-id = prepared-child.next-label-id
+          // Collected flat and folded into a dictionary once at the root, so a
+          // deep tree does not recopy the accumulated labels per child.
+          content-label-pairs += prepared-child.content-label-pairs
+          children.push(prepared-child.node)
+        }
+        prepared.insert("children", children)
       }
     }
 
     (
       node: prepared,
-      content-labels: content-labels,
+      content-label-pairs: content-label-pairs,
       next-label-id: next-id,
     )
   }
 
   let prepared-root = visit(tree-data, 0)
+  let content-labels = (:)
+  for (label-id, value) in prepared-root.content-label-pairs {
+    content-labels.insert(label-id, value)
+  }
 
   (
     backend-tree: prepared-root.node,
-    content-labels: prepared-root.content-labels,
+    content-labels: content-labels,
   )
 }
 
@@ -414,29 +446,23 @@
 /// - layout-tree (dictionary): Backend-prepared normalized tree layout.
 /// - content-labels (dictionary): `label-id` to original content.
 /// -> dictionary
-#let _hydrate-layout-tree-label-bodies(layout-tree, content-labels) = {
-  let nodes = ()
-  for node in layout-tree.nodes {
+#let _hydrate-layout-tree-label-bodies(layout-tree, content-labels) = (
+  ..layout-tree,
+  nodes: layout-tree.nodes.map(node => {
     let label-id = node.at("label-id", default: none)
-    let label-body = if label-id != none {
-      assert(
-        label-id in content-labels,
-        message: "Internal tree label hydration failed.",
-      )
-      content-labels.at(label-id)
-    } else {
-      node.label-text
-    }
-    nodes.push((
-      ..node,
-      label-body: label-body,
-    ))
-  }
-  (
-    ..layout-tree,
-    nodes: nodes,
-  )
-}
+    node.insert(
+      "label-body",
+      if label-id == none { node.label-text } else {
+        assert(
+          label-id in content-labels,
+          message: "Internal tree label hydration failed.",
+        )
+        content-labels.at(label-id)
+      },
+    )
+    node
+  }),
+)
 
 /// Prepares a tree render from the resolved mode config.
 ///
@@ -501,36 +527,69 @@
     calc.min(..tip-labels.map(l => l.anchor.y))
   }
 
-  let leader-lines = ()
-
-  for l in tip-labels {
-    let (start-pt, end-pt, padding) = if orientation == "horizontal" {
-      (
-        (x: l.anchor.x, y: l.anchor.y),
-        (x: aligned-tip-coord, y: l.anchor.y),
-        aligned-tip-coord - l.anchor.x,
-      )
-    } else {
-      (
-        (x: l.anchor.x, y: l.anchor.y),
-        (x: l.anchor.x, y: aligned-tip-coord),
-        l.anchor.y - aligned-tip-coord,
-      )
-    }
-
-    if padding > 1e-3pt {
-      leader-lines.push((
-        start: start-pt,
-        end: end-pt,
-        stroke: tip-leader-stroke,
-      ))
-    }
+  // The leader runs from the label anchor to the shared alignment coordinate;
+  // only the axis it runs along differs by orientation.
+  let leader-end = l => if orientation == "horizontal" {
+    (x: aligned-tip-coord, y: l.anchor.y)
+  } else {
+    (x: l.anchor.x, y: aligned-tip-coord)
   }
+  let leader-padding = l => if orientation == "horizontal" {
+    aligned-tip-coord - l.anchor.x
+  } else {
+    l.anchor.y - aligned-tip-coord
+  }
+
+  let leader-lines = tip-labels
+    .filter(l => leader-padding(l) > 1e-3pt)
+    .map(l => (start: l.anchor, end: leader-end(l), stroke: tip-leader-stroke))
 
   fitted-plan.insert("tree-lines", leader-lines + fitted-plan.tree-lines)
   fitted-plan
 }
 
+
+/// Renders a tree from a resolved render config.
+///
+/// Shared by both public tree renderers: the layout kind, styling, tip-label
+/// alignment, and scale bar are all driven by `config`.
+///
+/// - tree-data (dictionary): Parsed or manually constructed tree data.
+/// - config (dictionary): Canonical tree render config.
+/// -> content
+#let _render-tree(tree-data, config) = block(width: config.width)[
+  #context {
+    let style = _build-render-tree-style(config)
+    let prepared = _prepare-tree-render(tree-data, style, config)
+    _tree-render-layout(size => context {
+      let fitted-plan = _fit-prepared-tree-plan(
+        prepared.prepared-fit-plan,
+        prepared.style,
+        config.orientation,
+        config.width,
+        config.height,
+        size,
+        _tree-fit-max-bands,
+        fit-band-samples: config.fit-band-samples,
+        optimize-uniform-rotation: config.optimize-uniform-rotation,
+        align-tip-labels: config.align-tip-labels,
+      )
+      let fitted-plan = if config.align-tip-labels {
+        _align-tip-labels-in-plan(fitted-plan, config.tip-leader-stroke)
+      } else {
+        fitted-plan
+      }
+      let scale-plan = if (
+        config.scale-bar and not fitted-plan.width-unresolved
+      ) {
+        _build-scale-plan(fitted-plan, config)
+      } else {
+        none
+      }
+      _render-tree-plan(fitted-plan, scale-plan, config.scale-bar-gap)
+    })
+  }
+]
 
 /// Renders a rectangular phylogenetic tree from parsed or manual tree data.
 ///
@@ -590,77 +649,30 @@
   scale-tick-height: 5pt,
   scale-label-size: 0.85em,
 ) = {
-  let config = _resolve-rectangular-tree-render-config(
-    width,
-    height,
-    align-tip-labels,
-    internal-label-size,
-    hide-internal-labels,
-    root-length,
-    orientation,
-    cladogram,
-    scale-bar,
-    unit,
-    scale-bar-gap,
-    scale-tick-height,
-    scale-label-size,
-  )
-  block(width: width)[
-    #context {
-      let style = _build-rectangular-tree-style(
-        branch-stroke,
-        tip-label-color,
-        tip-label-italics,
-        internal-label-size,
-        internal-label-color,
-        root-length,
-      )
-      let prepared = _prepare-tree-render(
-        tree-data,
-        style,
-        config,
-      )
-      _tree-render-layout(size => context {
-        let fitted-plan = _fit-prepared-tree-plan(
-          prepared.prepared-fit-plan,
-          prepared.style,
-          config.orientation,
-          width,
-          height,
-          size,
-          _tree-fit-max-bands,
-          fit-band-samples: config.fit-band-samples,
-          optimize-uniform-rotation: config.optimize-uniform-rotation,
-          align-tip-labels: config.align-tip-labels,
-        )
-        let fitted-plan = if config.align-tip-labels {
-          _align-tip-labels-in-plan(fitted-plan, tip-leader-stroke)
-        } else {
-          fitted-plan
-        }
-        let scale-plan = if (
-          config.scale-bar and not fitted-plan.width-unresolved
-        ) {
-          _build-scale-plan(
-            fitted-plan,
-            scale-stroke,
-            scale-length,
-            unit,
-            min-auto-bar-width,
-            scale-tick-height,
-            scale-label-size,
-          )
-        } else {
-          none
-        }
-        _render-tree-plan(
-          fitted-plan,
-          scale-plan,
-          scale-bar-gap,
-        )
-      })
-    }
-  ]
+  let config = _resolve-rectangular-tree-render-config((
+    width: width,
+    height: height,
+    branch-stroke: branch-stroke,
+    tip-label-color: tip-label-color,
+    tip-label-italics: tip-label-italics,
+    align-tip-labels: align-tip-labels,
+    tip-leader-stroke: tip-leader-stroke,
+    internal-label-size: internal-label-size,
+    internal-label-color: internal-label-color,
+    hide-internal-labels: hide-internal-labels,
+    root-length: root-length,
+    orientation: orientation,
+    cladogram: cladogram,
+    scale-bar: scale-bar,
+    scale-length: scale-length,
+    unit: unit,
+    min-auto-bar-width: min-auto-bar-width,
+    scale-stroke: scale-stroke,
+    scale-bar-gap: scale-bar-gap,
+    scale-tick-height: scale-tick-height,
+    scale-label-size: scale-label-size,
+  ))
+  _render-tree(tree-data, config)
 }
 
 /// Renders an unrooted phylogenetic tree using an equal-angle or daylight layout.
@@ -693,46 +705,17 @@
   cladogram: false,
   layout: "equal-angle",
 ) = {
-  let config = _resolve-unrooted-tree-render-config(
-    width,
-    height,
-    internal-label-size,
-    hide-internal-labels,
-    cladogram,
-    layout,
-  )
-  block(width: width)[
-    #context {
-      let style = _build-render-tree-style(
-        branch-stroke,
-        tip-label-color,
-        tip-label-italics,
-        internal-label-size,
-        internal-label-color,
-      )
-      let prepared = _prepare-tree-render(
-        tree-data,
-        style,
-        config,
-      )
-      _tree-render-layout(size => context {
-        let fitted-plan = _fit-prepared-tree-plan(
-          prepared.prepared-fit-plan,
-          prepared.style,
-          config.orientation,
-          width,
-          height,
-          size,
-          _tree-fit-max-bands,
-          fit-band-samples: config.fit-band-samples,
-          optimize-uniform-rotation: config.optimize-uniform-rotation,
-        )
-        _render-tree-plan(
-          fitted-plan,
-          none,
-          0pt,
-        )
-      })
-    }
-  ]
+  let config = _resolve-unrooted-tree-render-config((
+    width: width,
+    height: height,
+    branch-stroke: branch-stroke,
+    tip-label-color: tip-label-color,
+    tip-label-italics: tip-label-italics,
+    internal-label-size: internal-label-size,
+    internal-label-color: internal-label-color,
+    hide-internal-labels: hide-internal-labels,
+    cladogram: cladogram,
+    layout: layout,
+  ))
+  _render-tree(tree-data, config)
 }
