@@ -1,6 +1,6 @@
 #import "../common/fixed_grid.typ": _fixed-width-grid, _measure-monospace-width
 #import "./alignment_backend.typ": _alignment-align, _resolve-matrix-name
-#import "./alignment_coords.typ": _parse-coord, _validate-path
+#import "./alignment_coords.typ": _validate-path
 
 /// Validates and cleans a sequence string.
 ///
@@ -15,8 +15,10 @@
   assert(type(seq) == str, message: name + " must be a string.")
   let compact = seq.replace(regex("\\s"), "")
   assert(compact.len() > 0, message: name + " must not be empty.")
+  // Built once rather than per byte of the sequence.
+  let ascii-message = name + " must contain only ASCII characters."
   for byte in bytes(compact) {
-    assert(byte < 128, message: name + " must contain only ASCII characters.")
+    assert(byte < 128, message: ascii-message)
   }
   upper(compact)
 }
@@ -121,9 +123,6 @@
     coord => (coord.at(0), coord.at(1)),
   ))
 
-  // Determine if there's a valid alignment
-  let has-alignment = wasm-result.alignments.len() > 0
-
   (
     seq-1: original-seq-1,
     seq-2: original-seq-2,
@@ -143,7 +142,7 @@
       scores: dp.scores,
       arrows: dp.arrow_bits,
     ),
-    has-alignment: has-alignment,
+    has-alignment: wasm-result.alignments.len() > 0,
   )
 }
 
@@ -242,7 +241,8 @@
 ///
 /// - seq-1-chars (array): First sequence as grapheme clusters.
 /// - seq-2-chars (array): Second sequence as grapheme clusters.
-/// - path (array): Traceback path as `(row, col)` arrays in start-to-end order.
+/// - path (array): Validated traceback coordinates as `(row, col)` dictionaries
+///   in start-to-end order.
 /// - gap-char (str): Character for gaps.
 /// - match-char (str): Character for matches.
 /// - mismatch-char (str): Character for mismatches.
@@ -263,26 +263,23 @@
   hide-unaligned,
   build-unaligned-mask,
 ) = {
-  let first-coord = _parse-coord(path.at(0))
+  let first-coord = path.at(0)
 
   let aligned1 = ()
   let match-line = ()
   let aligned2 = ()
-  let unaligned-mask = if build-unaligned-mask { () } else { none }
 
   if not hide-unaligned {
     for i in range(first-coord.row) {
       aligned1.push(seq-1-chars.at(i))
       match-line.push(" ")
       aligned2.push(" ")
-      if unaligned-mask != none { unaligned-mask.push(true) }
     }
 
     for j in range(first-coord.col) {
       aligned1.push(" ")
       match-line.push(" ")
       aligned2.push(seq-2-chars.at(j))
-      if unaligned-mask != none { unaligned-mask.push(true) }
     }
   }
 
@@ -291,7 +288,7 @@
   let prev-coord = first-coord
 
   for i in range(1, path.len()) {
-    let curr-coord = _parse-coord(path.at(i))
+    let curr-coord = path.at(i)
     let row-delta = curr-coord.row - prev-coord.row
     let col-delta = curr-coord.col - prev-coord.col
 
@@ -302,7 +299,6 @@
       aligned1.push(char1)
       aligned2.push(char2)
       match-line.push(if char1 == char2 { match-char } else { mismatch-char })
-      if unaligned-mask != none { unaligned-mask.push(false) }
 
       seq-1-pos += 1
       seq-2-pos += 1
@@ -310,14 +306,12 @@
       aligned1.push(gap-char)
       aligned2.push(seq-2-chars.at(seq-2-pos))
       match-line.push(mismatch-char)
-      if unaligned-mask != none { unaligned-mask.push(false) }
 
       seq-2-pos += 1
     } else {
       aligned1.push(seq-1-chars.at(seq-1-pos))
       aligned2.push(gap-char)
       match-line.push(mismatch-char)
-      if unaligned-mask != none { unaligned-mask.push(false) }
 
       seq-1-pos += 1
     }
@@ -330,7 +324,6 @@
       aligned1.push(seq-1-chars.at(seq-1-pos))
       match-line.push(" ")
       aligned2.push(" ")
-      if unaligned-mask != none { unaligned-mask.push(true) }
       seq-1-pos += 1
     }
 
@@ -338,9 +331,22 @@
       aligned1.push(" ")
       match-line.push(" ")
       aligned2.push(seq-2-chars.at(seq-2-pos))
-      if unaligned-mask != none { unaligned-mask.push(true) }
       seq-2-pos += 1
     }
+  }
+
+  // The mask is a function of the row layout: an unaligned lead, the aligned
+  // stretch contributed by the path, then an unaligned tail.
+  let unaligned-mask = if not build-unaligned-mask { none } else {
+    // Only reachable when `hide-unaligned` is false, so the lead is always the
+    // unaligned prefix the path skipped over.
+    let lead = first-coord.row + first-coord.col
+    let aligned-count = path.len() - 1
+    (
+      (true,) * lead
+        + (false,) * aligned-count
+        + (true,) * (aligned1.len() - lead - aligned-count)
+    )
   }
 
   (
@@ -391,14 +397,18 @@
   // Reverse the path (traceback goes end-to-start, we need start-to-end)
   let reversed-path = path.rev()
 
-  _validate-path(reversed-path, seq1-chars.len(), seq2-chars.len())
+  let parsed-path = _validate-path(
+    reversed-path,
+    seq1-chars.len(),
+    seq2-chars.len(),
+  )
 
   let build-unaligned-mask = not hide-unaligned and unaligned-color != none
 
   let result = _build-alignment-lines(
     seq1-chars,
     seq2-chars,
-    reversed-path,
+    parsed-path,
     gap-char,
     match-char,
     mismatch-char,

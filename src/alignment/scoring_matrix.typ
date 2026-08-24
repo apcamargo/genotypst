@@ -156,15 +156,22 @@
     symbols
   }
 
+  let sym-to-idx = (:)
+  for (i, sym) in scoring-matrix.alphabet.enumerate() {
+    sym-to-idx.insert(sym, i)
+  }
+
   for sym in display-symbols {
-    assert(
-      sym in scoring-matrix.alphabet,
-      message: "symbol '"
-        + sym
-        + "' not found in "
-        + scoring-matrix.name
-        + " alphabet.",
-    )
+    if sym not in sym-to-idx {
+      assert(
+        false,
+        message: "symbol '"
+          + sym
+          + "' not found in "
+          + scoring-matrix.name
+          + " alphabet.",
+      )
+    }
   }
 
   let visible-in-view = if triangle == "lower" {
@@ -176,11 +183,6 @@
   }
   let row-label-side = if triangle == "upper" { "right" } else { "left" }
   let col-label-side = if triangle == "lower" { "bottom" } else { "top" }
-
-  let sym-to-idx = (:)
-  for (i, sym) in scoring-matrix.alphabet.enumerate() {
-    sym-to-idx.insert(sym, i)
-  }
 
   let cell-values = ()
   let visible-mask = ()
@@ -240,15 +242,14 @@
 ///   - min (int, float): Lower bound of the symmetric scale.
 ///   - max (int, float): Upper bound of the symmetric scale.
 #let _get-scale-limits(scale-values, scale-limit) = {
-  let current-max-abs = 0.0
-
-  for val in scale-values {
-    if not float.is-infinite(val) {
-      current-max-abs = calc.max(current-max-abs, calc.abs(val))
-    }
+  let limit = if scale-limit == auto {
+    scale-values
+      .filter(val => not float.is-infinite(val))
+      .map(calc.abs)
+      .fold(0.0, calc.max)
+  } else {
+    scale-limit
   }
-
-  let limit = if scale-limit == auto { current-max-abs } else { scale-limit }
   (min: -limit, max: limit)
 }
 
@@ -281,16 +282,14 @@
     grid.cell(fill: bg, stroke: cell-stroke)[#_format-score(score)]
   }
 
+  let label-row = (
+    (if view.row-label-side == "left" { (blank-cell(),) } else { () })
+      + view.symbols.map(make-label)
+      + (if view.row-label-side == "right" { (blank-cell(),) } else { () })
+  )
+
   if view.col-label-side == "top" {
-    if view.row-label-side == "left" {
-      cells.push(blank-cell())
-    }
-    for sym in view.symbols {
-      cells.push(make-label(sym))
-    }
-    if view.row-label-side == "right" {
-      cells.push(blank-cell())
-    }
+    cells += label-row
   }
 
   for (i, row-sym) in view.symbols.enumerate() {
@@ -310,15 +309,7 @@
   }
 
   if view.col-label-side == "bottom" {
-    if view.row-label-side == "left" {
-      cells.push(blank-cell())
-    }
-    for sym in view.symbols {
-      cells.push(make-label(sym))
-    }
-    if view.row-label-side == "right" {
-      cells.push(blank-cell())
-    }
+    cells += label-row
   }
 
   cells

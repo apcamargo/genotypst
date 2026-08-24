@@ -10,6 +10,9 @@
   line as _tiptoe-line, straight as _tiptoe-straight,
 )
 
+/// Arrow tip shared by every traceback arrow
+#let _arrow-tip = _tiptoe-straight.with(width: 550%, length: 375%)
+
 /// Validates highlight entry shape, coordinates, and optional color.
 ///
 /// - highlights (array): Highlight entries as `(row, col)` or
@@ -56,6 +59,21 @@
 /// -> int
 #let _matrix-index(row, col, cols) = row * cols + col
 
+/// Converts a row-major index back to row/column coordinates.
+///
+/// Inverse of `_matrix-index`; keep the two together so a layout change moves
+/// both.
+///
+/// - idx (int): Row-major index.
+/// - cols (int): Total number of columns.
+/// -> dictionary with keys:
+///   - row (int): Zero-indexed row.
+///   - col (int): Zero-indexed column.
+#let _matrix-coords(idx, cols) = (
+  row: calc.div-euclid(idx, cols),
+  col: calc.rem(idx, cols),
+)
+
 /// Validates dense row-major cell values.
 ///
 /// - cell-values (array): Flat row-major cell values.
@@ -87,35 +105,50 @@
       + " row-major entries.",
   )
 
-  for row in range(rows) {
-    for col in range(cols) {
-      let idx = _matrix-index(row, col, cols)
-      let bits = arrows.at(idx)
-
+  // `assert`'s message is evaluated eagerly, so each check builds its message
+  // only after failing; this loop runs once per matrix cell.
+  for (idx, bits) in arrows.enumerate() {
+    if type(bits) != int {
       assert(
-        type(bits) == int,
+        false,
         message: "Arrow bitmask at index " + str(idx) + " must be an integer.",
       )
+    }
+    if bits < 0 or bits > 7 {
       assert(
-        bits >= 0 and bits <= 7,
+        false,
         message: "Arrow bitmask at index "
           + str(idx)
           + " must be between 0 and 7.",
       )
+    }
+
+    // Only the top row and first column can hold an out-of-bounds direction,
+    // so interior cells skip the boundary checks entirely.
+    let (row, col) = _matrix-coords(idx, cols)
+    if row != 0 and col != 0 { continue }
+
+    if row == 0 and bits.bit-and(2) != 0 {
       assert(
-        not (row == 0 and bits.bit-and(2) != 0),
+        false,
         message: "Arrow bitmask at index "
           + str(idx)
           + " cannot point up from the top row.",
       )
+    }
+    if col == 0 and bits.bit-and(4) != 0 {
       assert(
-        not (col == 0 and bits.bit-and(4) != 0),
+        false,
         message: "Arrow bitmask at index "
           + str(idx)
           + " cannot point left from the first column.",
       )
+    }
+    // The `continue` above already means this cell is on the top row or in the
+    // first column, so a diagonal always leaves the matrix here.
+    if bits.bit-and(1) != 0 {
       assert(
-        not ((row == 0 or col == 0) and bits.bit-and(1) != 0),
+        false,
         message: "Arrow bitmask at index "
           + str(idx)
           + " cannot point diagonally outside the matrix boundary.",
@@ -169,18 +202,14 @@
 /// - corner-radius (length): Radius used at the outer corners.
 /// -> dictionary, length
 #let _get-cell-radius(row-idx, col-idx, last-row, last-col, corner-radius) = {
-  let is-top = row-idx == 0
-  let is-bottom = row-idx == last-row
-  let is-left = col-idx == 0
-  let is-right = col-idx == last-col
-
-  if is-top and is-left {
+  // A 1x1 matrix matches every edge; the first match wins.
+  if row-idx == 0 and col-idx == 0 {
     (top-left: corner-radius, rest: 0pt)
-  } else if is-top and is-right {
+  } else if row-idx == 0 and col-idx == last-col {
     (top-right: corner-radius, rest: 0pt)
-  } else if is-bottom and is-left {
+  } else if row-idx == last-row and col-idx == 0 {
     (bottom-left: corner-radius, rest: 0pt)
-  } else if is-bottom and is-right {
+  } else if row-idx == last-row and col-idx == last-col {
     (bottom-right: corner-radius, rest: 0pt)
   } else {
     0pt
@@ -211,12 +240,15 @@
 ) = {
   let cells = ()
   let cols = top-clusters.len()
+  let blank-cell = _label-cell(none)
+  // Skip the per-cell `str(index)` entirely when nothing looks cells up.
+  let needs-cell-key = highlight-map.len() > 0 or path-cell-set.len() > 0
 
   // Header row: empty top-left corner, then top sequence characters
-  cells.push((bg: _label-cell(none), text: _label-cell(none)))
+  cells.push((bg: blank-cell, text: blank-cell))
 
   for char in top-clusters {
-    cells.push((bg: _label-cell(none), text: _label-cell(char)))
+    cells.push((bg: blank-cell, text: _label-cell(char)))
   }
 
   // Calculate last row and column indices
@@ -225,11 +257,13 @@
 
   // Data rows: left label, then cell values
   for (row-idx, row-label) in left-clusters.enumerate() {
-    cells.push((bg: _label-cell(none), text: _label-cell(row-label)))
+    cells.push((bg: blank-cell, text: _label-cell(row-label)))
 
     for col-idx in range(cols) {
       let index = _matrix-index(row-idx, col-idx, cols)
-      let key = str(index)
+      // The empty key never matches a `str(index)` entry, so both lookups stay
+      // unconditional while the `str` call is still skipped.
+      let key = if needs-cell-key { str(index) } else { "" }
       let fill-color = highlight-map.at(key, default: none)
       let cell-radius = _get-cell-radius(
         row-idx,
@@ -370,7 +404,7 @@
 ///   `_edge-index(...)`.
 /// - path-arrow-stroke (stroke, none): Arrow stroke for edges on the highlighted
 ///   path. `none` hides the arrow.
-/// - arrow-length-scale (int, float): Positive multiplier for arrow length.
+/// - arrow-half-length (length): Half-length of the arrow shaft.
 /// - cols (int): Total number of columns.
 /// - cell-count (int): Total number of cells in the matrix.
 /// -> content
@@ -383,15 +417,14 @@
   label-row-height,
   path-edge-set,
   path-arrow-stroke,
-  arrow-length-scale,
+  arrow-half-length,
   cols,
   cell-count,
 ) = {
-  let edge-key = str(_edge-index(from-coord, to-coord, cols, cell-count))
-  let edge-stroke = if edge-key in path-edge-set {
-    path-arrow-stroke
-  } else {
-    arrow-stroke
+  // Building the edge key is only worth it when there is a path to match.
+  let edge-stroke = if path-edge-set.len() == 0 { arrow-stroke } else {
+    let edge-key = str(_edge-index(from-coord, to-coord, cols, cell-count))
+    if edge-key in path-edge-set { path-arrow-stroke } else { arrow-stroke }
   }
   if edge-stroke == none {
     return
@@ -412,15 +445,11 @@
     cell-size,
   )
 
-  let center-x = (from-center.x + to-center.x) / 2.0
-  let center-y = (from-center.y + to-center.y) / 2.0
-  let arrow-half-length = cell-size * 0.215 * arrow-length-scale
-
   let (start-x, start-y, end-x, end-y) = _calculate-arrow-positions(
     from-coord,
     to-coord,
-    center-x,
-    center-y,
+    (from-center.x + to-center.x) / 2.0,
+    (from-center.y + to-center.y) / 2.0,
     arrow-half-length,
   )
 
@@ -429,7 +458,7 @@
       start: (start-x, start-y),
       end: (end-x, end-y),
       stroke: edge-stroke,
-      tip: _tiptoe-straight.with(width: 550%, length: 375%),
+      tip: _arrow-tip,
     )
   })
 }
@@ -462,36 +491,35 @@
   arrow-length-scale,
 ) = {
   if arrows == none { return }
+  if arrow-stroke == none and path-arrow-stroke == none { return }
+
   let cell-count = rows * cols
+  let arrow-half-length = cell-size * 0.215 * arrow-length-scale
 
-  for row in range(rows) {
-    for col in range(cols) {
-      let bits = arrows.at(_matrix-index(row, col, cols))
-      let from-coord = (row: row, col: col)
-      let emit = to-coord => _render-arrow(
-        from-coord,
-        to-coord,
-        arrow-stroke,
-        cell-size,
-        label-col-width,
-        label-row-height,
-        path-edge-set,
-        path-arrow-stroke,
-        arrow-length-scale,
-        cols,
-        cell-count,
-      )
+  for (idx, bits) in arrows.enumerate() {
+    // Most cells carry no arrows; skip them before building anything.
+    if bits == 0 { continue }
 
-      if row > 0 and col > 0 and bits.bit-and(1) != 0 {
-        emit((row: row - 1, col: col - 1))
-      }
+    let from-coord = _matrix-coords(idx, cols)
+    let (row, col) = from-coord
 
-      if row > 0 and bits.bit-and(2) != 0 {
-        emit((row: row - 1, col: col))
-      }
-
-      if col > 0 and bits.bit-and(4) != 0 {
-        emit((row: row, col: col - 1))
+    for (bit, row-delta, col-delta) in ((1, -1, -1), (2, -1, 0), (4, 0, -1)) {
+      if (
+        bits.bit-and(bit) != 0 and row + row-delta >= 0 and col + col-delta >= 0
+      ) {
+        _render-arrow(
+          from-coord,
+          (row: row + row-delta, col: col + col-delta),
+          arrow-stroke,
+          cell-size,
+          label-col-width,
+          label-row-height,
+          path-edge-set,
+          path-arrow-stroke,
+          arrow-half-length,
+          cols,
+          cell-count,
+        )
       }
     }
   }
@@ -579,22 +607,21 @@
 
   _validate-highlights(highlights, max-row, max-col)
 
-  if path != none {
-    _validate-path(path.rev(), max-row, max-col)
+  // `_validate-path` wants start-to-end order, but everything downstream
+  // (`_edge-index`, the arrow directions) is keyed on end-to-start order, so
+  // the validated coordinates are reversed back.
+  let parsed-path = if path == none { () } else {
+    _validate-path(path.rev(), max-row, max-col).rev()
   }
-
-  let parsed-path = if path == none { () } else { path.map(_parse-coord) }
 
   let highlight-map = (:)
   for h in highlights {
     let coord = _parse-coord(h)
-    let index = _matrix-index(coord.row, coord.col, expected-cols)
-    let key = str(index)
+    let key = str(_matrix-index(coord.row, coord.col, expected-cols))
 
     // Preserve existing behavior: first matching highlight wins.
     if not (key in highlight-map) {
-      let color = if h.len() > 2 { h.at(2) } else { highlight-color }
-      highlight-map.insert(key, color)
+      highlight-map.insert(key, h.at(2, default: highlight-color))
     }
   }
 
@@ -611,13 +638,13 @@
   let path-edge-set = (:)
   if arrows != none and highlight-path-arrows and parsed-path.len() > 1 {
     for i in range(parsed-path.len() - 1) {
-      let from-coord = parsed-path.at(i)
-      let to-coord = parsed-path.at(i + 1)
-      let edge-key = str(
-        _edge-index(from-coord, to-coord, expected-cols, expected-len),
-      )
       path-edge-set.insert(
-        edge-key,
+        str(_edge-index(
+          parsed-path.at(i),
+          parsed-path.at(i + 1),
+          expected-cols,
+          expected-len,
+        )),
         true,
       )
     }
@@ -659,13 +686,6 @@
     inset: 0pt,
     ..grid-cells.map(cell => cell.text)
   )
-
-  if path == none and arrows == none {
-    return block(breakable: false, {
-      bg-grid
-      place(top + left, dx: 0pt, dy: 0pt, text-grid)
-    })
-  }
 
   block(breakable: false, {
     bg-grid
