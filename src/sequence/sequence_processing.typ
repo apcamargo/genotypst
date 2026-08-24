@@ -1,3 +1,7 @@
+#import "./sequence_alphabet.typ": (
+  _observed-residue-set, _resolve-alphabet-config,
+)
+
 /// Canonicalizes a residue palette to uppercase keys.
 ///
 /// Duplicate keys that normalize to the same residue are allowed only if they
@@ -12,29 +16,35 @@
   )
 
   let prepared = (:)
-  for (key, color) in palette.pairs() {
+  for (key, value) in palette.pairs() {
     assert(type(key) == str, message: "palette keys must be strings.")
+    // Rejected here rather than where the fill is derived, so an unusable
+    // entry is reported even when its residue never reaches the renderer.
+    assert(type(value) == color, message: "palette values must be colors.")
     let canonical-key = upper(key)
     if canonical-key in prepared {
       assert(
-        prepared.at(canonical-key) == color,
+        prepared.at(canonical-key) == value,
         message: "Palette defines conflicting colors for residues that normalize to '"
           + canonical-key
           + "'.",
       )
       continue
     }
-    prepared.insert(canonical-key, color)
+    prepared.insert(canonical-key, value)
   }
   prepared
 }
 
-/// Looks up a residue color using case-insensitive palette matching.
+/// Looks up a residue entry using case-insensitive palette matching.
 ///
-/// - palette (dictionary): Prepared palette with canonical uppercase keys.
+/// The entry type is whatever the caller keyed the palette by: a raw color for
+/// the sequence logo, a derived fill pair for the MSA renderer.
+///
+/// - palette (dictionary): Residue-keyed map with canonical uppercase keys.
 /// - residue (str): Residue symbol to match.
-/// -> color, none
-#let _lookup-palette-color(palette, residue) = palette.at(
+/// -> any, none
+#let _lookup-palette-entry(palette, residue) = palette.at(
   upper(residue),
   default: none,
 )
@@ -90,34 +100,29 @@
 /// Counts occurrences of each valid character at a specific position across all
 /// sequences in the alignment. Matching is case-insensitive.
 ///
+/// Counts are keyed in first-seen sequence order, which Typst dictionaries
+/// preserve.
+///
 /// - sequences (array): Array of sequence strings.
 /// - pos (int): The column position to analyze (0-indexed).
 /// - alphabet-config (dictionary): Canonical alphabet configuration.
+/// - seq-len (int): Shared length of every sequence in the alignment.
 /// -> dictionary with keys:
 ///   - counts (dictionary): Counts of valid characters at the column.
 ///   - total-non-gap (int): Total count of valid non-gap characters.
-///   - residue-order (array): Valid residues in first-seen sequence order.
-#let _get-column-stats(sequences, pos, alphabet-config) = {
+#let _get-column-stats(sequences, pos, alphabet-config, seq-len) = {
   let counts = (:)
   let total-non-gap = 0
-  let residue-order = ()
-  for seq in sequences {
-    if pos < seq.len() {
+  if pos < seq-len {
+    for seq in sequences {
       let char = upper(seq.at(pos))
       if char in alphabet-config.char-set {
-        if not (char in counts) {
-          residue-order.push(char)
-        }
         counts.insert(char, counts.at(char, default: 0) + 1)
         total-non-gap += 1
       }
     }
   }
-  (
-    counts: counts,
-    total-non-gap: total-non-gap,
-    residue-order: residue-order,
-  )
+  (counts: counts, total-non-gap: total-non-gap)
 }
 
 /// Computes the consensus sequence from pre-computed column statistics.
@@ -134,9 +139,7 @@
   for stats in column-stats {
     let best-char = "-"
     let best-count = 0
-    let residue-order = stats.residue-order
-    for char in residue-order {
-      let count = stats.counts.at(char)
+    for (char, count) in stats.counts.pairs() {
       if count > best-count {
         best-char = char
         best-count = count
@@ -149,6 +152,9 @@
 
 /// Collects column statistics for a contiguous alignment window.
 ///
+/// Every sequence must already be the same length; callers reach this through
+/// `_validate-alignment`, which enforces that.
+///
 /// - sequences (array): Array of sequence strings.
 /// - start (int): Window start position (0-indexed, inclusive).
 /// - end (int): Window end position (0-indexed, exclusive).
@@ -158,7 +164,6 @@
 /// -> array of dictionaries with keys:
 ///   - counts (dictionary): Counts of valid characters at each column.
 ///   - total-non-gap (int): Total count of valid non-gap characters at each column.
-///   - residue-order (array): Valid residues in first-seen sequence order.
 ///   - conservation (float, none): Occupancy-scaled information content for
 ///     each column, or `none` when `compute-conservation` is `false`.
 #let _collect-window-column-stats(
@@ -170,12 +175,14 @@
   compute-conservation: true,
 ) = {
   let num-sequences = sequences.len()
+  // One shared length replaces the per-sequence bound check, which the
+  // equal-length precondition makes redundant.
+  let seq-len = if num-sequences == 0 { 0 } else { sequences.first().len() }
   range(start, end).map(pos => {
-    let stats = _get-column-stats(sequences, pos, alphabet-config)
+    let stats = _get-column-stats(sequences, pos, alphabet-config, seq-len)
     (
       counts: stats.counts,
       total-non-gap: stats.total-non-gap,
-      residue-order: stats.residue-order,
       conservation: if compute-conservation {
         _compute-sequence-conservation(
           stats.counts,
@@ -192,52 +199,32 @@
   })
 }
 
-/// Checks whether a prepared palette covers the observed residues in a sequence
-/// list using case-insensitive matching.
-///
-/// Returns a dictionary with an `ok` flag and a `missing` array containing
-/// observed non-gap residues whose canonical uppercase keys are not present in
-/// the palette.
+/// Asserts that a prepared palette covers every observed non-gap residue,
+/// using case-insensitive matching.
 ///
 /// - palette (dictionary): Prepared palette with canonical uppercase keys.
 /// - sequences (array): Array of sequence strings.
-/// -> dictionary with keys:
-///   - ok (bool): Whether the palette covers all residues in the sequences.
-///   - missing (array): Residues not found in the palette.
-#let _check-palette-coverage(palette, sequences) = {
+/// - observed (dictionary, none): Precomputed observed-residue set.
+/// -> none
+#let _assert-palette-coverage(palette, sequences, observed: none) = {
   assert(
     type(palette) == dictionary,
     message: "palette must be a dictionary mapping residues to colors.",
   )
   assert(type(sequences) == array, message: "sequences must be an array.")
 
-  let observed = (:)
-  for seq in sequences {
-    for char in seq.clusters() {
-      if char in ("-", ".") { continue }
-      observed.insert(upper(char), true)
-    }
+  let observed = if observed == none {
+    _observed-residue-set(sequences)
+  } else {
+    observed
   }
-
-  let missing = ()
-  for key in observed.keys() {
-    if not (key in palette) { missing.push(key) }
+  let missing = observed.keys().filter(key => key not in palette)
+  if missing.len() != 0 {
+    assert(
+      false,
+      message: "Palette missing residues: " + missing.sorted().join(", "),
+    )
   }
-
-  (ok: missing.len() == 0, missing: missing.sorted())
-}
-
-/// Asserts that a prepared palette covers every observed residue.
-///
-/// - palette (dictionary): Prepared palette with canonical uppercase keys.
-/// - sequences (array): Array of sequence strings.
-/// -> none
-#let _assert-palette-coverage(palette, sequences) = {
-  let coverage = _check-palette-coverage(palette, sequences)
-  assert(
-    coverage.ok,
-    message: "Palette missing residues: " + coverage.missing.join(", "),
-  )
 }
 
 /// Resolves the palette to use for coloring and validates residue coverage.
@@ -250,21 +237,55 @@
 /// - config (dictionary): Canonical alphabet configuration with a `palette` field.
 /// - sequences (array): Array of sequence strings.
 /// - enabled (bool): Whether coloring is enabled.
+/// - observed (dictionary, none): Precomputed observed-residue set.
 /// -> dictionary
-#let _resolve-palette(palette, config, sequences, enabled: true) = {
+#let _resolve-palette(
+  palette,
+  config,
+  sequences,
+  enabled: true,
+  observed: none,
+) = {
   if not enabled { return (:) }
+  if palette == auto { return config.palette }
 
-  let resolved = if palette == auto {
-    config.palette
-  } else {
-    _prepare-palette(palette)
-  }
-
-  if palette != auto {
-    _assert-palette-coverage(resolved, sequences)
-  }
-
+  let resolved = _prepare-palette(palette)
+  _assert-palette-coverage(resolved, sequences, observed: observed)
   resolved
+}
+
+/// Resolves the alphabet configuration and the palette from one residue scan.
+///
+/// Owning both calls is what lets the observed-residue set be shared safely:
+/// the set is built here, from the same `sequences`, and is only built when at
+/// least one of the two resolvers would otherwise build it itself.
+///
+/// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna".
+/// - palette (auto, dictionary): Requested palette or `auto` for the default.
+/// - sequences (array): Array of sequence strings.
+/// - enabled (bool): Whether coloring is enabled.
+/// -> dictionary with keys:
+///   - config (dictionary): Canonical alphabet configuration.
+///   - palette (dictionary): Resolved palette.
+#let _resolve-alphabet-and-palette(
+  alphabet,
+  palette,
+  sequences,
+  enabled: true,
+) = {
+  let needs-observed = alphabet == auto or (enabled and palette != auto)
+  let observed = if needs-observed { _observed-residue-set(sequences) }
+  let config = _resolve-alphabet-config(alphabet, sequences, observed: observed)
+  (
+    config: config,
+    palette: _resolve-palette(
+      palette,
+      config,
+      sequences,
+      enabled: enabled,
+      observed: observed,
+    ),
+  )
 }
 
 /// Validates that all sequences in the MSA have the same length.

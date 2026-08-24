@@ -59,6 +59,29 @@
   _aa-residues + _dna-residues + _rna-residues,
 )
 
+/// Gap symbols, excluded from every observed-residue set.
+#let _gap-symbols = ("-", ".")
+
+/// Collects the distinct uppercase residues observed in a set of sequences.
+///
+/// Gap symbols are skipped. Consumers may therefore assume the set holds only
+/// residues, which is what makes it safe to reuse for both alphabet detection
+/// and palette coverage; it also requires that no alphabet membership table
+/// (`_all-known-set`, `_aa-config.char-set`, `_nt-set`) ever admit a gap.
+///
+/// - sequences (array): Array of sequence strings.
+/// -> dictionary: Membership map keyed by canonical uppercase residue.
+#let _observed-residue-set(sequences) = {
+  let observed = (:)
+  for seq in sequences {
+    for char in seq.clusters() {
+      if char in _gap-symbols { continue }
+      observed.insert(upper(char), true)
+    }
+  }
+  observed
+}
+
 /// Guesses the sequence alphabet based on the characters present in the sequences.
 ///
 /// Analyzes the sequences to determine whether they are amino acids ("aa"),
@@ -68,19 +91,18 @@
 /// no known residues are present.
 ///
 /// - sequences (dictionary, array): A dictionary mapping identifiers to sequences, or an array of sequences.
+/// - observed (dictionary, none): Precomputed observed-residue set, to avoid
+///   rescanning every residue when the caller already built one.
 /// -> str
-#let _guess-seq-alphabet(sequences) = {
+#let _guess-seq-alphabet(sequences, observed: none) = {
   let sequences = if type(sequences) == dictionary { sequences.values() } else {
     sequences
   }
-  let observed = (:)
-  for seq in sequences {
-    for char in seq.clusters() {
-      observed.insert(upper(char), true)
-    }
+  let observed-keys = if observed == none {
+    _observed-residue-set(sequences).keys()
+  } else {
+    observed.keys()
   }
-
-  let observed-keys = observed.keys()
 
   assert(
     observed-keys.any(char => char in _all-known-set),
@@ -106,19 +128,22 @@
 ///
 /// - alphabet (auto, str): Sequence alphabet: auto, "aa", "dna", or "rna".
 /// - sequences (array): Array of sequence strings for auto-detection.
+/// - observed (dictionary, none): Precomputed observed-residue set.
 /// -> dictionary with keys:
 ///   - size (int): Alphabet size (20 for amino acids, 4 for DNA/RNA).
 ///   - max-bits (float): Maximum possible information content (log2 of alphabet size).
 ///   - chars (array): Array of canonical uppercase alphabet characters.
 ///   - char-set (dictionary): Membership map for canonical uppercase alphabet characters.
 ///   - palette (dictionary): Color mapping for characters.
-#let _resolve-alphabet-config(alphabet, sequences) = {
+#let _resolve-alphabet-config(alphabet, sequences, observed: none) = {
   assert(
     alphabet == auto or alphabet in ("aa", "dna", "rna"),
     message: "alphabet must be auto, 'aa', 'dna', or 'rna'.",
   )
 
-  let type = if alphabet == auto { _guess-seq-alphabet(sequences) } else {
+  let type = if alphabet == auto {
+    _guess-seq-alphabet(sequences, observed: observed)
+  } else {
     alphabet
   }
 

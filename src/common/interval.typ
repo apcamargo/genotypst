@@ -6,11 +6,14 @@
 /// -> none
 #let _validate-optional-int-at-least(value, name, min) = {
   if value == none { return }
-  assert(type(value) == int, message: name + " must be an integer.")
-  assert(
-    value >= min,
-    message: name + " must be >= " + str(min) + ".",
-  )
+  // `assert`'s message is evaluated eagerly, so build it only on failure; this
+  // runs once per gene on genome maps.
+  if type(value) != int {
+    assert(false, message: name + " must be an integer.")
+  }
+  if value < min {
+    assert(false, message: name + " must be >= " + str(min) + ".")
+  }
 }
 
 /// Validates an optional integer window with inclusive bounds.

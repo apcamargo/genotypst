@@ -2,12 +2,11 @@
 #import "../common/strokes.typ": _default-axis-stroke
 #import "../common/interval.typ": _resolve-1indexed-window
 #import "../common/axis_scale.typ": (
-  _draw-coordinate-axis, _make-axis-scale-label,
+  _default-axis-label-gap, _draw-coordinate-axis, _tick-row-height,
 )
-#import "./sequence_alphabet.typ": _resolve-alphabet-config
 #import "./sequence_processing.typ": (
-  _collect-window-column-stats, _lookup-palette-color, _resolve-palette,
-  _validate-alignment,
+  _collect-window-column-stats, _lookup-palette-entry,
+  _resolve-alphabet-and-palette, _validate-alignment,
 )
 
 #let _logo-letter-gap = 0.25pt
@@ -40,12 +39,8 @@
   if column-stats.len() == 0 { return () }
 
   let max-bits = alphabet-config.max-bits
-  let max-observed-r = 0.0
-
-  if stack-scale != "occupancy" {
-    for col in column-stats {
-      max-observed-r = calc.max(max-observed-r, col.conservation)
-    }
+  let max-observed-r = if stack-scale == "occupancy" { 0.0 } else {
+    column-stats.map(col => col.conservation).fold(0.0, calc.max)
   }
 
   let divisor = if max-observed-r > 0 { max-observed-r } else { max-bits }
@@ -109,7 +104,7 @@
 #let _resolve-logo-stack-height(column) = {
   if column.len() == 0 { return 0pt }
 
-  let letters-height = column.fold(0pt, (sum, letter) => sum + letter.height)
+  let letters-height = column.map(letter => letter.height).sum(default: 0pt)
   letters-height + _logo-letter-gap * (column.len() - 1)
 }
 
@@ -131,21 +126,21 @@
 /// - glyph-metrics (dictionary): Precomputed glyph measurements keyed by residue.
 /// -> content
 #let _render-logo-letter(letter, col-width, palette, glyph-metrics) = {
-  context {
-    let color = _lookup-palette-color(palette, letter.char)
-    let glyph = _make-logo-glyph(
-      letter.char,
-      fill: if color == none { _light-gray } else { color },
-    )
-    let m = glyph-metrics.at(letter.char)
-    let sx = (col-width / m.width) * 100%
-    let sy = (letter.height / m.height) * 100%
+  let color = _lookup-palette-entry(palette, letter.char)
+  let glyph = _make-logo-glyph(
+    letter.char,
+    fill: if color == none { _light-gray } else { color },
+  )
+  let m = glyph-metrics.at(letter.char)
 
-    box(width: col-width, height: letter.height)[
-      #set align(center + bottom)
-      #scale(x: sx, y: sy, origin: bottom)[#glyph]
-    ]
-  }
+  box(width: col-width, height: letter.height)[
+    #set align(center + bottom)
+    #scale(
+      x: (col-width / m.width) * 100%,
+      y: (letter.height / m.height) * 100%,
+      origin: bottom,
+    )[#glyph]
+  ]
 }
 
 /// Renders a sequence logo from biological sequence data.
@@ -186,7 +181,7 @@
   axis-stroke: _default-axis-stroke,
   axis-label-size: 0.85em,
   axis-tick-height: 5pt,
-  axis-label-gap: 2.5pt,
+  axis-label-gap: _default-axis-label-gap,
   axis-logo-gap: 6pt,
 ) = {
   _validate-alignment(alignment)
@@ -195,9 +190,11 @@
     message: "stack-scale must be 'conservation' or 'occupancy'.",
   )
   let sequences = alignment.values()
-  let config = _resolve-alphabet-config(alphabet, sequences)
-  let palette-to-use = _resolve-palette(palette, config, sequences)
-  let max-len = sequences.map(s => s.len()).fold(0, calc.max)
+  let resolved = _resolve-alphabet-and-palette(alphabet, palette, sequences)
+  let config = resolved.config
+  let palette-to-use = resolved.palette
+  // `_validate-alignment` above makes every sequence the same length.
+  let max-len = if sequences.len() == 0 { 0 } else { sequences.first().len() }
   let window = _resolve-1indexed-window(
     start,
     end,
@@ -270,20 +267,20 @@
       let axis-width = if n-cols == 1 { size.width } else {
         size.width - col-width
       }
-      let logo-height = _resolve-logo-height(logo-data)
-      let axis-label-height = measure(_make-axis-scale-label(
-        str(last-pos),
-        axis-label-size,
-      )).height
-      let axis-top = logo-height + axis-logo-gap
+      let axis-top = _resolve-logo-height(logo-data) + axis-logo-gap
       let total-height = (
-        axis-top + axis-tick-height + axis-label-gap + axis-label-height
+        axis-top
+          + _tick-row-height(
+            (str(last-pos),),
+            axis-label-size,
+            axis-tick-height,
+            axis-label-gap,
+          )
       )
 
       box(width: size.width, height: total-height, {
         place(top + left, logo-grid)
         _draw-coordinate-axis(
-          coordinate-axis,
           first-pos,
           last-pos,
           last-pos - first-pos,

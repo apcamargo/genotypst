@@ -10,7 +10,7 @@ fmt: fmt-typst fmt-rust fmt-toml
 build-plugins: setup-wasm build-tree build-alignment build-genome-map
 
 # Compile all documentation
-compile-docs: compile-pdf compile-svgs
+compile-docs: compile-pdf compile-assets
 
 # Format all Typst files
 fmt-typst:
@@ -48,8 +48,10 @@ build-genome-map: setup-wasm
 compile-pdf: fmt build-plugins
     typst compile --root {{root}} docs/manual.typ docs/manual.pdf
 
-# Compile all example SVGs
+# Compile all example assets
+compile-assets: (_compile-assets "light") (_compile-assets "dark")
+
+# Compile the example assets for a single theme
 [working-directory: root]
-compile-svgs: fmt build-plugins
-    fd '_example\.typ$' docs -x typst compile --root {{root}} {} docs/svgs/{/.}_light.svg --format svg
-    fd '_example\.typ$' docs -x typst compile --root {{root}} {} docs/svgs/{/.}_dark.svg --format svg --input theme=dark
+_compile-assets theme: fmt build-plugins
+    fd '_example\.typ$' docs -x typst compile --root {{root}} {} docs/svgs/{/.}_{{theme}}.svg --format svg --input theme={{theme}}

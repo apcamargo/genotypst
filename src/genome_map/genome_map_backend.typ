@@ -20,7 +20,9 @@
 /// -> dictionary with keys:
 ///   - level-count (int): Number of occupied label levels.
 ///   - level-block-height (length): Total height of the label block.
-///   - labels (array): Positioned backend label records.
+///   - labels (array): Positioned label records with `source-index` (int),
+///     `top` (length), `underline-y` (length), and `leader-segments` (array of
+///     dictionaries with `top` and `length` lengths).
 #let _genome-map-layout-labels(payload) = {
   let result = _genome-map-backend.layout_labels(bytes(json.encode(
     (
@@ -46,6 +48,14 @@
   (
     level-count: response.level_count,
     level-block-height: response.level_block_height_pt * 1pt,
-    labels: response.labels,
+    labels: response.labels.map(label => (
+      source-index: label.source_index,
+      top: label.top_pt * 1pt,
+      underline-y: label.underline_y_pt * 1pt,
+      leader-segments: label.leader_segments.map(segment => (
+        top: segment.top_pt * 1pt,
+        length: segment.length_pt * 1pt,
+      )),
+    )),
   )
 }

@@ -1,20 +1,21 @@
-#import "../common/fixed_grid.typ": _fixed-width-grid
+#import "../common/fixed_grid.typ": _fixed-width-grid, _measure-monospace-width
 
-/// Resolves a FASTA record's sequence and validates identifier uniqueness.
+/// Rejects a FASTA identifier that has already been parsed.
 ///
 /// - sequences (dictionary): Parsed FASTA records.
 /// - seq-id (str): Sequence identifier.
-/// - seq-parts (array): Sequence fragments collected for the record.
-/// -> str
-#let _resolve-fasta-record-sequence(sequences, seq-id, seq-parts) = {
-  let sequence = seq-parts.join()
-  assert(
-    not (seq-id in sequences),
-    message: "Duplicate FASTA identifier '"
-      + seq-id
-      + "'. FASTA identifiers must be unique.",
-  )
-  sequence
+/// -> none
+#let _assert-unique-fasta-id(sequences, seq-id) = {
+  // `assert`'s message is evaluated eagerly, so build it only after failing;
+  // this check runs once per record.
+  if seq-id in sequences {
+    assert(
+      false,
+      message: "Duplicate FASTA identifier '"
+        + seq-id
+        + "'. FASTA identifiers must be unique.",
+    )
+  }
 }
 
 /// Parses FASTA-formatted sequence data into a dictionary mapping unique
@@ -35,10 +36,8 @@
     if line.len() == 0 { continue }
     if line.starts-with(">") {
       if current-id != none {
-        sequences.insert(
-          current-id,
-          _resolve-fasta-record-sequence(sequences, current-id, current-seq),
-        )
+        _assert-unique-fasta-id(sequences, current-id)
+        sequences.insert(current-id, current-seq.join("", default: ""))
       }
       current-id = line.slice(1).trim()
       current-seq = ()
@@ -48,10 +47,8 @@
   }
 
   if current-id != none {
-    sequences.insert(
-      current-id,
-      _resolve-fasta-record-sequence(sequences, current-id, current-seq),
-    )
+    _assert-unique-fasta-id(sequences, current-id)
+    sequences.insert(current-id, current-seq.join("", default: ""))
   }
 
   sequences
@@ -75,9 +72,11 @@
     let leading = par.leading
     let lines = ()
     let spacing = if entry-spacing == none { leading } else { entry-spacing }
+    // Measured once here rather than inside every wrapped line's grid.
+    let char-width = _measure-monospace-width()
     let render-segment = segment => _fixed-width-grid(
       (segment.clusters(),),
-      cell-width: none,
+      char-width,
     )
 
     for (acc, seq) in sequences.pairs() {

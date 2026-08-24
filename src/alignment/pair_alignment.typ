@@ -1,4 +1,4 @@
-#import "../common/fixed_grid.typ": _fixed-width-grid
+#import "../common/fixed_grid.typ": _fixed-width-grid, _measure-monospace-width
 #import "./alignment_backend.typ": _alignment-align, _resolve-matrix-name
 #import "./alignment_coords.typ": _parse-coord, _validate-path
 
@@ -432,6 +432,7 @@
 
     block(breakable: false, _fixed-width-grid(
       (line1-cells, line2-cells, line3-cells),
+      _measure-monospace-width(),
       row-heights: (text.size * 0.85, text.size * 1.6, text.size * 0.85),
     ))
   }

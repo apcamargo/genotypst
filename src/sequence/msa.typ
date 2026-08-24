@@ -1,31 +1,49 @@
 #import "../common/colors.typ": _light-gray
 #import "../common/fixed_grid.typ": _fixed-width-grid, _measure-monospace-width
 #import "../common/interval.typ": _resolve-1indexed-window
-#import "./sequence_alphabet.typ": _resolve-alphabet-config
 #import "./sequence_processing.typ": (
   _collect-window-column-stats, _compute-consensus-sequence,
-  _lookup-palette-color, _resolve-palette, _validate-alignment,
+  _lookup-palette-entry, _resolve-alphabet-and-palette, _validate-alignment,
 )
+
+/// Derives the foreground/background pair used for each palette residue.
+///
+/// The `lighten`/`darken` conversions are done once per palette entry here
+/// rather than once per rendered residue.
+///
+/// - palette (dictionary): Prepared palette with canonical uppercase keys.
+/// -> dictionary: Residue keyed to a `(body-fill, cell-fill)` dictionary.
+#let _derive-msa-residue-colors(palette) = {
+  let derived = (:)
+  for (residue, base-color) in palette.pairs() {
+    derived.insert(
+      residue,
+      (
+        body-fill: base-color.darken(22.5%),
+        cell-fill: base-color.lighten(73.5%),
+      ),
+    )
+  }
+  derived
+}
 
 /// Renders a single character in an MSA with optional coloring.
 ///
 /// - char (str): The character to render.
 /// - colors (bool): Whether to apply coloring.
-/// - palette (dictionary): Color palette for residues.
+/// - residue-colors (dictionary): Derived residue color pairs.
 /// - use-palette (bool): Whether to use residue palette colors.
 /// -> dictionary with keys:
 ///   - body (content): Rendered character content.
 ///   - fill (color, none): Optional background fill color.
-#let _render-msa-character(char, colors, palette, use-palette: true) = {
-  let base-color = if colors and use-palette {
-    _lookup-palette-color(palette, char)
+#let _render-msa-character(char, colors, residue-colors, use-palette: true) = {
+  let derived = if colors and use-palette {
+    _lookup-palette-entry(residue-colors, char)
   } else {
     none
   }
-  if base-color != none {
-    let bg-color = base-color.lighten(73.5%)
-    let fg-color = base-color.darken(22.5%)
-    (body: text(fill: fg-color, char), fill: bg-color)
+  if derived != none {
+    (body: text(fill: derived.body-fill, char), fill: derived.cell-fill)
   } else {
     let content = if colors { text(fill: _light-gray, char) } else { char }
     (body: content, fill: none)
@@ -43,20 +61,19 @@
 /// -> content
 #let _render-msa-conservation-row(column-stats, max-bits, cell-width) = {
   let bar-height = 1.5em
-  let bars = ()
-
-  for stats in column-stats {
-    let h = (stats.conservation / max-bits) * bar-height
-    bars.push((
-      body: box(
-        height: bar-height,
-        align(bottom, rect(width: cell-width, height: h, fill: _light-gray)),
-      ),
-    ))
-  }
+  let bars = column-stats.map(stats => (
+    body: box(
+      height: bar-height,
+      align(bottom, rect(
+        width: cell-width,
+        height: (stats.conservation / max-bits) * bar-height,
+        fill: _light-gray,
+      )),
+    ),
+  ))
 
   if bars.len() == 0 { [] } else {
-    _fixed-width-grid((bars,), cell-width: cell-width)
+    _fixed-width-grid((bars,), cell-width)
   }
 }
 
@@ -65,76 +82,65 @@
 /// Creates a row with the sequence identifier and a segment of sequence
 /// optionally colored by chemical properties.
 ///
-/// - acc (str): Sequence identifier/accession.
+/// - label (str): Row label, already truncated for display.
 /// - seq (str): The full sequence string.
-/// - block-start (int): Starting position of the block (0-indexed).
-/// - block-end (int): Ending position of the block (0-indexed, exclusive).
-/// - max-label-length (int): Maximum number of row-label characters to display.
+/// - block (dictionary): Block window with `start` (int, 0-indexed) and `end`
+///   (int, 0-indexed, exclusive). Grouped so the two bounds cannot be
+///   transposed at a call site.
 /// - colors (bool): Whether to color residues.
-/// - palette (dictionary): Color palette for residues.
-/// - consensus-chars (array, none): Consensus residue characters for this block.
-/// -> array with:
-///   - The accession text (content)
-///   - The rendered sequence segment (array)
-#let _render-msa-sequence-row(
-  acc,
-  seq,
-  block-start,
-  block-end,
-  max-label-length,
-  colors,
-  palette,
-  consensus-chars: none,
-) = {
-  let display-acc = if acc.len() > max-label-length {
-    acc.slice(0, max-label-length - 1) + "…"
-  } else {
-    acc
-  }
-
-  let segment = if block-start < seq.len() {
-    seq.slice(block-start, calc.min(block-end, seq.len()))
-  } else {
-    ""
-  }
-
-  let rendered-seq = segment
-    .clusters()
-    .enumerate()
-    .map(item => {
-      let (index, char) = item
-      let use-palette = if consensus-chars != none {
-        (
-          index < consensus-chars.len()
-            and upper(char) == upper(consensus-chars.at(index))
-        )
-      } else {
-        true
-      }
-      _render-msa-character(char, colors, palette, use-palette: use-palette)
-    })
-
-  (display-acc, rendered-seq)
-}
-
-/// Renders prepared MSA cells as a fixed-width grid row.
-///
-/// - acc (content, str): Row label.
-/// - seq-cells (array): Rendered sequence cells.
-/// - cell-width (length): Width of each character cell.
-/// - cell-outset-y (length): Vertical cell outset.
+/// - residue-colors (dictionary): Derived residue color pairs.
+/// - cell-metrics (dictionary): Cell geometry with `width` (length) and
+///   `outset-y` (length). Grouped for the same reason as `block`.
+/// - consensus-chars (array, none): Consensus residue characters for this
+///   block, already uppercase.
 /// -> array with:
 ///   - The row label
 ///   - The rendered sequence grid
-#let _render-msa-row(acc, seq-cells, cell-width, cell-outset-y) = {
+#let _render-msa-row(
+  label,
+  seq,
+  block,
+  colors,
+  residue-colors,
+  cell-metrics,
+  consensus-chars: none,
+) = {
+  let seq-len = seq.len()
+  let segment = if block.start < seq-len {
+    seq.slice(block.start, calc.min(block.end, seq-len))
+  } else {
+    ""
+  }
+  let consensus-len = if consensus-chars == none { 0 } else {
+    consensus-chars.len()
+  }
+
+  let seq-cells = segment
+    .clusters()
+    .enumerate()
+    .map(((index, char)) => {
+      // `consensus-chars` is already uppercase, so only `char` needs folding.
+      let use-palette = if consensus-chars == none {
+        true
+      } else {
+        index < consensus-len and upper(char) == consensus-chars.at(index)
+      }
+      _render-msa-character(
+        char,
+        colors,
+        residue-colors,
+        use-palette: use-palette,
+      )
+    })
+
   let seq-content = if seq-cells.len() == 0 { [] } else {
     _fixed-width-grid(
       (seq-cells,),
-      cell-width: cell-width,
-      cell-outset: (y: cell-outset-y),
+      cell-metrics.width,
+      cell-outset: (y: cell-metrics.outset-y),
     )
   }
-  (acc, seq-content)
+  (label, seq-content)
 }
 
 /// Resolves the minimum column occupancy threshold to a float.
@@ -175,15 +181,12 @@
 #let _filter-msa-column-stats(column-stats, num-sequences, threshold) = {
   let offsets = ()
   let kept-stats = ()
-
-  for item in column-stats.enumerate() {
-    let (offset, stats) = item
+  for (offset, stats) in column-stats.enumerate() {
     if stats.total-non-gap / num-sequences >= threshold {
       offsets.push(offset)
       kept-stats.push(stats)
     }
   }
-
   (offsets: offsets, column-stats: kept-stats)
 }
 
@@ -193,13 +196,9 @@
 /// - start (int): Original window start position.
 /// - offsets (array): Kept column offsets within the original window.
 /// -> str
-#let _filter-msa-sequence(seq, start, offsets) = {
-  let chars = ()
-  for offset in offsets {
-    chars.push(seq.at(start + offset))
-  }
-  chars.join("", default: "")
-}
+#let _filter-msa-sequence(seq, start, offsets) = (
+  offsets.map(offset => seq.at(start + offset)).join("", default: "")
+)
 
 /// Filters aligned sequence pairs by retained column offsets.
 ///
@@ -207,12 +206,10 @@
 /// - start (int): Original window start position.
 /// - offsets (array): Kept column offsets within the original window.
 /// -> array
-#let _filter-msa-pairs(pairs, start, offsets) = {
-  pairs.map(p => {
-    let (acc, seq) = p
-    (acc, _filter-msa-sequence(seq, start, offsets))
-  })
-}
+#let _filter-msa-pairs(pairs, start, offsets) = pairs.map(((acc, seq)) => (
+  acc,
+  _filter-msa-sequence(seq, start, offsets),
+))
 
 /// Prepares the sequence rows, column stats, and coordinate range to render.
 ///
@@ -299,6 +296,11 @@
   breakable: true,
   palette: auto,
 ) = {
+  assert(
+    type(max-label-length) == int and max-label-length >= 1,
+    message: "max-label-length must be a positive integer.",
+  )
+
   let pairs = alignment.pairs()
   if pairs.len() == 0 { return }
 
@@ -309,22 +311,21 @@
   let sequences = alignment.values()
   let total-max-len = sequences.first().len()
 
-  let config = _resolve-alphabet-config(alphabet, sequences)
-  let palette-to-use = _resolve-palette(
+  let resolved = _resolve-alphabet-and-palette(
+    alphabet,
     palette,
-    config,
     sequences,
     enabled: colors,
   )
+  let config = resolved.config
+  let residue-colors = _derive-msa-residue-colors(resolved.palette)
 
-  let window = _resolve-1indexed-window(
+  let (actual-start, actual-end) = _resolve-1indexed-window(
     start,
     end,
     total-max-len,
     window-name: "MSA",
   )
-  let actual-start = window.actual-start
-  let actual-end = window.actual-end
 
   let filter-columns = occupancy-threshold > 0.0
   let max-bits = config.max-bits
@@ -355,10 +356,26 @@
     occupancy-threshold,
   )
   if render-view == none { return }
-  let render-pairs = render-view.pairs
-  let column-stats = render-view.column-stats
-  let render-start = render-view.render-start
-  let render-end = render-view.render-end
+  let (
+    pairs: render-pairs,
+    column-stats,
+    render-start,
+    render-end,
+  ) = render-view
+  // Row labels depend only on the accession, not on the block being rendered.
+  // Truncation counts clusters, not bytes, so multi-byte identifiers neither
+  // split a codepoint nor overshoot the limit.
+  let render-pairs = render-pairs.map(((acc, seq)) => {
+    let glyphs = acc.clusters()
+    (
+      if glyphs.len() > max-label-length {
+        glyphs.slice(0, max-label-length - 1).join("") + "…"
+      } else {
+        acc
+      },
+      seq,
+    )
+  })
 
   let consensus-sequence = if needs-consensus {
     _compute-consensus-sequence(column-stats)
@@ -371,6 +388,7 @@
     let char-width = _measure-monospace-width()
     let outset-y = leading / 2
     let box-width = char-width + 0.03em
+    let cell-metrics = (width: box-width, outset-y: outset-y)
 
     let blocks = range(render-start, render-end, step: max-line-length).map(
       block-start => {
@@ -399,35 +417,28 @@
         }
 
         let consensus-row = if show-consensus-sequence {
-          let row = _render-msa-sequence-row(
+          _render-msa-row(
             "Consensus",
             consensus-sequence,
-            relative-start,
-            relative-end,
-            "Consensus".len(),
+            (start: relative-start, end: relative-end),
             colors,
-            palette-to-use,
+            residue-colors,
+            cell-metrics,
           )
-          _render-msa-row(row.at(0), row.at(1), box-width, outset-y)
         } else {
           ()
         }
 
         let sequence-rows = render-pairs
-          .map(p => {
-            let (acc, seq) = p
-            let row = _render-msa-sequence-row(
-              acc,
-              seq,
-              block-start,
-              block-end,
-              max-label-length,
-              colors,
-              palette-to-use,
-              consensus-chars: consensus-chars,
-            )
-            _render-msa-row(row.at(0), row.at(1), box-width, outset-y)
-          })
+          .map(((acc, seq)) => _render-msa-row(
+            acc,
+            seq,
+            (start: block-start, end: block-end),
+            colors,
+            residue-colors,
+            cell-metrics,
+            consensus-chars: consensus-chars,
+          ))
           .flatten()
 
         block(

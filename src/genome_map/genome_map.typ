@@ -4,15 +4,11 @@
   _draw-coordinate-axis, _draw-horizontal-segment, _draw-scale-bar-row,
   _draw-vertical-segment,
 )
-#import "./genome_map_layout.typ": (
-  _interval-geometry, _prepare-genome-map-layout,
-)
+#import "./genome_map_layout.typ": _prepare-genome-map-layout
 
 /// Draws gene arrows and blocks.
 ///
-/// - genes (array): Normalized gene dictionaries.
-/// - region-start (int): Inclusive region start coordinate.
-/// - x-scale (length): Rendered width per genomic position.
+/// - genes (array): Normalized gene dictionaries carrying resolved `geometry`.
 /// - track-top (length): Top offset of the gene track.
 /// - gene-height (length): Height of gene arrows/blocks.
 /// - head-length (length, auto): Arrowhead length.
@@ -21,26 +17,19 @@
 /// -> content
 #let _draw-genes(
   genes,
-  region-start,
-  x-scale,
   track-top,
   gene-height,
   head-length,
   min-head-length,
   gene-stroke,
 ) = {
+  let base-head = if head-length == auto { gene-height * 0.35 } else {
+    head-length
+  }
+
   for gene in genes {
-    let geometry = _interval-geometry(
-      gene.start,
-      gene.end,
-      region-start,
-      x-scale,
-    )
-    let start-x = geometry.start-x
-    let gene-width = geometry.width
-    let base-head = if head-length == auto { gene-height * 0.35 } else {
-      head-length
-    }
+    let start-x = gene.geometry.start-x
+    let gene-width = gene.geometry.width
     let head = calc.min(gene-width, calc.max(min-head-length, base-head))
 
     let points = if gene.strand == 1 {
@@ -169,30 +158,32 @@
       )
     }
     let prepared = _prepare-genome-map-layout(
-      genes,
-      start,
-      end,
-      default-color,
-      label-color,
-      label-size,
-      label-horizontal-gap,
-      label-vertical-gap,
-      label-line-distance,
-      label-leader-offset,
-      label-track-gap,
-      scale-bar,
-      scale-length,
-      min-auto-bar-width,
-      unit,
-      coordinate-axis,
-      coordinate-axis-track-gap,
-      coordinate-axis-label-size,
-      scale-bar-gap,
-      scale-tick-height,
-      scale-label-size,
-      gene-height,
-      head-length,
-      min-head-length,
+      (
+        genes: genes,
+        start: start,
+        end: end,
+        default-color: default-color,
+        label-color: label-color,
+        label-size: label-size,
+        label-horizontal-gap: label-horizontal-gap,
+        label-vertical-gap: label-vertical-gap,
+        label-line-distance: label-line-distance,
+        label-leader-offset: label-leader-offset,
+        label-track-gap: label-track-gap,
+        scale-bar: scale-bar,
+        scale-length: scale-length,
+        min-auto-bar-width: min-auto-bar-width,
+        unit: unit,
+        coordinate-axis: coordinate-axis,
+        coordinate-axis-track-gap: coordinate-axis-track-gap,
+        coordinate-axis-label-size: coordinate-axis-label-size,
+        scale-bar-gap: scale-bar-gap,
+        scale-tick-height: scale-tick-height,
+        scale-label-size: scale-label-size,
+        gene-height: gene-height,
+        head-length: head-length,
+        min-head-length: min-head-length,
+      ),
       size,
     )
 
@@ -207,8 +198,6 @@
       // Gene shapes
       _draw-genes(
         prepared.normalized,
-        prepared.region-start,
-        prepared.x-scale,
         prepared.track-top,
         prepared.gene-height,
         prepared.head-length,
@@ -218,44 +207,43 @@
 
       // Labels and leader lines
       for label in prepared.layout-labels {
-        let source = prepared.label-data.at(label.source_index)
+        let source = prepared.label-data.at(label.source-index)
         let line-x = source.gene-center
-        let label-top = label.top_pt * 1pt
-        let underline-y = label.underline_y_pt * 1pt
 
         _draw-horizontal-segment(
           source.underline-left,
-          underline-y,
+          label.underline-y,
           source.underline-width,
           label-stroke,
         )
 
-        for segment in label.leader_segments {
+        for segment in label.leader-segments {
           _draw-vertical-segment(
             line-x,
-            segment.top_pt * 1pt,
-            segment.length_pt * 1pt,
+            segment.top,
+            segment.length,
             label-stroke,
           )
         }
 
-        place(top + left, dx: source.left, dy: label-top, source.text)
+        place(top + left, dx: source.left, dy: label.top, source.text)
       }
 
-      _draw-coordinate-axis(
-        coordinate-axis,
-        prepared.region-start,
-        prepared.region-end,
-        prepared.region-end - prepared.region-start,
-        prepared.axis-width,
-        prepared.coordinate-axis-top,
-        prepared.scale-tick-height,
-        prepared.coordinate-axis-label-gap,
-        coordinate-axis-label-size,
-        axis-stroke,
-        unit: unit,
-        axis-left: prepared.axis-left,
-      )
+      if coordinate-axis {
+        _draw-coordinate-axis(
+          prepared.region-start,
+          prepared.region-end,
+          prepared.region-end - prepared.region-start,
+          prepared.axis-width,
+          prepared.coordinate-axis-top,
+          prepared.scale-tick-height,
+          prepared.coordinate-axis-label-gap,
+          coordinate-axis-label-size,
+          axis-stroke,
+          unit: unit,
+          axis-left: prepared.axis-left,
+        )
+      }
 
       // Scale bar
       if scale-bar {

@@ -1,4 +1,15 @@
-#import "./layout_math.typ": _clamp, _resolve-length
+#import "./layout_math.typ": _clamp-centered-label-left, _resolve-length
+
+/// Default gap between a coordinate-axis tick and its label
+#let _default-axis-label-gap = 2.5pt
+
+/// Default gap between a scale bar and its label
+#let _default-scale-label-gap = 1.5pt
+
+/// Minimum horizontal gap required between two adjacent tick labels before the
+/// axis starts dropping ticks. Unrelated to `_default-axis-label-gap`, which is
+/// vertical.
+#let _default-tick-label-min-gap = 2pt
 
 /// Returns whether a numeric value is effectively an integer.
 ///
@@ -51,19 +62,9 @@
 /// - entries (array): Tick-layout entries with `label-left` and `label-right`.
 /// - gap (length): Minimum gap between adjacent labels.
 /// -> bool
-#let _tick-labels-fit(entries, gap) = {
-  let index = 1
-  while index < entries.len() {
-    let previous = entries.at(index - 1)
-    let current = entries.at(index)
-    if current.label-left < previous.label-right + gap {
-      return false
-    }
-    index += 1
-  }
-
-  true
-}
+#let _tick-labels-fit(entries, gap) = range(1, entries.len()).all(index => (
+  entries.at(index).label-left >= entries.at(index - 1).label-right + gap
+))
 
 /// Snaps a scale length up or down to a 1/2.5/5/7.5 x 10^n step.
 ///
@@ -75,15 +76,15 @@
   let exponent = calc.floor(calc.log(target))
   let base = calc.pow(10, exponent)
   let scaled = target / base
+  let steps = (1, 2.5, 5, 7.5, 10)
+  // `scaled` normally lands in [1, 10), but floating-point error in the
+  // mantissa split can push it outside; fall back to the nearest end step.
   let step = if ceil {
-    if scaled <= 1 { 1 } else if scaled <= 2.5 { 2.5 } else if scaled <= 5 {
-      5
-    } else if scaled <= 7.5 { 7.5 } else { 10 }
+    steps.find(candidate => scaled <= candidate)
   } else {
-    if scaled >= 10 { 10 } else if scaled >= 7.5 { 7.5 } else if scaled >= 5 {
-      5
-    } else if scaled >= 2.5 { 2.5 } else { 1 }
+    steps.rev().find(candidate => scaled >= candidate)
   }
+  if step == none { step = if ceil { 10 } else { 1 } }
   step * base
 }
 
@@ -155,8 +156,8 @@
 /// - axis-left (length): Axis left offset.
 /// - label-size (length): Tick-label size.
 /// - unit (str, none): Optional unit suffix.
-/// -> array: Dictionaries with `x` (length), `label-text` (content), and
-///   `label-left` (length).
+/// -> array: Dictionaries with `x` (length), `label-text` (content),
+///   `label-left` (length), and `label-right` (length).
 #let _resolve-coordinate-axis-tick-layout(
   region-start,
   region-end,
@@ -166,7 +167,7 @@
   label-size,
   unit,
 ) = {
-  let label-gap = 2pt
+  let label-gap = _default-tick-label-min-gap
   let ticks = _resolve-coordinate-axis-ticks(
     region-start,
     region-end,
@@ -181,14 +182,11 @@
     let label = _format-scale-label(tick, unit)
     let label-text = _make-axis-scale-label(label, label-size)
     let label-width = measure(label-text).width
-    let label-max-left = calc.max(
+    let label-left = _clamp-centered-label-left(
+      x,
+      label-width,
       axis-left,
-      axis-left + track-width - label-width,
-    )
-    let label-left = _clamp(
-      x - label-width / 2,
-      axis-left,
-      label-max-left,
+      track-width,
     )
 
     entries.push((
@@ -199,13 +197,7 @@
     ))
   }
 
-  if entries.len() <= 1 {
-    return entries.map(entry => (
-      x: entry.x,
-      label-text: entry.label-text,
-      label-left: entry.label-left,
-    ))
-  }
+  if entries.len() <= 1 { return entries }
 
   let stride = 1
 
@@ -213,21 +205,11 @@
     let offset = 0
 
     while offset < stride {
-      let sampled = ()
-      let index = offset
+      let sampled = range(offset, entries.len(), step: stride).map(index => (
+        entries.at(index)
+      ))
 
-      while index < entries.len() {
-        sampled.push(entries.at(index))
-        index += stride
-      }
-
-      if _tick-labels-fit(sampled, label-gap) {
-        return sampled.map(entry => (
-          x: entry.x,
-          label-text: entry.label-text,
-          label-left: entry.label-left,
-        ))
-      }
+      if _tick-labels-fit(sampled, label-gap) { return sampled }
 
       offset += 1
     }
@@ -362,6 +344,25 @@
   }
 }
 
+/// Returns the height a labeled tick row occupies.
+///
+/// Shared by the coordinate axis and the scale bar: callers that stack content
+/// around either one must reserve the same vertical extent it draws into. Must
+/// be called inside a `context` block.
+///
+/// - labels (array): Tick-label strings whose tallest measurement is used.
+/// - label-size (length): Tick-label font size.
+/// - tick-height (length): Tick height.
+/// - label-gap (length): Gap between tick and label.
+/// -> length
+#let _tick-row-height(labels, label-size, tick-height, label-gap) = (
+  tick-height
+    + label-gap
+    + labels
+      .map(label => measure(_make-axis-scale-label(label, label-size)).height)
+      .fold(0pt, calc.max)
+)
+
 /// Draws a scale-bar row with centered, clamped label.
 ///
 /// - row-width (length): Width of the scale-bar row.
@@ -390,11 +391,11 @@
   let bar-width-abs = _resolve-length(bar-width)
   let label-text = _make-axis-scale-label(label, label-size)
   let label-size-box = measure(label-text)
-  let label-width-abs = label-size-box.width
-  let label-left = _clamp(
-    bar-left-abs + bar-width-abs / 2 - label-width-abs / 2,
+  let label-left = _clamp-centered-label-left(
+    bar-left-abs + bar-width-abs / 2,
+    label-size-box.width,
     0pt,
-    calc.max(0pt, row-width-abs - label-width-abs),
+    row-width-abs,
   )
 
   box(
@@ -426,9 +427,6 @@
 
 /// Draws a coordinate axis with ticks and labels.
 ///
-/// Returns `none` when `coordinate-axis` is false.
-///
-/// - coordinate-axis (bool): Whether to draw the axis.
 /// - region-start (int): Region start coordinate.
 /// - region-end (int): Region end coordinate.
 /// - region-length (int): Region length.
@@ -442,7 +440,6 @@
 /// - axis-left (length): Left offset for axis line and ticks.
 /// -> content, none
 #let _draw-coordinate-axis(
-  coordinate-axis,
   region-start,
   region-end,
   region-length,
@@ -455,26 +452,24 @@
   unit: none,
   axis-left: 0pt,
 ) = {
-  if coordinate-axis {
-    _draw-horizontal-segment(axis-left, axis-top, track-width, axis-stroke)
-    let tick-layout = _resolve-coordinate-axis-tick-layout(
-      region-start,
-      region-end,
-      region-length,
-      track-width,
-      axis-left,
-      label-size,
-      unit,
-    )
+  _draw-horizontal-segment(axis-left, axis-top, track-width, axis-stroke)
+  let tick-layout = _resolve-coordinate-axis-tick-layout(
+    region-start,
+    region-end,
+    region-length,
+    track-width,
+    axis-left,
+    label-size,
+    unit,
+  )
 
-    for entry in tick-layout {
-      _draw-vertical-segment(entry.x, axis-top, tick-height, axis-stroke)
-      place(
-        top + left,
-        dx: entry.label-left,
-        dy: axis-top + tick-height + label-gap,
-        entry.label-text,
-      )
-    }
+  for entry in tick-layout {
+    _draw-vertical-segment(entry.x, axis-top, tick-height, axis-stroke)
+    place(
+      top + left,
+      dx: entry.label-left,
+      dy: axis-top + tick-height + label-gap,
+      entry.label-text,
+    )
   }
 }

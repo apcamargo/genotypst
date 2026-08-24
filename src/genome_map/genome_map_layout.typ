@@ -1,9 +1,10 @@
-#import "../common/layout_math.typ": _clamp, _resolve-length
+#import "../common/layout_math.typ": _clamp-centered-label-left, _resolve-length
 #import "../common/interval.typ": (
   _validate-interval, _validate-optional-int-at-least,
 )
 #import "../common/axis_scale.typ": (
-  _format-scale-label, _make-axis-scale-label, _resolve-scale-bar-length,
+  _default-axis-label-gap, _default-scale-label-gap, _format-scale-label,
+  _resolve-scale-bar-length, _tick-row-height,
 )
 #import "./genome_map_backend.typ": _genome-map-layout-labels
 
@@ -78,9 +79,7 @@
 /// Returns measured label content together with positioned label metadata used
 /// by the renderer.
 ///
-/// - genes (array): Normalized gene dictionaries.
-/// - region-start (int): Inclusive region start coordinate.
-/// - x-scale (length): Rendered width per genomic position.
+/// - genes (array): Normalized gene dictionaries carrying resolved `geometry`.
 /// - track-width (length): Width of the genome track.
 /// - label-color (color, none): Feature label color.
 /// - label-size (length): Label font size.
@@ -94,8 +93,6 @@
 /// -> dictionary
 #let _layout-labels(
   genes,
-  region-start,
-  x-scale,
   track-width,
   label-color,
   label-size,
@@ -110,48 +107,36 @@
     size: label-size,
     bottom-edge: "bounds",
   )).height
-  let label-data = ()
-
-  for gene in genes {
-    if gene.label != none {
-      let geometry = _interval-geometry(
-        gene.start,
-        gene.end,
-        region-start,
-        x-scale,
-      )
-      let gene-center = geometry.center-x
-      let gene-width = geometry.width
+  let label-data = genes
+    .filter(gene => gene.label != none)
+    .map(gene => {
+      let gene-center = gene.geometry.center-x
       let label-text = text(
         size: label-size,
         ..if label-color != none { (fill: label-color) },
       )[#gene.label]
       let label-width = measure(label-text).width
-      let raw-left = gene-center - label-width / 2
-      let max-left = track-width - label-width
-      let left = if max-left < 0pt { 0pt } else {
-        _clamp(raw-left, 0pt, max-left)
-      }
+      let left = _clamp-centered-label-left(
+        gene-center,
+        label-width,
+        0pt,
+        track-width,
+      )
       let right = left + label-width
-      let text-center = left + label-width / 2
-      let underline-width = calc.max(1pt, gene-width - 1pt)
+      let underline-width = calc.max(1pt, gene.geometry.width - 1pt)
       let underline-left = gene-center - underline-width / 2
-      let underline-right = underline-left + underline-width
-      let dodge-left = calc.min(left, underline-left)
-      let dodge-right = calc.max(right, underline-right)
-      label-data.push((
-        center: text-center,
+      (
+        center: left + label-width / 2,
         left: left,
         right: right,
-        dodge-left: dodge-left,
-        dodge-right: dodge-right,
+        dodge-left: calc.min(left, underline-left),
+        dodge-right: calc.max(right, underline-left + underline-width),
         underline-left: underline-left,
         underline-width: underline-width,
         gene-center: gene-center,
         text: label-text,
-      ))
-    }
-  }
+      )
+    })
 
   if label-data.len() == 0 {
     return (
@@ -185,61 +170,38 @@
 /// Returns the normalized genes, label layout data, and auxiliary geometry used
 /// to render the track, coordinate axis, and scale bar.
 ///
-/// - genes (array): Gene dictionaries to render.
-/// - start (int, auto): 1-indexed inclusive region start coordinate.
-/// - end (int, auto): 1-indexed inclusive region end coordinate.
-/// - default-color (color): Default fill color for genes.
-/// - label-color (color, none): Feature label color.
-/// - label-size (length): Label font size.
-/// - label-horizontal-gap (length): Horizontal spacing between labels.
-/// - label-vertical-gap (length): Vertical gap between label levels.
-/// - label-line-distance (length): Extra horizontal spacing kept between label
-///   leaders and nearby labels.
-/// - label-leader-offset (length): Vertical gap between the gene track and the
-///   label leaders.
-/// - label-track-gap (length): Gap between the labels and the gene track.
-/// - scale-bar (bool): Whether to draw a scale bar.
-/// - scale-length (auto, int, float): Requested scale-bar length. Positive when not auto.
-/// - min-auto-bar-width (length): Minimum rendered width used in auto mode.
-/// - unit (str, none): Optional unit suffix.
-/// - coordinate-axis (bool): Whether to draw the coordinate axis.
-/// - coordinate-axis-track-gap (length): Gap between track and coordinate axis.
-/// - coordinate-axis-label-size (length): Coordinate-axis tick-label size.
-/// - scale-bar-gap (length): Vertical gap above the scale bar.
-/// - scale-tick-height (length): Tick height.
-/// - scale-label-size (length): Scale-bar label size.
-/// - gene-height (length): Gene block height.
-/// - head-length (length, auto): Arrowhead length.
-/// - min-head-length (length): Minimum arrowhead length.
+/// - config (dictionary): Resolved `render-genome-map` arguments. Uses the same
+///   key names as the public parameters.
 /// - layout-size (dictionary): Layout callback size.
 /// -> dictionary
-#let _prepare-genome-map-layout(
-  genes,
-  start,
-  end,
-  default-color,
-  label-color,
-  label-size,
-  label-horizontal-gap,
-  label-vertical-gap,
-  label-line-distance,
-  label-leader-offset,
-  label-track-gap,
-  scale-bar,
-  scale-length,
-  min-auto-bar-width,
-  unit,
-  coordinate-axis,
-  coordinate-axis-track-gap,
-  coordinate-axis-label-size,
-  scale-bar-gap,
-  scale-tick-height,
-  scale-label-size,
-  gene-height,
-  head-length,
-  min-head-length,
-  layout-size,
-) = {
+#let _prepare-genome-map-layout(config, layout-size) = {
+  let (
+    genes,
+    start,
+    end,
+    default-color,
+    label-color,
+    label-size,
+    label-horizontal-gap,
+    label-vertical-gap,
+    label-line-distance,
+    label-leader-offset,
+    label-track-gap,
+    scale-bar,
+    scale-length,
+    min-auto-bar-width,
+    unit,
+    coordinate-axis,
+    coordinate-axis-track-gap,
+    coordinate-axis-label-size,
+    scale-bar-gap,
+    scale-tick-height,
+    scale-label-size,
+    gene-height,
+    head-length,
+    min-head-length,
+  ) = config
+
   assert(type(genes) == array, message: "genes must be an array.")
   assert(genes.len() > 0, message: "genes cannot be empty.")
   assert(
@@ -283,14 +245,18 @@
   let head-length = if head-length == auto { auto } else {
     _resolve-length(head-length)
   }
-  let coordinate-axis-label-gap = 2.5pt
-  let scale-label-gap = 1.5pt
+  let coordinate-axis-label-gap = _default-axis-label-gap
+  let scale-label-gap = _default-scale-label-gap
   let x-scale = track-width / region-span
+
+  // Rendered geometry is shared by the label layout and the gene shapes.
+  let normalized = normalized.map(gene => (
+    ..gene,
+    geometry: _interval-geometry(gene.start, gene.end, region-start, x-scale),
+  ))
 
   let label-layout = _layout-labels(
     normalized,
-    region-start,
-    x-scale,
     track-width,
     label-color,
     label-size,
@@ -329,31 +295,15 @@
     none
   }
 
-  let scale-label-height = if scale-label == none {
-    0pt
-  } else {
-    measure(_make-axis-scale-label(scale-label, scale-label-size)).height
-  }
-
-  let axis-label-height = if coordinate-axis {
-    let axis-start-label = _make-axis-scale-label(
-      _format-scale-label(region-start, unit),
-      coordinate-axis-label-size,
-    )
-    let axis-end-label = _make-axis-scale-label(
-      _format-scale-label(region-end, unit),
-      coordinate-axis-label-size,
-    )
-    calc.max(
-      measure(axis-start-label).height,
-      measure(axis-end-label).height,
-    )
-  } else {
-    0pt
-  }
-
   let coordinate-axis-height = if coordinate-axis {
-    scale-tick-height + coordinate-axis-label-gap + axis-label-height
+    _tick-row-height(
+      (region-start, region-end).map(bound => (
+        _format-scale-label(bound, unit)
+      )),
+      coordinate-axis-label-size,
+      scale-tick-height,
+      coordinate-axis-label-gap,
+    )
   } else {
     0pt
   }
@@ -361,26 +311,21 @@
   let axis-width = track-width - x-scale
   let axis-gap = if coordinate-axis { coordinate-axis-track-gap } else { 0pt }
   let coordinate-axis-top = track-bottom + axis-gap
-  let scale-top = if scale-bar {
-    track-bottom + axis-gap + coordinate-axis-height + scale-bar-gap
+  let axis-bottom = coordinate-axis-top + coordinate-axis-height
+  let scale-top = if scale-bar { axis-bottom + scale-bar-gap } else { 0pt }
+  let total-height = if scale-bar {
+    (
+      scale-top
+        + _tick-row-height(
+          (scale-label,),
+          scale-label-size,
+          scale-tick-height,
+          scale-label-gap,
+        )
+    )
   } else {
-    0pt
+    axis-bottom
   }
-  let total-height = (
-    track-bottom
-      + axis-gap
-      + coordinate-axis-height
-      + (
-        if scale-bar {
-          (
-            scale-bar-gap
-              + scale-tick-height
-              + scale-label-gap
-              + scale-label-height
-          )
-        } else { 0pt }
-      )
-  )
 
   (
     normalized: normalized,
