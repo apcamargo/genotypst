@@ -19,7 +19,7 @@
 #render-rna-structure(
   sequence,
   prediction.structure,
-  width: 120mm,
+  width: 85mm,
   layout: "rna_puzzler",
   show-nucleotide-circles: true,
   show-terminal-labels: true,

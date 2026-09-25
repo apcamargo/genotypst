@@ -117,7 +117,7 @@ The same region of the alignment can also be visualized as a sequence logo using
 #render-rna-structure(
   sequence,
   prediction.structure,
-  width: 120mm,
+  width: 85mm,
   layout: "rna_puzzler",
   show-nucleotide-circles: true,
   show-terminal-labels: true,
