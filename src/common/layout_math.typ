@@ -58,3 +58,66 @@
     _resolve-length(resolved)
   }
 }
+
+/// Asserts that a public argument is a non-negative or positive length.
+///
+/// The em component is resolved before the sign check, since a mixed em and
+/// absolute length cannot be compared against `0pt`. Must be called in context.
+///
+/// - value (any): Public argument to validate.
+/// - message (str): Error message for a non-length or out-of-range value.
+/// - positive (bool): Whether zero is also rejected.
+/// -> length
+#let _assert-length(value, message, positive: false) = {
+  assert(type(value) == length, message: message)
+  let resolved = _resolve-signed-length(value)
+  assert(
+    if positive { resolved > 0pt } else { resolved >= 0pt },
+    message: message,
+  )
+  resolved
+}
+
+/// Returns whether a public render width uses an accepted form.
+///
+/// Must be called in context, so em lengths can be resolved.
+///
+/// - width (length, auto, ratio, relative): Requested rendered width.
+/// -> bool
+#let _render-width-is-valid(width) = {
+  if width == auto {
+    true
+  } else if type(width) == length {
+    _resolve-signed-length(width) > 0pt
+  } else if type(width) == ratio {
+    width > 0%
+  } else if type(width) == relative {
+    width.ratio > 0% or _resolve-signed-length(width.length) > 0pt
+  } else {
+    false
+  }
+}
+
+/// Classifies a public width for plugin fitting during layout.
+///
+/// A ratio or relative width is provisional while Typst measures it against
+/// an unknown container width.
+///
+/// - width (length, auto, ratio, relative): Requested rendered width.
+/// - raw-width (length): Measured width.
+/// -> str: "auto", "provisional", or "resolved".
+#let _width-mode(width, raw-width) = {
+  if width == auto {
+    "auto"
+  } else if type(width) == ratio and width != 0% and raw-width == 0pt {
+    "provisional"
+  } else if (
+    type(width) == relative
+      and width.ratio != 0%
+      and raw-width == _resolve-length(width.length)
+  ) {
+    "provisional"
+  } else {
+    "resolved"
+  }
+}

@@ -1,4 +1,5 @@
 #import "./colors.typ": _dark-gray, _medium-gray, _yellow
+#import "./layout_math.typ": _resolve-length
 
 /// Default stroke for coordinate axes, scale bars, and label leader lines
 #let _default-axis-stroke = stroke(
@@ -53,3 +54,43 @@
   cap: "round",
   join: "round",
 )
+
+/// Resolves a user stroke and its absolute thickness for drawing and fitting.
+///
+/// Accepts anything `stroke()` accepts. An `auto` thickness falls back to the
+/// ambient line style, then Typst's built-in default, and em thicknesses are
+/// resolved so callers can reserve bleed in points. Must be called in context.
+///
+/// - value (stroke, length, color, gradient, tiling, dictionary, none): Stroke to
+///   resolve.
+/// - name (str): Public parameter name used in validation errors.
+/// - cap (auto, str): Cap applied when the stroke leaves its cap as `auto`.
+/// -> dictionary
+#let _resolve-stroke(value, name, cap: auto) = {
+  if value == none {
+    return (style: none, thickness: 0pt)
+  }
+  let base = stroke(value)
+  let thickness = _resolve-length(if base.thickness != auto {
+    base.thickness
+  } else if line.stroke.thickness != auto {
+    line.stroke.thickness
+  } else {
+    1pt
+  })
+  assert(thickness > 0pt, message: name + " thickness must be positive.")
+  let override-cap = cap != auto and base.cap == auto
+  let style = if base.thickness == auto or override-cap {
+    stroke((
+      paint: base.paint,
+      thickness: thickness,
+      cap: if override-cap { cap } else { base.cap },
+      join: base.join,
+      dash: base.dash,
+      miter-limit: base.miter-limit,
+    ))
+  } else {
+    base
+  }
+  (style: style, thickness: thickness)
+}

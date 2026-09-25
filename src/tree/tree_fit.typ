@@ -1,4 +1,6 @@
-#import "../common/layout_math.typ": _resolve-length, _resolve-signed-length
+#import "../common/layout_math.typ": (
+  _resolve-length, _resolve-signed-length, _width-mode,
+)
 #import "./tree_backend.typ": _tree-fit
 #import "./tree_primitives.typ": _build-tree-label-content
 
@@ -116,23 +118,6 @@
   )
 }
 
-/// Returns whether a public width value is still provisional.
-///
-/// - width (length, auto, ratio, relative): Requested rendered width.
-/// - raw-width (length): Measured width.
-/// -> bool
-#let _tree-width-is-unresolved(width, raw-width) = {
-  if width == auto {
-    raw-width == float.inf * 1pt
-  } else if type(width) == ratio {
-    width != 0% and raw-width == 0pt
-  } else if type(width) == relative {
-    width.ratio != 0% and raw-width == _resolve-length(width.length)
-  } else {
-    false
-  }
-}
-
 /// Builds the prepared fit payload for tree fitting.
 ///
 /// - tree-plan (dictionary): Tree primitive plan.
@@ -180,14 +165,7 @@
   align-tip-labels: false,
 ) = {
   let raw-width = layout-size.width
-  let provisional-width = _tree-width-is-unresolved(width, raw-width)
-  let width-mode = if width == auto {
-    "auto"
-  } else if provisional-width {
-    "provisional"
-  } else {
-    "resolved"
-  }
+  let width-mode = _width-mode(width, raw-width)
   let height-mode = if height == auto { "auto" } else { "resolved" }
   let fit-result = _tree-fit((
     fit-mode: prepared-fit-plan.fit-mode,

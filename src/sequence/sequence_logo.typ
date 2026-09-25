@@ -1,6 +1,7 @@
 #import "../common/colors.typ": _light-gray
 #import "../common/strokes.typ": _default-axis-stroke
 #import "../common/interval.typ": _resolve-1indexed-window
+#import "../common/layout_math.typ": _assert-length
 #import "../common/axis_scale.typ": (
   _default-axis-label-gap, _draw-coordinate-axis, _tick-row-height,
 )
@@ -202,20 +203,6 @@
     window-name: "logo",
   )
 
-  if coordinate-axis {
-    assert(
-      axis-tick-height > 0pt,
-      message: "axis-tick-height must be positive.",
-    )
-    assert(
-      axis-label-gap >= 0pt,
-      message: "axis-label-gap must be non-negative.",
-    )
-    assert(
-      axis-logo-gap >= 0pt,
-      message: "axis-logo-gap must be non-negative.",
-    )
-  }
   let column-stats = _collect-window-column-stats(
     sequences,
     window.actual-start,
@@ -234,6 +221,21 @@
 
   block(width: width)[
     #layout(size => context {
+      // Lengths may mix em and absolute parts, so they are validated and
+      // resolved in context.
+      let axis-tick-height = if coordinate-axis {
+        _assert-length(
+          axis-tick-height,
+          "axis-tick-height must be positive.",
+          positive: true,
+        )
+      } else { axis-tick-height }
+      let axis-label-gap = if coordinate-axis {
+        _assert-length(axis-label-gap, "axis-label-gap must be non-negative.")
+      } else { axis-label-gap }
+      let axis-logo-gap = if coordinate-axis {
+        _assert-length(axis-logo-gap, "axis-logo-gap must be non-negative.")
+      } else { axis-logo-gap }
       let n-cols = logo-data.len()
       if n-cols == 0 { return }
       let col-width = size.width / n-cols

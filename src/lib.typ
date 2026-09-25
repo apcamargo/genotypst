@@ -21,3 +21,8 @@
 // Tree
 #import "tree/newick_parser.typ": parse-newick
 #import "tree/tree.typ": render-rectangular-tree, render-unrooted-tree
+
+// RNA structure
+#import "rna_structure/rna_structure.typ": (
+  predict-rna-structure, render-rna-structure,
+)

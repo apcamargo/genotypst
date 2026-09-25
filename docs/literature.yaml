@@ -133,3 +133,27 @@ takabatake_improved_2021:
     title: Genes
     issue: 9
     volume: 12
+wiegreffe_rnapuzzler_2019:
+  type: article
+  title:
+    value: '{RNApuzzler}: efficient outerplanar drawing of {RNA}-secondary structures'
+    short: '{RNApuzzler}'
+  author:
+  - Wiegreffe, Daniel
+  - Alexander, Daniel
+  - Stadler, Peter F
+  - Zeckzer, Dirk
+  date: 2019-04
+  editor: Valencia, Alfonso
+  page-range: 1342-1349
+  url:
+    value: https://academic.oup.com/bioinformatics/article/35/8/1342/5102870
+    date: 2026-09-25
+  serial-number:
+    doi: 10.1093/bioinformatics/bty817
+    issn: 1367-4803, 1367-4811
+  parent:
+    type: periodical
+    title: Bioinformatics
+    issue: 8
+    volume: 35

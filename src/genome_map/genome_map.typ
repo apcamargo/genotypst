@@ -1,4 +1,5 @@
 #import "../common/colors.typ": _light-gray
+#import "../common/layout_math.typ": _assert-length
 #import "../common/strokes.typ": _default-axis-stroke, _default-outline-stroke
 #import "../common/axis_scale.typ": (
   _draw-coordinate-axis, _draw-horizontal-segment, _draw-scale-bar-row,
@@ -145,18 +146,22 @@
   scale-label-size: 0.85em,
 ) = block(width: width)[
   #layout(size => context {
-    if coordinate-axis {
-      assert(
-        coordinate-axis-label-size > 0pt,
-        message: "coordinate-axis-label-size must be positive.",
+    // Lengths may mix em and absolute parts, so they are validated and
+    // resolved in context.
+    let coordinate-axis-label-size = if coordinate-axis {
+      _assert-length(
+        coordinate-axis-label-size,
+        "coordinate-axis-label-size must be positive.",
+        positive: true,
       )
-    }
-    if scale-bar {
-      assert(
-        scale-label-size > 0pt,
-        message: "scale-label-size must be positive.",
+    } else { coordinate-axis-label-size }
+    let scale-label-size = if scale-bar {
+      _assert-length(
+        scale-label-size,
+        "scale-label-size must be positive.",
+        positive: true,
       )
-    }
+    } else { scale-label-size }
     let prepared = _prepare-genome-map-layout(
       (
         genes: genes,

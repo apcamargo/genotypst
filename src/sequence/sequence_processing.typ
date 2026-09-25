@@ -49,6 +49,31 @@
   default: none,
 )
 
+/// Derives the foreground/background pair used for each palette residue.
+///
+/// The `lighten`/`darken` conversions are done once per palette entry here
+/// rather than once per rendered residue. `cell-fill` is the background behind
+/// the residue, such as an MSA cell or an RNA nucleotide circle.
+///
+/// - palette (dictionary): Prepared palette with canonical uppercase keys.
+/// - darken-body (bool): Whether to darken the residue letter fill.
+/// -> dictionary: Residue keyed to a `(body-fill, cell-fill)` dictionary.
+#let _derive-residue-colors(palette, darken-body: true) = {
+  let derived = (:)
+  for (residue, base-color) in palette.pairs() {
+    derived.insert(
+      residue,
+      (
+        body-fill: if darken-body { base-color.darken(22.5%) } else {
+          base-color
+        },
+        cell-fill: base-color.lighten(73.5%),
+      ),
+    )
+  }
+  derived
+}
+
 /// Computes the sequence conservation of MSA column using the method described
 /// in Schneider, T.D., and Stephens, R.M. "Sequence logos: a new way to display
 /// consensus sequences" (1990).
@@ -199,12 +224,13 @@
   })
 }
 
-/// Asserts that a prepared palette covers every observed non-gap residue,
-/// using case-insensitive matching.
+/// Asserts that a prepared palette covers every residue in `observed`, using
+/// case-insensitive matching.
 ///
 /// - palette (dictionary): Prepared palette with canonical uppercase keys.
 /// - sequences (array): Array of sequence strings.
-/// - observed (dictionary, none): Precomputed observed-residue set.
+/// - observed (dictionary, none): Precomputed observed-residue set (default:
+///   the non-gap residues of `sequences`).
 /// -> none
 #let _assert-palette-coverage(palette, sequences, observed: none) = {
   assert(

@@ -3,29 +3,9 @@
 #import "../common/interval.typ": _resolve-1indexed-window
 #import "./sequence_processing.typ": (
   _collect-window-column-stats, _compute-consensus-sequence,
-  _lookup-palette-entry, _resolve-alphabet-and-palette, _validate-alignment,
+  _derive-residue-colors, _lookup-palette-entry, _resolve-alphabet-and-palette,
+  _validate-alignment,
 )
-
-/// Derives the foreground/background pair used for each palette residue.
-///
-/// The `lighten`/`darken` conversions are done once per palette entry here
-/// rather than once per rendered residue.
-///
-/// - palette (dictionary): Prepared palette with canonical uppercase keys.
-/// -> dictionary: Residue keyed to a `(body-fill, cell-fill)` dictionary.
-#let _derive-msa-residue-colors(palette) = {
-  let derived = (:)
-  for (residue, base-color) in palette.pairs() {
-    derived.insert(
-      residue,
-      (
-        body-fill: base-color.darken(22.5%),
-        cell-fill: base-color.lighten(73.5%),
-      ),
-    )
-  }
-  derived
-}
 
 /// Renders a single character in an MSA with optional coloring.
 ///
@@ -318,7 +298,7 @@
     enabled: colors,
   )
   let config = resolved.config
-  let residue-colors = _derive-msa-residue-colors(resolved.palette)
+  let residue-colors = _derive-residue-colors(resolved.palette)
 
   let (actual-start, actual-end) = _resolve-1indexed-window(
     start,

@@ -12,8 +12,10 @@ keywords = [
   "alignment",
   "protein",
   "dna",
+  "rna",
   "genome",
   "phylogeny",
+  "secondary-structure",
 ]
 categories = ["visualization", "utility"]
 exclude = ["/docs/", "/plugins/"]

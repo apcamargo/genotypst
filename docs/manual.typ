@@ -9,7 +9,7 @@
   author: "Antonio Camargo",
 )
 
-`genotypst` is a bioinformatics package for Typst that enables analysis and visualization of biological data. It provides functionality for parsing FASTA and Newick files and generating publication-ready visualizations, including multiple sequence alignments, sequence logos, genome maps, and phylogenetic trees.
+`genotypst` is a bioinformatics package for Typst that enables analysis and visualization of biological data. It provides functionality for parsing FASTA and Newick files and generating publication-ready visualizations, including multiple sequence alignments, sequence logos, RNA secondary structures, genome maps, and phylogenetic trees.
 
 #outline()
 
@@ -283,6 +283,60 @@ The DNA and RNA palettes assign a distinct color to each nucleotide.
 #figure(
   render-residue-palettes(nt-residues, nt-palettes),
   caption: [The four nucleic acid palettes available in `genotypst`. The labels on the left indicate the palette name, letters within the colored boxes indicate the nucleotides, and the colors represent their color in the palette.],
+  supplement: none,
+  kind: image,
+)
+
+= RNA secondary structures
+
+`genotypst` can predict RNA secondary structures from a sequence and render them. The `predict-rna-structure` function takes in a sequence and returns a dictionary containing the predicted structure in dot-bracket notation and scoring metadata.
+
+```typ
+#let sequence = "GUACGGCUUCGAUUGAAUCCGUGAUGC"
+#let rna-structure-prediction = predict-rna-structure(sequence)
+#raw(repr(rna-structure-prediction), block: true)
+```
+
+#let sequence = "GUACGGCUUCGAUUGAAUCCGUGAUGC"
+#let rna-structure-prediction = predict-rna-structure(sequence)
+#raw(repr(rna-structure-prediction), block: true)
+
+To draw the predicted structure, pass the sequence and the returned dot-bracket structure to `render-rna-structure`. In the example below:
+
+- `layout: "rna_puzzler"` selects the RNApuzzler @wiegreffe_rnapuzzler_2019 layout algorithm.
+- `show-nucleotide-circles: true` draws a circle around each nucleotide.
+- `palette: residue-palette.rna.default` colors the nucleotides with the default RNA palette.
+- `position-interval: 10` adds position ticks at intervals of 10 nucleotides.
+- `show-terminal-labels: true` adds labels for the 5' and 3' ends.
+
+```typ
+#render-rna-structure(
+  sequence,
+  rna-structure-prediction.structure,
+  width: 70mm,
+  layout: "rna_puzzler",
+  show-nucleotide-circles: true,
+  palette: residue-palette.rna.default,
+  position-interval: 10,
+  show-terminal-labels: true,
+)
+```
+
+#figure(
+  context {
+    set text(size: 0.9em)
+    render-rna-structure(
+      sequence,
+      rna-structure-prediction.structure,
+      width: 70mm,
+      layout: "rna_puzzler",
+      show-nucleotide-circles: true,
+      palette: residue-palette.rna.default,
+      position-interval: 10,
+      show-terminal-labels: true,
+    )
+  },
+  caption: [RNA secondary structure with colored nucleotides, position ticks, and terminal labels.],
   supplement: none,
   kind: image,
 )

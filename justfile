@@ -7,10 +7,10 @@ all: fmt build-plugins compile-docs
 fmt: fmt-typst fmt-rust fmt-toml
 
 # Build all WASM plugins
-build-plugins: setup-wasm build-tree build-alignment build-genome-map
+build-plugins: setup-wasm build-tree build-alignment build-genome-map build-rna-structure
 
 # Compile all documentation
-compile-docs: compile-pdf compile-assets
+compile-docs: compile-manual-pdf compile-assets
 
 # Format all Typst files
 fmt-typst:
@@ -43,9 +43,14 @@ build-genome-map: setup-wasm
     cargo build --release --target wasm32-unknown-unknown --manifest-path plugins/genome_map/Cargo.toml
     cp plugins/genome_map/target/wasm32-unknown-unknown/release/genome_map.wasm src/genome_map/genome_map.wasm
 
+# Build RNA secondary structure plugin
+build-rna-structure: setup-wasm
+    cargo build --release --target wasm32-unknown-unknown --manifest-path plugins/rna_structure/Cargo.toml
+    cp plugins/rna_structure/target/wasm32-unknown-unknown/release/rna_structure.wasm src/rna_structure/rna_structure.wasm
+
 # Compile the manual PDF
 [working-directory: root]
-compile-pdf: fmt build-plugins
+compile-manual-pdf: fmt build-plugins
     typst compile --root {{root}} docs/manual.typ docs/manual.pdf
 
 # Compile all example assets

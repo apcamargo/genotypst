@@ -1,7 +1,10 @@
 #import "../common/colors.typ": _medium-gray
-#import "../common/layout_math.typ": _resolve-length
+#import "../common/layout_math.typ": (
+  _assert-length, _render-width-is-valid, _resolve-length,
+)
 #import "../common/strokes.typ": (
   _default-axis-stroke, _default-branch-stroke, _default-tip-leader-stroke,
+  _resolve-stroke,
 )
 #import "./tree_backend.typ": _tree-prepare-layout-backend
 #import "./tree_fit.typ": _fit-prepared-tree-plan, _prepare-fit-tree-plan
@@ -22,56 +25,70 @@
 #let _tree-fit-max-bands = 24
 #let _tree-content-label-id-prefix = "genotypst-content-label-"
 
-/// Returns whether the public `width` argument is valid.
-///
-/// - width (length, auto, ratio, relative): Requested rendered width.
-/// -> bool
-#let _render-tree-width-is-valid(width) = {
-  if width == auto {
-    true
-  } else if type(width) == length {
-    width > 0pt
-  } else if type(width) == ratio {
-    width > 0%
-  } else if type(width) == relative {
-    width.ratio > 0% or width.length > 0pt
-  } else {
-    false
-  }
-}
-
 /// Validates common tree rendering arguments shared by all tree renderers.
 ///
-/// - width (length, auto, ratio, relative): Requested rendered width.
-/// - height (length, auto): Requested rendered tree height.
-/// - internal-label-size (length): Internal label size.
+/// Length arguments are validated later, in context, by
+/// `_resolve-tree-lengths`.
+///
 /// - hide-internal-labels (bool): Whether internal labels are suppressed.
 /// - cladogram (bool): Whether cladogram mode is enabled.
 /// -> none
-#let _validate-common-tree-args(
-  width,
-  height,
-  internal-label-size,
-  hide-internal-labels,
-  cladogram,
-) = {
+#let _validate-common-tree-args(hide-internal-labels, cladogram) = {
   assert(type(cladogram) == bool, message: "cladogram must be a boolean.")
-  assert(
-    internal-label-size > 0pt,
-    message: "internal-label-size must be positive.",
-  )
   assert(
     type(hide-internal-labels) == bool,
     message: "hide-internal-labels must be a boolean.",
   )
+}
+
+/// Validates the length arguments of a tree render config and resolves them to
+/// absolute lengths.
+///
+/// Lengths may mix em and absolute parts, so this must be called in context.
+///
+/// - config (dictionary): Canonical tree render config.
+/// -> dictionary
+#let _resolve-tree-lengths(config) = {
   assert(
-    _render-tree-width-is-valid(width),
+    _render-width-is-valid(config.width),
     message: "width must be auto or a positive length, ratio, or relative width.",
   )
-  assert(
-    height == auto or height > 0pt,
-    message: "height must be auto or a positive length.",
+  if config.height != auto {
+    config.height = _assert-length(
+      config.height,
+      "height must be auto or a positive length.",
+      positive: true,
+    )
+  }
+  config.internal-label-size = _assert-length(
+    config.internal-label-size,
+    "internal-label-size must be positive.",
+    positive: true,
   )
+  // Unrooted configs carry inert placeholders for these arguments.
+  if config.layout-kind == "rectangular" {
+    config.root-length = _assert-length(
+      config.root-length,
+      "root-length must be non-negative.",
+    )
+  }
+  if config.scale-bar {
+    config.scale-bar-gap = _assert-length(
+      config.scale-bar-gap,
+      "scale-bar-gap must be non-negative.",
+    )
+    config.scale-tick-height = _assert-length(
+      config.scale-tick-height,
+      "scale-tick-height must be positive.",
+      positive: true,
+    )
+    config.scale-label-size = _assert-length(
+      config.scale-label-size,
+      "scale-label-size must be positive.",
+      positive: true,
+    )
+  }
+  config
 }
 
 /// Resolves the canonical rectangular-tree render configuration.
@@ -119,19 +136,12 @@
     scale-label-size,
   ) = config
 
-  _validate-common-tree-args(
-    width,
-    height,
-    internal-label-size,
-    hide-internal-labels,
-    cladogram,
-  )
+  _validate-common-tree-args(hide-internal-labels, cladogram)
   assert(type(scale-bar) == bool, message: "scale-bar must be a boolean.")
   assert(
     type(align-tip-labels) == bool,
     message: "align-tip-labels must be a boolean.",
   )
-  assert(root-length >= 0pt, message: "root-length must be non-negative.")
   assert(
     orientation in ("horizontal", "vertical"),
     message: "orientation must be 'horizontal' or 'vertical'.",
@@ -140,15 +150,6 @@
     assert(
       unit == none or type(unit) == str,
       message: "unit must be a string or none.",
-    )
-    assert(scale-bar-gap >= 0pt, message: "scale-bar-gap must be non-negative.")
-    assert(
-      scale-tick-height > 0pt,
-      message: "scale-tick-height must be positive.",
-    )
-    assert(
-      scale-label-size > 0pt,
-      message: "scale-label-size must be positive.",
     )
   }
   (
@@ -219,13 +220,7 @@
     layout,
   ) = config
 
-  _validate-common-tree-args(
-    width,
-    height,
-    internal-label-size,
-    hide-internal-labels,
-    cladogram,
-  )
+  _validate-common-tree-args(hide-internal-labels, cladogram)
   assert(
     layout in ("equal-angle", "daylight"),
     message: "layout must be 'equal-angle' or 'daylight'.",
@@ -277,38 +272,14 @@
     ..,
   ) = config
 
-  let branch-thickness = 0pt
-  let resolved-branch-stroke = none
-  if branch-stroke != none {
-    let base = stroke(branch-stroke)
-    // Fitting reserves half a stroke of bleed, so resolve `auto` against the
-    // ambient line style, then Typst's built-in default.
-    branch-thickness = if base.thickness != auto {
-      base.thickness
-    } else if line.stroke.thickness != auto {
-      line.stroke.thickness
-    } else {
-      1pt
-    }
-    assert(
-      branch-thickness > 0pt,
-      message: "branch-stroke thickness must be positive.",
-    )
-    resolved-branch-stroke = if base.cap == auto {
-      // Rectangular trees draw horizontals and verticals as separate segments,
-      // which only meet flush at corners with square caps.
-      stroke((
-        paint: base.paint,
-        thickness: base.thickness,
-        cap: "square",
-        join: base.join,
-        dash: base.dash,
-        miter-limit: base.miter-limit,
-      ))
-    } else {
-      base
-    }
-  }
+  // Fitting reserves half a stroke of bleed. Rectangular trees draw
+  // horizontals and verticals as separate segments, which only meet flush at
+  // corners with square caps.
+  let resolved-branch-stroke = _resolve-stroke(
+    branch-stroke,
+    "branch-stroke",
+    cap: "square",
+  )
   let tip-label-style = if tip-label-italics { "italic" } else { "normal" }
   let ascender-to-baseline = measure(text(
     style: tip-label-style,
@@ -329,10 +300,10 @@
     "x",
   )).height
   (
-    branch-stroke: resolved-branch-stroke,
+    branch-stroke: resolved-branch-stroke.style,
     // Every gap is resolved to an absolute length once here, so the per-node
     // fit pass never has to measure an em-relative value.
-    branch-thickness: _resolve-length(branch-thickness),
+    branch-thickness: resolved-branch-stroke.thickness,
     tip-label-color: tip-label-color,
     tip-label-italics: tip-label-italics,
     tip-label-style: tip-label-style,
@@ -341,9 +312,7 @@
     tip-label-gap: _resolve-length(_tip-label-gap),
     internal-text-y-gap: _resolve-length(_internal-text-y-gap),
     auto-height-scale: _resolve-length(_auto-height-scale),
-    root-length: if root-length == none { none } else {
-      _resolve-length(root-length)
-    },
+    root-length: root-length,
     tip-label-metrics: (
       // Rectangular and unrooted tip labels intentionally use the same
       // branch/text intersection height.
@@ -557,8 +526,9 @@
 /// - tree-data (dictionary): Parsed or manually constructed tree data.
 /// - config (dictionary): Canonical tree render config.
 /// -> content
-#let _render-tree(tree-data, config) = block(width: config.width)[
-  #context {
+#let _render-tree(tree-data, config) = context {
+  let config = _resolve-tree-lengths(config)
+  block(width: config.width, {
     let style = _build-render-tree-style(config)
     let prepared = _prepare-tree-render(tree-data, style, config)
     _tree-render-layout(size => context {
@@ -588,8 +558,8 @@
       }
       _render-tree-plan(fitted-plan, scale-plan, config.scale-bar-gap)
     })
-  }
-]
+  })
+}
 
 /// Renders a rectangular phylogenetic tree from parsed or manual tree data.
 ///

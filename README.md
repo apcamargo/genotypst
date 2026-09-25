@@ -4,7 +4,7 @@
 [![GitHub repository](https://img.shields.io/badge/GitHub-Repository-black?logo=github)](https://github.com/apcamargo/genotypst)
 [![Manual](https://img.shields.io/badge/User_manual-blue)](./docs/manual.pdf)
 
-`genotypst` is a bioinformatics package for Typst that enables analysis and visualization of biological data. It provides functionality for parsing FASTA and Newick files and generating publication-ready visualizations, including multiple sequence alignments, sequence logos, genome maps, and phylogenetic trees.
+`genotypst` is a bioinformatics package for Typst that enables analysis and visualization of biological data. It provides functionality for parsing FASTA and Newick files and generating publication-ready visualizations, including multiple sequence alignments, sequence logos, genome maps, phylogenetic trees, and RNA structures.
 
 ## Documentation
 
@@ -106,6 +106,28 @@ The same region of the alignment can also be visualized as a sequence logo using
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./docs/svgs/logo_example_dark.svg">
   <img alt="Sequence logo for a protein multiple sequence alignment" src="./docs/svgs/logo_example_light.svg">
+</picture>
+
+`predict-rna-structure` and `render-rna-structure` an be used to predict the secondary structure of an RNA sequence and render it.
+
+```typst
+#let sequence = "GUACGGCUUCGAUUGAAUCCGUGAUGC"
+#let prediction = predict-rna-structure(sequence)
+
+#render-rna-structure(
+  sequence,
+  prediction.structure,
+  width: 120mm,
+  layout: "rna_puzzler",
+  show-nucleotide-circles: true,
+  show-terminal-labels: true,
+  palette: residue-palette.rna.default,
+)
+```
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/svgs/rna_structure_example_dark.svg">
+  <img alt="RNA secondary structure with colored nucleotide circles" src="./docs/svgs/rna_structure_example_light.svg">
 </picture>
 
 To render a genomic locus, you can pass an array of genomic features to the `render-genome-map` function:
