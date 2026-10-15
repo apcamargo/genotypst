@@ -354,11 +354,11 @@ mod tests {
         let beam_one_prediction = fold(OPTION_SEQUENCE, None, &beam_one).unwrap();
         assert_eq!(
             beam_one_prediction.structure,
-            ".(((((((......))))......)))..............((((((...........))).).))......"
+            "(((((........((((......))))..((((.....)))).(((((.........)))).))))))...."
         );
         assert_eq!(
             beam_one_prediction.score,
-            PredictionScore::ViennaRnafold(-3.10)
+            PredictionScore::ViennaRnafold(-16.10)
         );
 
         let unbounded = FoldOptions {

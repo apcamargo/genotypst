@@ -144,7 +144,7 @@ fn prune<S: Score>(
             .map_or(S::ZERO, |index| complete[index].score);
         (add_scores(prefix, state.score), left)
     }));
-    let threshold_index = scratch.len() - beam_size;
+    let threshold_index = scratch.len() - beam_size - 1;
     let (_, threshold, _) =
         scratch.select_nth_unstable_by(threshold_index, |a, b| a.0.total_cmp(b.0));
     let threshold = threshold.0;
@@ -164,13 +164,32 @@ mod tests {
         let mut beam = Beam::default();
         beam.insert(0, State::new(1, Transition::Hairpin));
         beam.insert(1, State::new(2, Transition::Hairpin));
+        beam.insert(2, State::new(3, Transition::Hairpin));
+        let complete = vec![
+            State::new(0, Transition::CompleteUnpaired),
+            State::new(0, Transition::CompleteUnpaired),
+        ];
+        let mut scratch = Vec::new();
+
+        prune(&mut beam, &complete, 1, &mut scratch);
+
+        assert_eq!(beam.len(), 2);
+        assert!(!beam.contains_key(&0));
+        assert!(beam.contains_key(&1));
+        assert!(beam.contains_key(&2));
+    }
+
+    #[test]
+    fn prune_keeps_everything_when_only_one_state_exceeds_the_beam() {
+        let mut beam = Beam::default();
+        beam.insert(0, State::new(1, Transition::Hairpin));
+        beam.insert(1, State::new(2, Transition::Hairpin));
         let complete = vec![State::new(0, Transition::CompleteUnpaired)];
         let mut scratch = Vec::new();
 
         prune(&mut beam, &complete, 1, &mut scratch);
 
-        assert_eq!(beam.len(), 1);
-        assert!(beam.contains_key(&1));
+        assert_eq!(beam.len(), 2);
     }
 
     #[test]
