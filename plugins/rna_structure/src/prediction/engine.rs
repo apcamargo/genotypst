@@ -18,10 +18,10 @@ enum Transition {
     None,
     HairpinCandidate,
     Hairpin,
-    Single { left: u8, right: u8 },
+    Single { left: usize, right: usize },
     Helix,
-    Multi { left: u8, right: usize },
-    MultiExtended { left: u8, right: usize },
+    Multi { left: usize, right: usize },
+    MultiExtended { left: usize, right: usize },
     PairFromMulti,
     M2FromMAndPair { split: usize },
     MFromM2,
@@ -133,9 +133,9 @@ fn prune<S: Score>(
     complete: &[State<S>],
     beam_size: usize,
     scratch: &mut Vec<(S, usize)>,
-) {
+) -> Option<S> {
     if beam_size == 0 || beam.len() <= beam_size {
-        return;
+        return None;
     }
     scratch.clear();
     scratch.extend(beam.iter().map(|(&left, state)| {
@@ -153,6 +153,34 @@ fn prune<S: Score>(
             beam.remove(&index);
         }
     }
+    Some(threshold)
+}
+
+fn sort_m<S: Score>(
+    beam: &Beam<S>,
+    complete: &[State<S>],
+    constrained: bool,
+    threshold: Option<S>,
+    sorted: &mut Vec<(S, usize)>,
+) {
+    sorted.clear();
+    sorted.extend(beam.iter().map(|(&left, state)| {
+        let prefix = left.checked_sub(1).map_or(S::ZERO, |index| {
+            let score = complete[index].score;
+            if constrained
+                && threshold.is_none_or(|value| value == S::NEG_INFINITY)
+                && score == S::NEG_INFINITY
+            {
+                S::ZERO
+            } else {
+                score
+            }
+        });
+        (add_scores(prefix, state.score), left)
+    }));
+    sorted.sort_unstable_by(|left, right| {
+        right.0.total_cmp(left.0).then_with(|| right.1.cmp(&left.1))
+    });
 }
 
 #[cfg(test)]
@@ -228,9 +256,47 @@ mod tests {
         assert_eq!(beam.len(), 2);
     }
 
+    fn sort_m_scores(constrained: bool, threshold: Option<i64>) -> Vec<(i64, usize)> {
+        let mut beam = Beam::default();
+        beam.insert(0, State::new(1, Transition::MFromPair));
+        beam.insert(1, State::new(5, Transition::MFromPair));
+        let complete = vec![State::unreachable()];
+        let mut sorted = Vec::new();
+        sort_m(&beam, &complete, constrained, threshold, &mut sorted);
+        sorted
+    }
+
+    #[test]
+    fn sort_m_zeroes_unreachable_prefixes_only_without_a_finite_cutoff() {
+        assert_eq!(sort_m_scores(true, None), vec![(5, 1), (1, 0)]);
+        assert_eq!(sort_m_scores(true, Some(i64::MIN)), vec![(5, 1), (1, 0)]);
+        assert_eq!(sort_m_scores(true, Some(1)), vec![(1, 0), (i64::MIN, 1)]);
+        assert_eq!(sort_m_scores(false, None), vec![(1, 0), (i64::MIN, 1)]);
+    }
+
+    #[test]
+    fn m_from_pair_requires_room_for_another_branch_and_closer() {
+        let bases = crate::prediction::sequence::normalize(b"GGGAAACCC").unwrap();
+        let filled = fill_charts::<crate::prediction::model::ContraFoldModel>(
+            &bases,
+            None,
+            &FoldOptions::default(),
+        )
+        .unwrap();
+
+        for j in [bases.len() - 3, bases.len() - 2] {
+            assert!(
+                filled.charts.m[j]
+                    .values()
+                    .all(|state| state.transition != Transition::MFromPair),
+                "branch-ending M state was created too close to the sequence end at {j}"
+            );
+        }
+    }
+
     #[test]
     fn traceback_reports_a_missing_complete_state() {
-        let charts = Charts::<i32>::new(1);
+        let charts = Charts::<i64>::new(1);
 
         assert_eq!(
             traceback(&charts, 1),
@@ -312,13 +378,16 @@ pub(crate) fn fill_charts<M: ScoringModel>(
         );
 
         let mut first_right = next_pair(&next, bases[j], j);
-        if !options.allow_sharp_turns {
-            while first_right.is_some_and(|right| right - j < MIN_PAIR_SPAN) {
-                first_right = first_right.and_then(|right| next_pair(&next, bases[j], right));
-            }
+        let min_span = if options.allow_sharp_turns {
+            M::MIN_HAIRPIN_UNPAIRED + 1
+        } else {
+            MIN_PAIR_SPAN
+        };
+        while first_right.is_some_and(|right| right - j < min_span) {
+            first_right = first_right.and_then(|right| next_pair(&next, bases[j], right));
         }
         if let Some(value) = constraints.and_then(|constraint| constraint.forced_partner(j)) {
-            first_right = (value > j).then_some(value);
+            first_right = (value > j && value - j > M::MIN_HAIRPIN_UNPAIRED).then_some(value);
         }
         if let Some(right) = first_right {
             let within_boundary =
@@ -412,7 +481,9 @@ pub(crate) fn fill_charts<M: ScoringModel>(
         expansion_entries(&charts.paired[j], &mut expansion_scratch);
         let use_cube_pruning = options.beam_size > 20 && expansion_scratch.len() > 20;
         for &(i, state) in &expansion_scratch {
-            if i > 0 && j + 1 < length {
+            // A second branch needs at least two bases, followed by the closing pair.
+            // Forced pairs and sharp turns can form hairpins with no unpaired bases.
+            if i > 0 && j + 3 < length {
                 update_beam(
                     &mut charts.m[j],
                     i,
@@ -482,19 +553,13 @@ pub(crate) fn fill_charts<M: ScoringModel>(
                             update_beam(&mut charts.paired[right], p, score, Transition::Helix);
                         } else {
                             let score = state.score + model.single(p, right, i, j, &nucs);
-                            let left = u8::try_from(i - p).map_err(|_| {
-                                FoldError::InternalInvariant("single left padding overflow")
-                            })?;
-                            let right_padding = u8::try_from(right - j).map_err(|_| {
-                                FoldError::InternalInvariant("single right padding overflow")
-                            })?;
                             update_beam(
                                 &mut charts.paired[right],
                                 p,
                                 score,
                                 Transition::Single {
-                                    left,
-                                    right: right_padding,
+                                    left: i - p,
+                                    right: right - j,
                                 },
                             );
                         }
@@ -610,38 +675,26 @@ pub(crate) fn fill_charts<M: ScoringModel>(
                     p,
                     score,
                     Transition::Multi {
-                        left: u8::try_from(left_padding).map_err(|_| {
-                            FoldError::InternalInvariant("multi left padding overflow")
-                        })?,
+                        left: left_padding,
                         right: right_padding,
                     },
                 );
             }
         }
 
-        prune(
+        let threshold = prune(
             &mut charts.m[j],
             &charts.complete,
             options.beam_size,
             &mut prune_scratch,
         );
-        charts.sorted_m[j] = charts.m[j]
-            .iter()
-            .map(|(&left, state)| {
-                let prefix = left.checked_sub(1).map_or(M::Score::ZERO, |index| {
-                    let score = charts.complete[index].score;
-                    if constraints.is_some() && score == M::Score::NEG_INFINITY {
-                        M::Score::ZERO
-                    } else {
-                        score
-                    }
-                });
-                (add_scores(prefix, state.score), left)
-            })
-            .collect();
-        charts.sorted_m[j].sort_unstable_by(|left, right| {
-            right.0.total_cmp(left.0).then_with(|| right.1.cmp(&left.1))
-        });
+        sort_m(
+            &charts.m[j],
+            &charts.complete,
+            constraints.is_some(),
+            threshold,
+            &mut charts.sorted_m[j],
+        );
         expansion_entries(&charts.m[j], &mut expansion_scratch);
         if j + 1 < length {
             for (i, state) in expansion_scratch.iter().copied() {
@@ -701,7 +754,7 @@ pub(crate) fn run_linear_from_filled<M: ScoringModel>(
 struct RootPair {
     left: usize,
     right: usize,
-    score: i32,
+    score: i64,
 }
 
 struct PairInventory {
@@ -710,7 +763,7 @@ struct PairInventory {
 }
 
 impl PairInventory {
-    fn build(charts: &Charts<i32>, length: usize) -> Self {
+    fn build(charts: &Charts<i64>, length: usize) -> Self {
         let mut counts = vec![0usize; length];
         for beam in &charts.paired {
             for &left in beam.keys() {
@@ -753,12 +806,12 @@ pub(crate) fn run_circular_vienna(
     filled: Filled<crate::prediction::model::ViennaModel>,
     constraints: Option<&Constraints>,
     length: usize,
-) -> Result<(String, i32), FoldError> {
+) -> Result<(String, i64), FoldError> {
     let inventory = PairInventory::build(&filled.charts, length);
     let mut best_score = if constraints.is_none_or(|value| value.range_can_unpair(0, length)) {
         crate::prediction::model::ViennaModel::circular_unpaired_score(length)
     } else {
-        i32::MIN
+        i64::MIN
     };
     let mut best_roots = Vec::new();
 
@@ -772,7 +825,7 @@ pub(crate) fn run_circular_vienna(
         let loop_score = filled
             .model
             .circular_hairpin_score(pair.left, pair.right, &filled.nucs);
-        if loop_score != i32::MIN && pair.score + loop_score > best_score {
+        if loop_score != i64::MIN && pair.score + loop_score > best_score {
             best_score = pair.score + loop_score;
             best_roots.clear();
             best_roots.push((pair.left, pair.right));
@@ -838,14 +891,14 @@ pub(crate) fn run_circular_vienna(
         },
     }
 
-    let mut prefix = vec![i32::MIN; (length + 1) * 4];
+    let mut prefix = vec![i64::MIN; (length + 1) * 4];
     let mut steps = vec![RootStep::Unreachable; (length + 1) * 4];
     prefix[0] = 0;
     steps[0] = RootStep::Start;
     for boundary in 0..length {
         for class in 0..4 {
             let current = prefix[boundary * 4 + class];
-            if current == i32::MIN {
+            if current == i64::MIN {
                 continue;
             }
             for pair in inventory.starting_at(boundary) {
@@ -882,7 +935,7 @@ pub(crate) fn run_circular_vienna(
     }
 
     let multi_index = length * 4 + 3;
-    if prefix[multi_index] != i32::MIN {
+    if prefix[multi_index] != i64::MIN {
         let score = prefix[multi_index]
             + crate::prediction::model::ViennaModel::circular_multiloop_closing_score();
         if score > best_score {
@@ -920,7 +973,7 @@ pub(crate) fn run_circular_vienna(
         }
     }
 
-    if best_score == i32::MIN {
+    if best_score == i64::MIN {
         return Err(FoldError::NoValidStructure);
     }
     if best_roots.is_empty() {
@@ -994,8 +1047,8 @@ fn traceback_with_stack<S: Score>(
             Transition::Single { left, right } => {
                 structure[i] = b'(';
                 structure[j] = b')';
-                let p = i + usize::from(left);
-                let q = j - usize::from(right);
+                let p = i + left;
+                let q = j - right;
                 stack.push((
                     TraceKind::Paired,
                     p,
@@ -1014,7 +1067,7 @@ fn traceback_with_stack<S: Score>(
                 ));
             }
             Transition::Multi { left, right } | Transition::MultiExtended { left, right } => {
-                let p = i + usize::from(left);
+                let p = i + left;
                 let q = j - right;
                 stack.push((TraceKind::M2, p, q, state_from_beam(&charts.m2, p, q)?));
             }

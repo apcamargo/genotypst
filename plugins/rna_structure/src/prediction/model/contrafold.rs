@@ -112,6 +112,8 @@ impl ContraFoldModel {
 }
 
 impl ScoringModel for ContraFoldModel {
+    const MIN_HAIRPIN_UNPAIRED: usize = 0;
+
     type Score = f64;
 
     fn new(_sequence: &[Base], _dangles: DangleModel) -> Self {

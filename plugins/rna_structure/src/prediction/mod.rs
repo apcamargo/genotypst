@@ -45,9 +45,10 @@ pub enum SequenceTopology {
 pub struct FoldOptions {
     /// Scoring model. The default is [`Model::ContraFold`].
     pub model: Model,
-    /// Maximum states retained per beam. Zero disables pruning.
+    /// Beam cutoff. Retains `beam_size + 1` states plus cutoff ties when pruning.
+    /// Zero disables pruning.
     pub beam_size: usize,
-    /// Permit pairs separated by fewer than three unpaired bases.
+    /// Allow short hairpin loops when supported by the selected model.
     pub allow_sharp_turns: bool,
     /// Vienna dangling-end treatment. `CONTRAfold` ignores this setting.
     pub dangles: DangleModel,
@@ -84,6 +85,21 @@ pub struct Prediction {
     /// Score assigned to `structure` by the selected model. `ViennaRnafold` uses
     /// kcal/mol. `ContraFold` uses a log-linear score.
     pub score: PredictionScore,
+}
+
+impl Prediction {
+    fn new(
+        structure: String,
+        score: PredictionScore,
+        expected_len: usize,
+    ) -> Result<Self, FoldError> {
+        if structure.len() != expected_len {
+            return Err(FoldError::InternalInvariant(
+                "structure length does not match the sequence",
+            ));
+        }
+        Ok(Self { structure, score })
+    }
 }
 
 /// Predicts the optimal secondary structure for one RNA or DNA sequence.
@@ -125,18 +141,16 @@ pub(crate) fn fold(
                     engine::run_circular_vienna(filled, constraints.as_ref(), bases.len())?
                 }
             };
-            Ok(Prediction {
+            Prediction::new(
                 structure,
-                score: PredictionScore::ViennaRnafold(-(f64::from(score)) / 100.0),
-            })
+                PredictionScore::ViennaRnafold(-(score as f64) / 100.0),
+                bases.len(),
+            )
         }
         Model::ContraFold => {
             let (structure, score) =
                 engine::run_linear::<ContraFoldModel>(&bases, constraints.as_ref(), options)?;
-            Ok(Prediction {
-                structure,
-                score: PredictionScore::ContraFold(score),
-            })
+            Prediction::new(structure, PredictionScore::ContraFold(score), bases.len())
         }
     }
 }
@@ -660,6 +674,24 @@ mod tests {
         .unwrap();
         assert_eq!(without.structure, ".........(((....))).");
         assert_eq!(with.structure, ".........(((())))...");
+    }
+
+    #[test]
+    fn vienna_sharp_turns_preserve_valid_hairpin_candidates() {
+        let prediction = fold(
+            b"CCACCAAGUAGGGCC",
+            None,
+            &FoldOptions {
+                model: Model::ViennaRnafold,
+                beam_size: 1,
+                allow_sharp_turns: true,
+                ..FoldOptions::default()
+            },
+        )
+        .unwrap();
+
+        assert_eq!(prediction.structure, "...((.....))...");
+        assert_eq!(prediction.score, PredictionScore::ViennaRnafold(-0.70));
     }
 
     #[test]

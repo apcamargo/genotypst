@@ -195,17 +195,17 @@ impl ViennaModel {
         )
     }
 
-    pub(crate) fn circular_unpaired_score(length: usize) -> i32 {
+    pub(crate) fn circular_unpaired_score(length: usize) -> i64 {
         let kt = (37.0 + 273.15) * 1.98717 / 1000.0;
         let penalty = (100.0 * kt * (4.385 + 1.5 * (length as f64).ln()) + 0.5).floor() as i32;
-        -penalty
+        -i64::from(penalty)
     }
 
-    pub(crate) fn circular_hairpin_score(&self, i: usize, j: usize, nucs: &[u8]) -> i32 {
+    pub(crate) fn circular_hairpin_score(&self, i: usize, j: usize, nucs: &[u8]) -> i64 {
         let n = self.sequence.len();
         let u = n - j + i - 1;
         if u < 3 {
-            return i32::MIN;
+            return i64::MIN;
         }
         let pair_type = Self::pair_type(nucs[j], nucs[i]);
         let si1 = nucs[(j + 1) % n];
@@ -223,7 +223,7 @@ impl ViennaModel {
             None
         };
 
-        -Self::hairpin_core(u, pair_type, si1, sj1, motif)
+        -i64::from(Self::hairpin_core(u, pair_type, si1, sj1, motif))
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -233,7 +233,7 @@ impl ViennaModel {
         p: usize,
         q: usize,
         nucs: &[u8],
-    ) -> i32 {
+    ) -> i64 {
         let n = nucs.len();
         let n1 = p - j - 1;
         let n2 = i + n - q - 1;
@@ -244,25 +244,39 @@ impl ViennaModel {
         let sp1 = nucs[p - 1];
         let sq1 = nucs[(q + 1) % n];
 
-        -Self::degree_two_energy(n1, n2, first_type, second_type, si1, sj1, sp1, sq1)
+        -i64::from(Self::degree_two_energy(
+            n1,
+            n2,
+            first_type,
+            second_type,
+            si1,
+            sj1,
+            sp1,
+            sq1,
+        ))
     }
 
-    pub(crate) fn circular_multiloop_stem_score(&self, i: usize, j: usize, nucs: &[u8]) -> i32 {
+    pub(crate) fn circular_multiloop_stem_score(&self, i: usize, j: usize, nucs: &[u8]) -> i64 {
         let n = nucs.len();
         let pair_type = Self::pair_type(nucs[i], nucs[j]);
         let left = nucs[(i + n - 1) % n];
         let right = nucs[(j + 1) % n];
-        -self.ml_stem(pair_type, Some(left), Some(right))
+        -i64::from(self.ml_stem(pair_type, Some(left), Some(right)))
     }
 
-    pub(crate) const fn circular_multiloop_closing_score() -> i32 {
-        -ML_CLOSING37
+    pub(crate) const fn circular_multiloop_closing_score() -> i64 {
+        -(ML_CLOSING37 as i64)
     }
 
     fn ml_stem(&self, pair_type: usize, left: Option<u8>, right: Option<u8>) -> i32 {
         let mut energy = 0;
-        if let (DangleModel::Both, Some(left), Some(right)) = (self.dangles, left, right) {
-            energy += Self::table3(&MISMATCH_M37, pair_type, left, right);
+        if self.dangles == DangleModel::Both {
+            energy += match (left, right) {
+                (Some(left), Some(right)) => Self::table3(&MISMATCH_M37, pair_type, left, right),
+                (Some(left), None) => DANGLE5_37[pair_type * 5 + usize::from(left)],
+                (None, Some(right)) => DANGLE3_37[pair_type * 5 + usize::from(right)],
+                (None, None) => 0,
+            };
         }
         if pair_type > 2 {
             energy += TERMINAL_AU37;
@@ -288,7 +302,9 @@ impl ViennaModel {
 }
 
 impl ScoringModel for ViennaModel {
-    type Score = i32;
+    const MIN_HAIRPIN_UNPAIRED: usize = 3;
+
+    type Score = i64;
 
     fn new(sequence: &[Base], dangles: DangleModel) -> Self {
         let sequence = sequence
@@ -314,46 +330,46 @@ impl ScoringModel for ViennaModel {
         }
     }
 
-    fn hairpin(&self, i: usize, j: usize, nucs: &[u8]) -> i32 {
-        -self.hairpin_energy(i, j, nucs)
+    fn hairpin(&self, i: usize, j: usize, nucs: &[u8]) -> i64 {
+        -i64::from(self.hairpin_energy(i, j, nucs))
     }
 
-    fn helix(&self, i: usize, j: usize, p: usize, q: usize, nucs: &[u8]) -> i32 {
-        -Self::single_energy(i, j, p, q, nucs)
+    fn helix(&self, i: usize, j: usize, p: usize, q: usize, nucs: &[u8]) -> i64 {
+        -i64::from(Self::single_energy(i, j, p, q, nucs))
     }
 
-    fn single(&self, i: usize, j: usize, p: usize, q: usize, nucs: &[u8]) -> i32 {
-        -Self::single_energy(i, j, p, q, nucs)
+    fn single(&self, i: usize, j: usize, p: usize, q: usize, nucs: &[u8]) -> i64 {
+        -i64::from(Self::single_energy(i, j, p, q, nucs))
     }
 
-    fn multi(&self, i: usize, j: usize, nucs: &[u8]) -> i32 {
+    fn multi(&self, i: usize, j: usize, nucs: &[u8]) -> i64 {
         let pair_type = Self::pair_type(nucs[j], nucs[i]);
-        -(self.ml_stem(pair_type, Some(nucs[j - 1]), Some(nucs[i + 1])) + ML_CLOSING37)
+        -i64::from(self.ml_stem(pair_type, Some(nucs[j - 1]), Some(nucs[i + 1])) + ML_CLOSING37)
     }
 
-    fn multi_unpaired(&self, _count: usize) -> i32 {
+    fn multi_unpaired(&self, _count: usize) -> i64 {
         0
     }
 
-    fn m1(&self, i: usize, j: usize, nucs: &[u8]) -> i32 {
+    fn m1(&self, i: usize, j: usize, nucs: &[u8]) -> i64 {
         let pair_type = Self::pair_type(nucs[i], nucs[j]);
-        -self.ml_stem(
+        -i64::from(self.ml_stem(
             pair_type,
             i.checked_sub(1).map(|index| nucs[index]),
             nucs.get(j + 1).copied(),
-        )
+        ))
     }
 
-    fn external_paired(&self, i: usize, j: usize, nucs: &[u8]) -> i32 {
+    fn external_paired(&self, i: usize, j: usize, nucs: &[u8]) -> i64 {
         let pair_type = Self::pair_type(nucs[i], nucs[j]);
-        -self.external_stem(
+        -i64::from(self.external_stem(
             pair_type,
             i.checked_sub(1).map(|index| nucs[index]),
             nucs.get(j + 1).copied(),
-        )
+        ))
     }
 
-    fn external_unpaired(&self, _count: usize) -> i32 {
+    fn external_unpaired(&self, _count: usize) -> i64 {
         0
     }
 }
@@ -377,6 +393,17 @@ mod tests {
         assert_eq!(ViennaModel::hairpin_core(4, 1, 1, 1, None), 410);
         assert_eq!(ViennaModel::degree_two_energy(0, 0, 1, 1, 0, 0, 0, 0), -240);
         assert_eq!(ViennaModel::degree_two_energy(1, 0, 1, 1, 0, 0, 0, 0), 140);
+    }
+
+    #[test]
+    fn one_sided_multiloop_dangles_use_their_reference_scores() {
+        let model = ViennaModel {
+            dangles: DangleModel::Both,
+            sequence: Vec::new(),
+        };
+
+        assert_eq!(model.ml_stem(1, Some(1), None), -140);
+        assert_eq!(model.ml_stem(1, None, Some(1)), -200);
     }
 
     #[test]

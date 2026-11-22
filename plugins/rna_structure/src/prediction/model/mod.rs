@@ -21,9 +21,9 @@ pub(crate) trait Score:
     fn total_cmp(self, other: Self) -> Ordering;
 }
 
-impl Score for i32 {
+impl Score for i64 {
     const ZERO: Self = 0;
-    const NEG_INFINITY: Self = i32::MIN;
+    const NEG_INFINITY: Self = i64::MIN;
 
     fn total_cmp(self, other: Self) -> Ordering {
         self.cmp(&other)
@@ -40,6 +40,8 @@ impl Score for f64 {
 }
 
 pub(crate) trait ScoringModel: Sized {
+    const MIN_HAIRPIN_UNPAIRED: usize;
+
     type Score: Score;
 
     fn new(sequence: &[Base], dangles: DangleModel) -> Self;
